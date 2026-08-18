@@ -1,2 +1,0 @@
-# Combat_Command_Decision_Support_Platform
-作战指挥辅助决策平台

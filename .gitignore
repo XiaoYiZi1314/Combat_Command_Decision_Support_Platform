@@ -1,0 +1,44 @@
+# 默认不追踪任何文件，仅放行代码源文件
+*
+!*/
+
+!.gitignore
+
+# 后端
+!*.java
+!*.kt
+!*.kts
+!*.groovy
+!*.scala
+
+# 前端
+!*.js
+!*.mjs
+!*.cjs
+!*.jsx
+!*.ts
+!*.tsx
+!*.vue
+!*.css
+!*.scss
+!*.less
+!*.html
+!*.jsp
+!*.ftl
+
+# 映射、脚本与契约
+!*.xml
+!*.sql
+!*.proto
+
+# 工具链与构建产物即使带代码扩展名也不追踪
+.cursor/
+.opencode/
+.github/
+.idea/
+.vscode/
+node_modules/
+target/
+dist/
+build/
+out/
