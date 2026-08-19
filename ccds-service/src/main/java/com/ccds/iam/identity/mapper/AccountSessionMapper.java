@@ -33,14 +33,6 @@ public interface AccountSessionMapper {
     AccountSessionDO selectById(@Param("id") Long id);
 
     /**
-     * 按令牌哈希查询。
-     *
-     * @param tokenHash 哈希
-     * @return 会话，不存在为 null
-     */
-    AccountSessionDO selectByTokenHash(@Param("tokenHash") String tokenHash);
-
-    /**
      * 轮换刷新令牌哈希。
      *
      * @param id          主键

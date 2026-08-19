@@ -29,7 +29,7 @@ public class MustChangePasswordInterceptor implements HandlerInterceptor {
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
         AuthPrincipal principal = (AuthPrincipal) request.getAttribute(RequestAttributeConstant.AUTH_PRINCIPAL);
-        authGuardService.assertPasswordChangedIfRequired(principal, request.getRequestURI());
+        authGuardService.assertPasswordChangedIfRequired(principal);
         return true;
     }
 }

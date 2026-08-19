@@ -31,13 +31,6 @@
         WHERE id = #{id}
     </select>
 
-    <select id="selectByTokenHash" resultMap="AccountSessionResultMap">
-        SELECT
-        <include refid="SessionColumns"/>
-        FROM ccds_account_session
-        WHERE token_hash = #{tokenHash}
-    </select>
-
     <update id="updateTokenHash">
         UPDATE ccds_account_session
         SET token_hash = #{tokenHash},

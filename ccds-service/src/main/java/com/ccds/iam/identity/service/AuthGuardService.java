@@ -11,10 +11,16 @@ import com.ccds.iam.identity.model.AuthPrincipal;
 public interface AuthGuardService {
 
     /**
-     * 若账号仍须改密且当前路径不在白名单，抛业务异常。
+     * 确认访问令牌对应的会话仍有效。登出或改密后应失败。
      *
      * @param principal 当前身份
-     * @param requestUri 请求路径
      */
-    void assertPasswordChangedIfRequired(AuthPrincipal principal, String requestUri);
+    void assertActiveSession(AuthPrincipal principal);
+
+    /**
+     * 若账号仍须改密，抛业务异常。放行范围由 app 拦截配置决定。
+     *
+     * @param principal 当前身份
+     */
+    void assertPasswordChangedIfRequired(AuthPrincipal principal);
 }

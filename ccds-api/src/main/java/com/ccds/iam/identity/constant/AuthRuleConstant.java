@@ -79,6 +79,16 @@ public final class AuthRuleConstant {
     public static final int DEVICE_HINT_MAX_LENGTH = 64;
 
     /**
+     * 未登录或会话已失效。
+     */
+    public static final String MSG_UNAUTHORIZED = "登录已失效，请重新登录";
+
+    /**
+     * 账号或口令错误，不区分具体原因。
+     */
+    public static final String MSG_LOGIN_FAILED = "账号或密码错误";
+
+    /**
      * 登录名最大长度。
      */
     public static final int USERNAME_MAX_LENGTH = 32;

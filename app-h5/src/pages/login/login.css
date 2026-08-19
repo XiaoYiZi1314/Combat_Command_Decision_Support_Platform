@@ -8,7 +8,7 @@
   padding: 24px 24px max(24px, env(safe-area-inset-bottom));
   color: #fff;
   overflow: hidden;
-  background: #101427;
+  background: #0a0e14;
 }
 
 .login-gate:before {

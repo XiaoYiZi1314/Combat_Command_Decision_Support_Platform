@@ -2,12 +2,14 @@ const ACCESS_KEY = 'ccds_access_token';
 const REFRESH_KEY = 'ccds_refresh_token';
 const ME_KEY = 'ccds_me';
 const LEGAL_KEY = 'ccds_legal_notice_agreed';
+const ORG_KEY = 'ccds_org_tree';
 
 function readJson(key) {
   try {
     const raw = localStorage.getItem(key);
     return raw ? JSON.parse(raw) : null;
   } catch (err) {
+    console.warn('session cache parse failed', key, err.name);
     return null;
   }
 }
@@ -16,14 +18,31 @@ function writeJson(key, value) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch (err) {
-    /* 本机存储满时忽略，会话仍在内存 */
+    console.warn('session cache write failed', key, err.name);
+  }
+}
+
+function writeText(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch (err) {
+    console.warn('session cache write failed', key, err.name);
+  }
+}
+
+function removeKey(key) {
+  try {
+    localStorage.removeItem(key);
+  } catch (err) {
+    console.warn('session cache remove failed', key, err.name);
   }
 }
 
 let memory = {
   accessToken: localStorage.getItem(ACCESS_KEY) || '',
   refreshToken: localStorage.getItem(REFRESH_KEY) || '',
-  me: readJson(ME_KEY)
+  me: readJson(ME_KEY),
+  orgTree: readJson(ORG_KEY)
 };
 
 export function getAccessToken() {
@@ -38,30 +57,36 @@ export function getMe() {
   return memory.me;
 }
 
+export function getOrgTree() {
+  return memory.orgTree;
+}
+
+export function saveOrgTree(orgTree) {
+  memory.orgTree = orgTree || null;
+  if (memory.orgTree) {
+    writeJson(ORG_KEY, memory.orgTree);
+    return;
+  }
+  removeKey(ORG_KEY);
+}
+
 export function saveSession(login) {
   memory.accessToken = login.accessToken || '';
   memory.refreshToken = login.refreshToken || '';
   memory.me = login.me || null;
-  try {
-    localStorage.setItem(ACCESS_KEY, memory.accessToken);
-    localStorage.setItem(REFRESH_KEY, memory.refreshToken);
-  } catch (err) {
-    /* 忽略 */
-  }
+  writeText(ACCESS_KEY, memory.accessToken);
+  writeText(REFRESH_KEY, memory.refreshToken);
   if (memory.me) {
     writeJson(ME_KEY, memory.me);
   }
 }
 
 export function clearSession() {
-  memory = { accessToken: '', refreshToken: '', me: null };
-  try {
-    localStorage.removeItem(ACCESS_KEY);
-    localStorage.removeItem(REFRESH_KEY);
-    localStorage.removeItem(ME_KEY);
-  } catch (err) {
-    /* 忽略 */
-  }
+  memory = { accessToken: '', refreshToken: '', me: null, orgTree: null };
+  removeKey(ACCESS_KEY);
+  removeKey(REFRESH_KEY);
+  removeKey(ME_KEY);
+  removeKey(ORG_KEY);
 }
 
 export function hasSession() {
@@ -72,16 +97,13 @@ export function isLegalAgreed() {
   try {
     return localStorage.getItem(LEGAL_KEY) === '1';
   } catch (err) {
+    console.warn('legal flag read failed', err.name);
     return false;
   }
 }
 
 export function agreeLegal() {
-  try {
-    localStorage.setItem(LEGAL_KEY, '1');
-  } catch (err) {
-    /* 忽略 */
-  }
+  writeText(LEGAL_KEY, '1');
 }
 
 export function homeHashOf(me) {

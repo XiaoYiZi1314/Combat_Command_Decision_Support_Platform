@@ -55,7 +55,7 @@ export async function logout() {
       headers: authHeader()
     });
   } catch (err) {
-    /* 本机清会话即可 */
+    console.warn('logout request failed', err.code || err.name);
   }
   clearSession();
 }

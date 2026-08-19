@@ -1,6 +1,6 @@
 import './login.css';
-import { login, changePassword } from '../../api/auth.js';
-import { clearSession, getMe, hasSession, homeHashOf } from '../../stores/session.js';
+import { login, changePassword, fetchOrgStations } from '../../api/auth.js';
+import { clearSession, getMe, hasSession, homeHashOf, saveOrgTree } from '../../stores/session.js';
 
 const SLOGAN = ['对党忠诚', '纪律严明', '赴汤蹈火', '竭诚为民'];
 const HINT = '消防站使用本单位首拼账号登录；大队账号查看所属队站；支队账号可查看全部单位实时内攻状态。';
@@ -99,7 +99,7 @@ export function renderLoginPage(root, options) {
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     const username = (userField.input.value || '').trim().toLowerCase();
-    const password = (passField.input.value || '').trim();
+    const password = passField.input.value || '';
     if (!username || !password) {
       error.textContent = '请输入账号和密码';
       return;
@@ -108,7 +108,7 @@ export function renderLoginPage(root, options) {
     error.textContent = '';
     try {
       if (opts.mustChange) {
-        const nextPassword = (newPassInput.value || '').trim();
+        const nextPassword = newPassInput.value || '';
         if (nextPassword.length < 8) {
           error.textContent = '新密码不少于8位';
           submit.disabled = false;
@@ -117,12 +117,12 @@ export function renderLoginPage(root, options) {
         if (!hasSession()) {
           const data = await login(username, password);
           if (!data.mustChangePassword) {
-            goHome(data.me);
+            await goHome(data.me);
             return;
           }
         }
         const changed = await changePassword(password, nextPassword);
-        goHome(changed.me);
+        await goHome(changed.me);
         return;
       }
       const data = await login(username, password);
@@ -133,7 +133,7 @@ export function renderLoginPage(root, options) {
         }
         return;
       }
-      goHome(data.me);
+      await goHome(data.me);
     } catch (err) {
       error.textContent = err.message || '账号或密码错误';
     } finally {
@@ -144,6 +144,11 @@ export function renderLoginPage(root, options) {
   setTimeout(() => userField.input.focus(), 0);
 }
 
-function goHome(me) {
+async function goHome(me) {
+  try {
+    saveOrgTree(await fetchOrgStations());
+  } catch (err) {
+    console.warn('org tree load failed', err.code || err.name);
+  }
   window.location.hash = homeHashOf(me);
 }

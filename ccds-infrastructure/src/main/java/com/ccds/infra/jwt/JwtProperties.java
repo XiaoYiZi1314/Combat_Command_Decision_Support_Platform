@@ -2,8 +2,6 @@ package com.ccds.infra.jwt;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-import com.ccds.iam.identity.constant.AuthRuleConstant;
-
 import lombok.Getter;
 import lombok.Setter;
 
@@ -31,10 +29,10 @@ public class JwtProperties {
     /**
      * 访问令牌有效秒数。
      */
-    private long accessTtlSeconds = AuthRuleConstant.DEFAULT_ACCESS_TTL_SECONDS;
+    private Long accessTtlSeconds;
 
     /**
      * 刷新令牌有效秒数。
      */
-    private long refreshTtlSeconds = AuthRuleConstant.DEFAULT_REFRESH_TTL_SECONDS;
+    private Long refreshTtlSeconds;
 }

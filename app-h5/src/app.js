@@ -5,7 +5,7 @@ import { renderLoginPage } from './pages/login/index.js';
 import { renderLegalPage } from './pages/legal/index.js';
 import { renderRosterPage } from './pages/roster/index.js';
 import { renderRosterEditPage } from './pages/roster/edit.js';
-import { fetchMe, refreshSession } from './api/auth.js';
+import { fetchMe, fetchOrgStations, refreshSession } from './api/auth.js';
 import {
   getAccessToken,
   getMe,
@@ -13,6 +13,7 @@ import {
   hasSession,
   homeHashOf,
   isLegalAgreed,
+  saveOrgTree,
   saveSession
 } from './stores/session.js';
 
@@ -60,13 +61,30 @@ async function restoreSession() {
       refreshToken: getRefreshToken(),
       me
     });
+    try {
+      saveOrgTree(await fetchOrgStations());
+    } catch (orgErr) {
+      if (orgErr.code !== 'NETWORK') {
+        throw orgErr;
+      }
+    }
     return me;
   } catch (err) {
     if (err.code === 'NETWORK') {
       return getMe();
     }
     const refreshed = await refreshSession();
-    return refreshed ? refreshed.me : null;
+    if (!refreshed) {
+      return null;
+    }
+    try {
+      saveOrgTree(await fetchOrgStations());
+    } catch (orgErr) {
+      if (orgErr.code !== 'NETWORK') {
+        throw orgErr;
+      }
+    }
+    return refreshed.me;
   }
 }
 

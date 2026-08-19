@@ -38,6 +38,10 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .excludePathPatterns(
                         ApiPathConstant.API_V1 + ApiPathConstant.HEALTH,
                         ApiPathConstant.API_V1 + ApiPathConstant.AUTH_LOGIN,
-                        ApiPathConstant.API_V1 + ApiPathConstant.AUTH_REFRESH);
+                        ApiPathConstant.API_V1 + ApiPathConstant.AUTH_REFRESH,
+                        ApiPathConstant.API_V1 + ApiPathConstant.AUTH_PASSWORD,
+                        ApiPathConstant.API_V1 + ApiPathConstant.AUTH_LOGOUT,
+                        ApiPathConstant.API_V1 + ApiPathConstant.ME,
+                        ApiPathConstant.API_V1 + ApiPathConstant.ORG_STATIONS);
     }
 }

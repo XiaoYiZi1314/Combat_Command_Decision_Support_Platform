@@ -43,17 +43,13 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
-    private static final String MSG_LOGIN_FAILED = "账号或密码错误";
+    private static final String DUMMY_PASSWORD_HASH = PasswordHashUtil.hash("ccds-unknown-account");
 
     private static final String MSG_LOCKED = "账号已锁定，请稍后再试";
-
-    private static final String MSG_UNAUTHORIZED = "登录已失效，请重新登录";
 
     private static final String MSG_REFRESH_INVALID = "会话已失效，请重新登录";
 
     private static final String MSG_PASSWORD_INVALID = "新密码不少于8位";
-
-    private static final String MSG_OLD_PASSWORD_WRONG = "账号或密码错误";
 
     private final AccountMapper accountMapper;
 
@@ -71,18 +67,20 @@ public class AuthServiceImpl implements AuthService {
     public LoginVO login(LoginCommand command) {
         String username = normalizeUsername(command.getUsername());
         AccountDO account = accountMapper.selectByUsername(username);
-        if (account == null) {
-            log.warn("login failed reason=unknown_or_bad_password");
-            throw new BizException(ErrorCodeConstant.AUTH_LOGIN_FAILED, MSG_LOGIN_FAILED);
-        }
         LocalDateTime now = LocalDateTime.now();
-        if (isLocked(account, now)) {
+        if (account != null && isLocked(account, now)) {
             log.warn("login locked accountId={}", account.getId());
             throw new BizException(ErrorCodeConstant.AUTH_LOCKED, MSG_LOCKED);
         }
-        if (!passwordMatches(command.getPassword(), account.getPasswordHash())) {
-            handleLoginFailure(account, now);
-            throw new BizException(ErrorCodeConstant.AUTH_LOGIN_FAILED, MSG_LOGIN_FAILED);
+        boolean passwordOk = account != null && passwordMatches(command.getPassword(), account.getPasswordHash());
+        if (!passwordOk) {
+            if (account != null) {
+                handleLoginFailure(account, now);
+            } else {
+                PasswordHashUtil.matches(command.getPassword(), DUMMY_PASSWORD_HASH);
+                log.warn("login failed reason=unknown_or_bad_password");
+            }
+            throw new BizException(ErrorCodeConstant.AUTH_LOGIN_FAILED, AuthRuleConstant.MSG_LOGIN_FAILED);
         }
         accountMapper.clearLoginFailure(account.getId(), now);
         account.setFailedLoginCount(0);
@@ -99,7 +97,7 @@ public class AuthServiceImpl implements AuthService {
         AccountDO account = requireAccount(principal.getAccountId());
         if (!passwordMatches(command.getOldPassword(), account.getPasswordHash())) {
             log.warn("change password failed accountId={}", account.getId());
-            throw new BizException(ErrorCodeConstant.AUTH_LOGIN_FAILED, MSG_OLD_PASSWORD_WRONG);
+            throw new BizException(ErrorCodeConstant.AUTH_LOGIN_FAILED, AuthRuleConstant.MSG_LOGIN_FAILED);
         }
         String newPassword = command.getNewPassword() == null ? "" : command.getNewPassword();
         if (newPassword.length() < AuthRuleConstant.MIN_PASSWORD_LENGTH) {
@@ -237,7 +235,7 @@ public class AuthServiceImpl implements AuthService {
     private AccountDO requireAccount(Long accountId) {
         AccountDO account = accountMapper.selectById(accountId);
         if (account == null || AccountRoleEnum.fromCode(account.getRole()) == null) {
-            throw new BizException(ErrorCodeConstant.AUTH_UNAUTHORIZED, MSG_UNAUTHORIZED);
+            throw new BizException(ErrorCodeConstant.AUTH_UNAUTHORIZED, AuthRuleConstant.MSG_UNAUTHORIZED);
         }
         return account;
     }

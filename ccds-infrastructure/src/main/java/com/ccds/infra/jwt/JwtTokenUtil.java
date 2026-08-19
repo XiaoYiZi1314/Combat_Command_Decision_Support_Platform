@@ -40,7 +40,7 @@ public class JwtTokenUtil {
      */
     public String issueAccessToken(Long accountId, String role, Long sessionId) {
         Instant now = Instant.now();
-        Instant expireAt = now.plusSeconds(jwtProperties.getAccessTtlSeconds());
+        Instant expireAt = now.plusSeconds(accessTtlSeconds());
         return Jwts.builder()
                 .issuer(AuthRuleConstant.JWT_ISSUER)
                 .subject(AuthRuleConstant.JWT_SUBJECT_ACCESS)
@@ -64,7 +64,7 @@ public class JwtTokenUtil {
      */
     public String issueRefreshToken(Long accountId, String role, Long sessionId) {
         Instant now = Instant.now();
-        Instant expireAt = now.plusSeconds(jwtProperties.getRefreshTtlSeconds());
+        Instant expireAt = now.plusSeconds(refreshTtlSeconds());
         return Jwts.builder()
                 .issuer(AuthRuleConstant.JWT_ISSUER)
                 .subject(AuthRuleConstant.JWT_SUBJECT_REFRESH)
@@ -118,7 +118,7 @@ public class JwtTokenUtil {
      * @return 秒
      */
     public long getAccessTtlSeconds() {
-        return jwtProperties.getAccessTtlSeconds();
+        return accessTtlSeconds();
     }
 
     /**
@@ -127,7 +127,23 @@ public class JwtTokenUtil {
      * @return 过期时刻
      */
     public Instant refreshExpireAt() {
-        return Instant.now().plusSeconds(jwtProperties.getRefreshTtlSeconds());
+        return Instant.now().plusSeconds(refreshTtlSeconds());
+    }
+
+    private long accessTtlSeconds() {
+        Long configured = jwtProperties.getAccessTtlSeconds();
+        if (configured == null || configured <= 0L) {
+            return AuthRuleConstant.DEFAULT_ACCESS_TTL_SECONDS;
+        }
+        return configured;
+    }
+
+    private long refreshTtlSeconds() {
+        Long configured = jwtProperties.getRefreshTtlSeconds();
+        if (configured == null || configured <= 0L) {
+            return AuthRuleConstant.DEFAULT_REFRESH_TTL_SECONDS;
+        }
+        return configured;
     }
 
     private SecretKey accessKey() {
