@@ -112,6 +112,11 @@ export function renderRosterEditPage(root, params) {
           msg.textContent = '姓名不能为空';
           return;
         }
+        if (!body.cylType) {
+          msg.className = 'roster-msg error';
+          msg.textContent = '气瓶规格必填';
+          return;
+        }
         try {
           if (isNew) {
             await createProfile(stationId, body);

@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 import lombok.ToString;
 
 /**
- * 人员档案视图。电话返回明文供本站维护，日志禁止打印。
+ * 人员档案视图。电话明文仅站级可写账号返回，其余只给脱敏值。日志禁止打印。
  *
  * @author ccds
  * @since 0.1.0

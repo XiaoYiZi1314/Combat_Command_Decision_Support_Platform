@@ -84,7 +84,8 @@ public class GlobalExceptionHandler {
                 || ErrorCodeConstant.ROSTER_NAME_DUPLICATE.equals(code)
                 || ErrorCodeConstant.ROSTER_NFC_DUPLICATE.equals(code)
                 || ErrorCodeConstant.ROSTER_IMPORT_INVALID.equals(code)
-                || ErrorCodeConstant.ROSTER_PROFILE_NOT_FOUND.equals(code)) {
+                || ErrorCodeConstant.ROSTER_PROFILE_NOT_FOUND.equals(code)
+                || ErrorCodeConstant.ROSTER_PROFILE_IN_ATTACK.equals(code)) {
             return HttpStatus.BAD_REQUEST;
         }
         return HttpStatus.BAD_REQUEST;

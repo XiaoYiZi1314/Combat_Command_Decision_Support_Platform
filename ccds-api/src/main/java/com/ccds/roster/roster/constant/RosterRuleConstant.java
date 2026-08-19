@@ -44,6 +44,21 @@ public final class RosterRuleConstant {
     public static final int ROLE_IN_GROUP_MAX_LENGTH = 32;
 
     /**
+     * 组内角色：组长。
+     */
+    public static final String ROLE_LEADER = "组长";
+
+    /**
+     * 组内角色：组员。
+     */
+    public static final String ROLE_MEMBER = "组员";
+
+    /**
+     * 组内角色：站指挥员。
+     */
+    public static final String ROLE_STATION_COMMANDER = "站指挥员";
+
+    /**
      * 身高上限厘米。
      */
     public static final int HEIGHT_MAX_CM = 250;
@@ -99,29 +114,19 @@ public final class RosterRuleConstant {
     public static final int IMPORT_MAX_ROWS = 500;
 
     /**
-     * 电话脱敏保留前缀位数。
-     */
-    public static final int PHONE_MASK_PREFIX = 3;
-
-    /**
-     * 电话脱敏保留后缀位数。
-     */
-    public static final int PHONE_MASK_SUFFIX = 4;
-
-    /**
-     * 电话脱敏掩码。
-     */
-    public static final String PHONE_MASK = "****";
-
-    /**
      * 导出工作表名。
      */
     public static final String EXPORT_SHEET_NAME = "人员档案模板";
 
     /**
-     * 导出文件名前缀。
+     * 本站花名册导出名。
      */
-    public static final String EXPORT_FILE_PREFIX = "人员档案_战斗编组导入模板_";
+    public static final String EXPORT_FILE_PREFIX = "人员档案_战斗编组_";
+
+    /**
+     * 空模板导出名。
+     */
+    public static final String EXPORT_TEMPLATE_PREFIX = "人员档案_战斗编组导入模板_";
 
     /**
      * 导出内容类型。

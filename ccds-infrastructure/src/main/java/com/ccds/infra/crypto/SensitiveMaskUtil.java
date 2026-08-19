@@ -1,7 +1,5 @@
 package com.ccds.infra.crypto;
 
-import com.ccds.roster.roster.constant.RosterRuleConstant;
-
 /**
  * 敏感字段脱敏。业务里禁止手写截串。
  *
@@ -9,6 +7,12 @@ import com.ccds.roster.roster.constant.RosterRuleConstant;
  * @since 0.1.0
  */
 public final class SensitiveMaskUtil {
+
+    private static final int PHONE_MASK_PREFIX = 3;
+
+    private static final int PHONE_MASK_SUFFIX = 4;
+
+    private static final String PHONE_MASK = "****";
 
     private SensitiveMaskUtil() {
     }
@@ -24,13 +28,11 @@ public final class SensitiveMaskUtil {
             return null;
         }
         String compact = phone.trim();
-        int prefix = RosterRuleConstant.PHONE_MASK_PREFIX;
-        int suffix = RosterRuleConstant.PHONE_MASK_SUFFIX;
-        if (compact.length() <= prefix + suffix) {
-            return RosterRuleConstant.PHONE_MASK;
+        if (compact.length() <= PHONE_MASK_PREFIX + PHONE_MASK_SUFFIX) {
+            return PHONE_MASK;
         }
-        return compact.substring(0, prefix)
-                + RosterRuleConstant.PHONE_MASK
-                + compact.substring(compact.length() - suffix);
+        return compact.substring(0, PHONE_MASK_PREFIX)
+                + PHONE_MASK
+                + compact.substring(compact.length() - PHONE_MASK_SUFFIX);
     }
 }

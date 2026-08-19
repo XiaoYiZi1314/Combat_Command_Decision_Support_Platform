@@ -108,4 +108,11 @@
         WHERE id = #{id}
           AND deleted_at IS NULL
     </update>
+
+    <select id="countUnwithdrawnAttack" resultType="int">
+        SELECT COUNT(*)
+        FROM ccds_attack_person
+        WHERE profile_id = #{profileId}
+          AND withdrawn_at IS NULL
+    </select>
 </mapper>

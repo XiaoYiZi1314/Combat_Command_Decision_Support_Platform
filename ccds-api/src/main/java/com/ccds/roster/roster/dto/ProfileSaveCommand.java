@@ -7,6 +7,7 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import com.ccds.roster.roster.constant.RosterRuleConstant;
@@ -58,6 +59,8 @@ public class ProfileSaveCommand {
     /**
      * 气瓶规格，6.8 或 9。
      */
+    @NotBlank
+    @Pattern(regexp = "^(6\\.8|9)[Ll]?$")
     private String cylType;
 
     /**

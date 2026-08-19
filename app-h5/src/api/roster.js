@@ -107,8 +107,10 @@ export async function downloadRosterExcel(stationId, template) {
         const payload = await response.json();
         message = payload.message || message;
         code = payload.code || code;
-      } catch (err) {
-        /* 非 JSON */
+      } catch (parseErr) {
+        if (parseErr && parseErr.message) {
+          message = parseErr.message;
+        }
       }
       const error = new Error(message);
       error.code = code;
@@ -116,7 +118,8 @@ export async function downloadRosterExcel(stationId, template) {
     }
     const blob = await response.blob();
     const stamp = new Date().toISOString().slice(0, 10);
-    const name = `人员档案_战斗编组导入模板_${stamp}.xlsx`;
+    const prefix = template ? '人员档案_战斗编组导入模板_' : '人员档案_战斗编组_';
+    const name = `${prefix}${stamp}.xlsx`;
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;

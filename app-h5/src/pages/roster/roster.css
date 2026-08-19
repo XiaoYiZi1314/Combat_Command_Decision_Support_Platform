@@ -197,6 +197,17 @@
   font-weight: 800;
 }
 
+.gc-role {
+  margin-left: 4px;
+  max-width: 88px;
+  background: rgba(9, 17, 45, 0.38);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  color: #fff;
+  padding: 2px 4px;
+  font-size: 11px;
+}
+
 .group-add {
   display: flex;
   gap: 6px;

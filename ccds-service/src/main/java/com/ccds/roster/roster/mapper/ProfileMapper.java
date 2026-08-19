@@ -78,4 +78,12 @@ public interface ProfileMapper {
     int softDelete(@Param("id") Long id,
                    @Param("deletedAt") LocalDateTime deletedAt,
                    @Param("gmtModified") LocalDateTime gmtModified);
+
+    /**
+     * 未撤出内攻卡片数。表空时为 0。
+     *
+     * @param profileId 档案主键
+     * @return 未撤出条数
+     */
+    int countUnwithdrawnAttack(@Param("profileId") Long profileId);
 }

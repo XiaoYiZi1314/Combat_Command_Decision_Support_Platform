@@ -83,6 +83,11 @@ public final class ErrorCodeConstant {
      */
     public static final String ROSTER_IMPORT_INVALID = "ROSTER_IMPORT_INVALID";
 
+    /**
+     * 档案有未撤出内攻卡片，禁止删除。
+     */
+    public static final String ROSTER_PROFILE_IN_ATTACK = "ROSTER_PROFILE_IN_ATTACK";
+
     private ErrorCodeConstant() {
     }
 }

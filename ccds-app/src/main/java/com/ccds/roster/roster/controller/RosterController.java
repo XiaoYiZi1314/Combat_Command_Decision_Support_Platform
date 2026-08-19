@@ -204,7 +204,7 @@ public class RosterController {
      */
     @GetMapping(ApiPathConstant.STATION_PROFILE_EXPORT)
     public ResponseEntity<byte[]> exportProfiles(HttpServletRequest request, @PathVariable Long stationId) {
-        return xlsx(rosterService.exportProfiles(current(request), stationId));
+        return xlsx(RosterRuleConstant.EXPORT_FILE_PREFIX, rosterService.exportProfiles(current(request), stationId));
     }
 
     /**
@@ -217,11 +217,11 @@ public class RosterController {
     @GetMapping(ApiPathConstant.STATION_PROFILE_TEMPLATE)
     public ResponseEntity<byte[]> exportTemplate(HttpServletRequest request, @PathVariable Long stationId) {
         rosterService.getRoster(current(request), stationId);
-        return xlsx(rosterService.exportTemplate());
+        return xlsx(RosterRuleConstant.EXPORT_TEMPLATE_PREFIX, rosterService.exportTemplate());
     }
 
-    private ResponseEntity<byte[]> xlsx(byte[] body) {
-        String fileName = "roster-template-" + LocalDate.now().format(FILE_DATE) + ".xlsx";
+    private ResponseEntity<byte[]> xlsx(String prefix, byte[] body) {
+        String fileName = prefix + LocalDate.now().format(FILE_DATE) + ".xlsx";
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(RosterRuleConstant.EXPORT_CONTENT_TYPE))
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()

@@ -43,8 +43,16 @@ function setRosterStationId(id) {
   localStorage.setItem(STATION_KEY, String(id));
 }
 
-function memberLabel(member) {
-  return member.roleInGroup ? `${member.name} / ${member.roleInGroup}` : member.name;
+const GROUP_ROLES = ['组员', '组长', '站指挥员'];
+
+function fillRoleSelect(select, selected) {
+  GROUP_ROLES.forEach((role) => {
+    const opt = document.createElement('option');
+    opt.value = role;
+    opt.textContent = role;
+    select.appendChild(opt);
+  });
+  select.value = selected && GROUP_ROLES.includes(selected) ? selected : '组员';
 }
 
 export function renderRosterPage(root) {
@@ -83,12 +91,14 @@ export function renderRosterPage(root) {
   }
 
   const actions = el('div', 'roster-actions');
-  const exportBtn = el('button', '', '导出Excel模板');
+  const exportBtn = el('button', '', '导出本站');
+  const templateBtn = el('button', '', '导出模板');
   const importBtn = el('button', '', '导入表格');
   const fileInput = el('input', 'hidden-file');
   fileInput.type = 'file';
   fileInput.accept = '.xlsx,.xls,.html,.htm,.csv';
   actions.appendChild(exportBtn);
+  actions.appendChild(templateBtn);
   if (me.role === 'station') {
     actions.appendChild(importBtn);
     actions.appendChild(fileInput);
@@ -102,6 +112,14 @@ export function renderRosterPage(root) {
   root.appendChild(page);
 
   exportBtn.addEventListener('click', async () => {
+    try {
+      await downloadRosterExcel(currentRosterStationId(), false);
+      setMsg(msg, '本站花名册已导出');
+    } catch (err) {
+      setMsg(msg, err.message || '导出失败', true);
+    }
+  });
+  templateBtn.addEventListener('click', async () => {
     try {
       await downloadRosterExcel(currentRosterStationId(), true);
       setMsg(msg, 'Excel模板已导出');
@@ -240,8 +258,33 @@ function renderGroupCard(group, profiles, data, writable, reload, msg) {
   card.appendChild(head);
   const chips = el('div', 'group-members');
   (group.members || []).forEach((member) => {
-    const chip = el('span', 'gc-member', memberLabel(member));
+    const chip = el('span', 'gc-member');
+    chip.appendChild(document.createTextNode(member.name || ''));
     if (writable) {
+      const roleSelect = document.createElement('select');
+      roleSelect.className = 'gc-role';
+      fillRoleSelect(roleSelect, member.roleInGroup);
+      roleSelect.addEventListener('change', async () => {
+        const next = (data.groups || []).map((item) => {
+          const payload = toGroupPayload(item);
+          if (item.id === group.id) {
+            payload.members = payload.members.map((row) => {
+              if (row.profileId === member.profileId) {
+                return { ...row, roleInGroup: roleSelect.value };
+              }
+              return row;
+            });
+          }
+          return payload;
+        });
+        try {
+          await saveGroups(data.stationId, next);
+          await reload();
+        } catch (err) {
+          setMsg(msg, err.message || '保存编组失败', true);
+        }
+      });
+      chip.appendChild(roleSelect);
       const rm = document.createElement('button');
       rm.type = 'button';
       rm.textContent = '×';
@@ -261,6 +304,8 @@ function renderGroupCard(group, profiles, data, writable, reload, msg) {
         }
       });
       chip.appendChild(rm);
+    } else if (member.roleInGroup) {
+      chip.appendChild(document.createTextNode(` / ${member.roleInGroup}`));
     }
     chips.appendChild(chip);
   });
@@ -278,6 +323,8 @@ function renderGroupCard(group, profiles, data, writable, reload, msg) {
       opt.textContent = prof.name;
       select.appendChild(opt);
     });
+    const roleSelect = document.createElement('select');
+    fillRoleSelect(roleSelect, '组员');
     const btn = el('button', 'pc-add', '加入');
     btn.type = 'button';
     btn.addEventListener('click', async () => {
@@ -287,7 +334,10 @@ function renderGroupCard(group, profiles, data, writable, reload, msg) {
       const next = (data.groups || []).map((item) => {
         const payload = toGroupPayload(item);
         if (item.id === group.id) {
-          payload.members.push({ profileId: Number(select.value), roleInGroup: '' });
+          payload.members.push({
+            profileId: Number(select.value),
+            roleInGroup: roleSelect.value || '组员'
+          });
         }
         return payload;
       });
@@ -299,6 +349,7 @@ function renderGroupCard(group, profiles, data, writable, reload, msg) {
       }
     });
     addWrap.appendChild(select);
+    addWrap.appendChild(roleSelect);
     addWrap.appendChild(btn);
     card.appendChild(addWrap);
   }
