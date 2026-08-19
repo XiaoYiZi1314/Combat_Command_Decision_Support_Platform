@@ -11,7 +11,11 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * @since 0.1.0
  */
 @SpringBootApplication(scanBasePackages = "com.ccds")
-@MapperScan({"com.ccds.iam.identity.mapper", "com.ccds.org.org.mapper"})
+@MapperScan({
+        "com.ccds.iam.identity.mapper",
+        "com.ccds.org.org.mapper",
+        "com.ccds.roster.roster.mapper"
+})
 public class CcdsBootstrapApplication {
 
     /**

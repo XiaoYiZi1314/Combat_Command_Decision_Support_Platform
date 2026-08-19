@@ -1,0 +1,253 @@
+.roster-page {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.roster-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, var(--header-from), var(--header-to));
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.roster-head h2 {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.roster-back {
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  color: #fff;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.roster-body {
+  padding: 14px;
+  padding-bottom: 28px;
+}
+
+.roster-station {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.roster-station label {
+  font-size: 12px;
+  color: var(--dim);
+  font-weight: 700;
+}
+
+.roster-station select {
+  flex: 1;
+  background: rgba(9, 17, 45, 0.38);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  color: #fff;
+  padding: 8px 10px;
+}
+
+.roster-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.roster-actions button,
+.roster-new,
+.pe-save,
+.pe-del {
+  flex: 1;
+  border-radius: 10px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  color: #fff;
+  padding: 11px 10px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.roster-msg {
+  min-height: 18px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--green);
+  margin-bottom: 10px;
+}
+
+.roster-msg.error {
+  color: #ffe07b;
+}
+
+.profile-card {
+  background: var(--glass-fill);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  padding: 12px;
+  margin-bottom: 10px;
+}
+
+.pc-name {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.pc-info,
+.pc-points {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--dim);
+  font-weight: 500;
+}
+
+.pc-btns {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.pc-edit,
+.pc-del,
+.pc-add {
+  flex: 1;
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.pc-edit,
+.pc-add {
+  background: rgba(74, 158, 255, 0.18);
+  border: 1px solid rgba(74, 158, 255, 0.3);
+  color: var(--blue);
+}
+
+.pc-del {
+  background: rgba(248, 81, 73, 0.14);
+  border: 1px solid rgba(248, 81, 73, 0.28);
+  color: var(--red);
+}
+
+.roster-new {
+  width: 100%;
+  margin: 4px 0 16px;
+  background: var(--primary-cta);
+  border-color: rgba(255, 215, 126, 0.34);
+}
+
+.group-card {
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.group-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.group-head b {
+  font-size: 14px;
+}
+
+.group-head span {
+  font-size: 11px;
+  color: var(--dim);
+}
+
+.group-members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.gc-member {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.gc-member button {
+  margin-left: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--red);
+  font-weight: 800;
+}
+
+.group-add {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.group-add select,
+.group-add input,
+.pe-row input,
+.pe-row select {
+  flex: 1;
+  background: rgba(9, 17, 45, 0.38);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  color: #fff;
+  padding: 8px;
+  font-size: 14px;
+}
+
+.section-title {
+  font-size: 13px;
+  color: var(--green);
+  font-weight: 900;
+  margin: 16px 0 8px;
+}
+
+.pe-form {
+  display: grid;
+  gap: 10px;
+}
+
+.pe-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pe-row label {
+  width: 86px;
+  font-size: 13px;
+  color: var(--dim);
+  font-weight: 700;
+}
+
+.pe-cal {
+  font-size: 12px;
+  color: var(--dim);
+  line-height: 1.5;
+  margin-bottom: 6px;
+}
+
+.hidden-file {
+  display: none;
+}

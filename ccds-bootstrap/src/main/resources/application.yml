@@ -6,6 +6,10 @@ spring:
     username: ${CCDS_MYSQL_USERNAME:ccds}
     password: ${CCDS_MYSQL_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
+  servlet:
+    multipart:
+      max-file-size: 2MB
+      max-request-size: 2MB
   data:
     redis:
       host: ${CCDS_REDIS_HOST:127.0.0.1}
@@ -26,6 +30,8 @@ ccds:
     refresh-secret: ${CCDS_JWT_REFRESH_SECRET:}
     access-ttl-seconds: ${CCDS_JWT_ACCESS_TTL_SECONDS:900}
     refresh-ttl-seconds: ${CCDS_JWT_REFRESH_TTL_SECONDS:1209600}
+  field:
+    secret: ${CCDS_FIELD_SECRET:}
   cos:
     region: ${CCDS_COS_REGION:}
     bucket: ${CCDS_COS_BUCKET:}

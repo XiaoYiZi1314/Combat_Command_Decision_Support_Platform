@@ -53,6 +53,36 @@ public final class ErrorCodeConstant {
      */
     public static final String SYSTEM_ERROR = "SYSTEM_ERROR";
 
+    /**
+     * 无权查看该站。
+     */
+    public static final String ROSTER_STATION_FORBIDDEN = "ROSTER_STATION_FORBIDDEN";
+
+    /**
+     * 无权改该站档案。
+     */
+    public static final String ROSTER_WRITE_FORBIDDEN = "ROSTER_WRITE_FORBIDDEN";
+
+    /**
+     * 档案不存在。
+     */
+    public static final String ROSTER_PROFILE_NOT_FOUND = "ROSTER_PROFILE_NOT_FOUND";
+
+    /**
+     * 本站姓名重复。
+     */
+    public static final String ROSTER_NAME_DUPLICATE = "ROSTER_NAME_DUPLICATE";
+
+    /**
+     * 本站 NFC 编号重复。
+     */
+    public static final String ROSTER_NFC_DUPLICATE = "ROSTER_NFC_DUPLICATE";
+
+    /**
+     * 导入表格无法解析。
+     */
+    public static final String ROSTER_IMPORT_INVALID = "ROSTER_IMPORT_INVALID";
+
     private ErrorCodeConstant() {
     }
 }

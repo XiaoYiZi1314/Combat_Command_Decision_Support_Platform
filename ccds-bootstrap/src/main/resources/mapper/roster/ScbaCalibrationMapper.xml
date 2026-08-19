@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ccds.roster.roster.mapper.ScbaCalibrationMapper">
+
+    <resultMap id="ScbaCalibrationResultMap" type="com.ccds.roster.roster.entity.ScbaCalibrationDO">
+        <id column="id" property="id"/>
+        <result column="profile_id" property="profileId"/>
+        <result column="pressure" property="pressure"/>
+        <result column="full_time_sec" property="fullTimeSec"/>
+        <result column="cyl_type" property="cylType"/>
+        <result column="source" property="source"/>
+        <result column="measured_at" property="measuredAt"/>
+        <result column="gmt_create" property="gmtCreate"/>
+        <result column="gmt_modified" property="gmtModified"/>
+    </resultMap>
+
+    <select id="selectByProfileId" resultMap="ScbaCalibrationResultMap">
+        SELECT id, profile_id, pressure, full_time_sec, cyl_type, source, measured_at, gmt_create, gmt_modified
+        FROM ccds_scba_calibration
+        WHERE profile_id = #{profileId}
+        ORDER BY measured_at DESC, id DESC
+    </select>
+</mapper>

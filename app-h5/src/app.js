@@ -3,6 +3,8 @@ import { currentHash, matchRoute } from './routes.js';
 import { renderBlankPage } from './pages/blank.js';
 import { renderLoginPage } from './pages/login/index.js';
 import { renderLegalPage } from './pages/legal/index.js';
+import { renderRosterPage } from './pages/roster/index.js';
+import { renderRosterEditPage } from './pages/roster/edit.js';
 import { fetchMe, refreshSession } from './api/auth.js';
 import {
   getAccessToken,
@@ -116,6 +118,17 @@ async function render() {
   const me = getMe();
   if (me && me.mustChangePassword && route.path !== '/login') {
     window.location.hash = '#/login?change=1';
+    return;
+  }
+
+  if (route.path === '/roster') {
+    app.innerHTML = '';
+    renderRosterPage(app);
+    return;
+  }
+  if (route.path === '/roster/:id') {
+    app.innerHTML = '';
+    renderRosterEditPage(app, params);
     return;
   }
 

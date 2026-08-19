@@ -73,12 +73,18 @@ public class GlobalExceptionHandler {
             return HttpStatus.UNAUTHORIZED;
         }
         if (ErrorCodeConstant.AUTH_LOCKED.equals(code)
-                || ErrorCodeConstant.AUTH_MUST_CHANGE_PASSWORD.equals(code)) {
+                || ErrorCodeConstant.AUTH_MUST_CHANGE_PASSWORD.equals(code)
+                || ErrorCodeConstant.ROSTER_STATION_FORBIDDEN.equals(code)
+                || ErrorCodeConstant.ROSTER_WRITE_FORBIDDEN.equals(code)) {
             return HttpStatus.FORBIDDEN;
         }
         if (ErrorCodeConstant.PARAM_INVALID.equals(code)
                 || ErrorCodeConstant.AUTH_PASSWORD_INVALID.equals(code)
-                || ErrorCodeConstant.AUTH_LOGIN_FAILED.equals(code)) {
+                || ErrorCodeConstant.AUTH_LOGIN_FAILED.equals(code)
+                || ErrorCodeConstant.ROSTER_NAME_DUPLICATE.equals(code)
+                || ErrorCodeConstant.ROSTER_NFC_DUPLICATE.equals(code)
+                || ErrorCodeConstant.ROSTER_IMPORT_INVALID.equals(code)
+                || ErrorCodeConstant.ROSTER_PROFILE_NOT_FOUND.equals(code)) {
             return HttpStatus.BAD_REQUEST;
         }
         return HttpStatus.BAD_REQUEST;
