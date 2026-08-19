@@ -1,0 +1,120 @@
+:root {
+  --bg: #0a0e14;
+  --card: rgba(22, 27, 34, 0.88);
+  --border: rgba(48, 54, 61, 0.5);
+  --text: #e6edf3;
+  --dim: #7d8590;
+  --blue: #4a9eff;
+  --blue-bg: rgba(74, 158, 255, 0.12);
+  --amber: #e5a922;
+  --amber-bg: rgba(229, 169, 34, 0.12);
+  --red: #f85149;
+  --red-bg: rgba(248, 81, 73, 0.12);
+  --green: #3fb950;
+  --green-bg: rgba(63, 185, 80, 0.1);
+  --glass: rgba(255, 255, 255, 0.06);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --radius: 14px;
+  --radius-sm: 10px;
+  --header-from: #8b1a1a;
+  --header-to: #6b1515;
+  --safe-in: #4a9eff;
+  --safe-card: linear-gradient(155deg, rgba(46, 129, 255, 0.48), rgba(21, 35, 94, 0.56));
+  --warn-card: linear-gradient(155deg, rgba(255, 216, 74, 0.78), rgba(97, 72, 8, 0.82));
+  --danger-card: linear-gradient(155deg, rgba(220, 24, 52, 0.88), rgba(64, 0, 20, 0.9));
+  --glass-fill: linear-gradient(155deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.06));
+  --primary-cta: linear-gradient(135deg, #ffce63, #ff7b33 48%, #d52d45);
+  --scene-bg: linear-gradient(180deg, #173de0 0%, #2833c3 34%, #7f3bc2 68%, #b7479f 88%, #e95050 96%, #ff352b 100%);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  font-family: -apple-system, "PingFang SC", "SF Pro Display", "Microsoft YaHei", sans-serif;
+  background: var(--bg);
+  background-image: var(--scene-bg);
+  background-attachment: fixed;
+  color: var(--text);
+  overflow-x: hidden;
+}
+
+.shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  background: linear-gradient(135deg, var(--header-from), var(--header-to));
+  padding: 10px 14px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header h1 {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.header .sub {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.page {
+  margin: 16px 14px;
+  padding: 18px 16px;
+  min-height: 42vh;
+  border-radius: var(--radius);
+  background: var(--glass-fill);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 16px 44px rgba(5, 12, 35, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.page h2 {
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+
+.page p {
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.hash {
+  margin-top: 12px;
+  color: var(--amber);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.btn-glass {
+  margin-top: 16px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 13px 14px;
+}
+
+.btn-glass.primary {
+  background: var(--primary-cta);
+  border-color: rgba(255, 215, 126, 0.34);
+}

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 一期腾讯云环境项清单。值只放在 CVM 环境变量，禁止写入仓库与 APK。 -->
+<tencent-cloud-env>
+    <resource name="CVM" note="Java + Nginx，仅 443 对外">
+        <env key="CCDS_SERVER_PORT" required="false" default="8080"/>
+        <env key="CCDS_JWT_ACCESS_SECRET" required="true"/>
+        <env key="CCDS_JWT_REFRESH_SECRET" required="true"/>
+        <env key="CCDS_SEED_PASSWORD" required="true" note="仅初始化账号，一次性交给运维"/>
+        <env key="CCDS_SEED_PASSWORD_HASH" required="true" note="BCrypt 结果，写入种子 SQL 变量"/>
+    </resource>
+    <resource name="MySQL8" note="主库，3306 仅内网">
+        <env key="CCDS_MYSQL_URL" required="true"/>
+        <env key="CCDS_MYSQL_USERNAME" required="true"/>
+        <env key="CCDS_MYSQL_PASSWORD" required="true"/>
+    </resource>
+    <resource name="Redis" note="WS 会话与补传去重，6379 仅内网">
+        <env key="CCDS_REDIS_HOST" required="true"/>
+        <env key="CCDS_REDIS_PORT" required="false" default="6379"/>
+        <env key="CCDS_REDIS_PASSWORD" required="false"/>
+    </resource>
+    <resource name="COS" note="预案/照片/共享页，密钥只在后端">
+        <env key="CCDS_COS_REGION" required="true"/>
+        <env key="CCDS_COS_BUCKET" required="true"/>
+        <env key="CCDS_COS_SECRET_ID" required="true"/>
+        <env key="CCDS_COS_SECRET_KEY" required="true"/>
+    </resource>
+    <resource name="MapProxy" note="百度地图服务端 AK">
+        <env key="CCDS_BAIDU_MAP_AK" required="true"/>
+    </resource>
+    <resource name="ModelGateway" note="危化品/研判，Key 只在服务端">
+        <env key="CCDS_MODEL_API_KEY" required="true"/>
+    </resource>
+</tencent-cloud-env>
