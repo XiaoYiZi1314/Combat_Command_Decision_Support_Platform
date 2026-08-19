@@ -1,5 +1,7 @@
 package com.ccds.bootstrap.seed;
 
+import com.ccds.common.api.constant.ErrorCodeConstant;
+import com.ccds.common.api.exception.BizException;
 import com.ccds.infra.crypto.PasswordHashUtil;
 
 /**
@@ -10,7 +12,7 @@ import com.ccds.infra.crypto.PasswordHashUtil;
  */
 public final class SeedPasswordHashGenerator {
 
-    private static final String MISSING_PASSWORD = "MISSING_CCDS_SEED_PASSWORD";
+    private static final String MSG_MISSING_PASSWORD = "缺少环境变量 CCDS_SEED_PASSWORD";
 
     private SeedPasswordHashGenerator() {
     }
@@ -23,7 +25,7 @@ public final class SeedPasswordHashGenerator {
      */
     public static String generateHash(String rawPassword) {
         if (rawPassword == null || rawPassword.isBlank()) {
-            throw new IllegalStateException(MISSING_PASSWORD);
+            throw new BizException(ErrorCodeConstant.SYSTEM_ERROR, MSG_MISSING_PASSWORD);
         }
         return PasswordHashUtil.hash(rawPassword);
     }

@@ -56,7 +56,10 @@ export function matchRoute(hashPath) {
       return { route, params };
     }
   }
-  return { route: ROUTES[0], params: {} };
+  return {
+    route: { path: '/blank', title: '未匹配路由', file: 'blank' },
+    params: {}
+  };
 }
 
 export function currentHash() {

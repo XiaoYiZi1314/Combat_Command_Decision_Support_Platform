@@ -5,6 +5,8 @@
         <env key="CCDS_SERVER_PORT" required="false" default="8080"/>
         <env key="CCDS_JWT_ACCESS_SECRET" required="true"/>
         <env key="CCDS_JWT_REFRESH_SECRET" required="true"/>
+        <env key="CCDS_JWT_ACCESS_TTL_SECONDS" required="false" default="900"/>
+        <env key="CCDS_JWT_REFRESH_TTL_SECONDS" required="false" default="1209600"/>
         <env key="CCDS_SEED_PASSWORD" required="true" note="仅初始化账号，一次性交给运维"/>
         <env key="CCDS_SEED_PASSWORD_HASH" required="true" note="BCrypt 结果，写入种子 SQL 变量"/>
     </resource>

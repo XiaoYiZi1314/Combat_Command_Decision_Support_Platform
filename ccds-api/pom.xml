@@ -13,4 +13,11 @@
     <artifactId>ccds-api</artifactId>
     <name>ccds-api</name>
     <description>契约层：DTO / VO / 枚举 / 常量</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
+        </dependency>
+    </dependencies>
 </project>

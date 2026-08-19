@@ -30,6 +30,10 @@
 !*.xml
 !*.sql
 !*.proto
+!*.yml
+!*.yaml
+!*.json
+!*.md
 
 # 工具链与构建产物即使带代码扩展名也不追踪
 .cursor/

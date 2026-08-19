@@ -24,4 +24,18 @@ public final class PasswordHashUtil {
     public static String hash(String rawPassword) {
         return ENCODER.encode(rawPassword);
     }
+
+    /**
+     * 校验明文与哈希是否匹配。
+     *
+     * @param rawPassword 明文口令，调用方保证不落日志
+     * @param passwordHash 已存哈希
+     * @return true 表示匹配
+     */
+    public static boolean matches(String rawPassword, String passwordHash) {
+        if (rawPassword == null || passwordHash == null || passwordHash.isBlank()) {
+            return false;
+        }
+        return ENCODER.matches(rawPassword, passwordHash);
+    }
 }

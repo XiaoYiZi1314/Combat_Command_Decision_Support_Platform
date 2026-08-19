@@ -42,4 +42,31 @@ public enum AccountRoleEnum {
     public String getCode() {
         return code;
     }
+
+    /**
+     * 按库内角色码解析。未知码返回 null。
+     *
+     * @param code 角色码
+     * @return 角色枚举，未知时为 null
+     */
+    public static AccountRoleEnum fromCode(String code) {
+        if (code == null || code.isBlank()) {
+            return null;
+        }
+        for (AccountRoleEnum item : values()) {
+            if (item.code.equals(code)) {
+                return item;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 是否指挥端角色（大队 / 支队 / 开发者）。
+     *
+     * @return true 表示登录后进指挥汇总
+     */
+    public boolean isCommandRole() {
+        return this == BRIGADE || this == HQ || this == DEVELOPER;
+    }
 }

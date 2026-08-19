@@ -1,7 +1,15 @@
--- 编制与账号种子。执行前必须：
---   SET @seed_password_hash = '${CCDS_SEED_PASSWORD_HASH}';
--- 哈希由运维用 CCDS_SEED_PASSWORD 在库外生成，禁止把明文口令写入本文件。
-SET @seed_password_hash = IFNULL(NULLIF(@seed_password_hash, ''), 'SEED_HASH_UNSET');
+-- 编制与账号种子。执行前必须由运维注入 BCrypt：
+--   SET @seed_password_hash = '<CCDS_SEED_PASSWORD_HASH>';
+-- 哈希由 CCDS_SEED_PASSWORD 在库外生成，禁止把明文口令写入本文件。
+-- 未注入有效 BCrypt 时 CAST JSON 失败，整脚本中止。
+SET @seed_password_hash = NULLIF(TRIM(@seed_password_hash), '');
+SET @ccds_seed_hash_ok = CAST(
+    IF(
+        @seed_password_hash IS NOT NULL AND LEFT(@seed_password_hash, 2) = '$2',
+        '1',
+        'not-json'
+    ) AS JSON
+);
 
 INSERT INTO ccds_brigade (id, code, name) VALUES
     (1, 'longsha', '龙沙大队'),

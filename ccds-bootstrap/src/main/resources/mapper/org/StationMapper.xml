@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ccds.org.org.mapper.StationMapper">
+
+    <resultMap id="StationResultMap" type="com.ccds.org.org.entity.StationDO">
+        <id column="id" property="id"/>
+        <result column="brigade_id" property="brigadeId"/>
+        <result column="name" property="name"/>
+        <result column="name_norm" property="nameNorm"/>
+        <result column="category" property="category"/>
+        <result column="sort_no" property="sortNo"/>
+        <result column="brigade_name" property="brigadeName"/>
+        <result column="gmt_create" property="gmtCreate"/>
+        <result column="gmt_modified" property="gmtModified"/>
+    </resultMap>
+
+    <sql id="StationColumns">
+        s.id, s.brigade_id, s.name, s.name_norm, s.category, s.sort_no,
+        b.name AS brigade_name, s.gmt_create, s.gmt_modified
+    </sql>
+
+    <select id="selectById" resultMap="StationResultMap">
+        SELECT
+        <include refid="StationColumns"/>
+        FROM ccds_station s
+        LEFT JOIN ccds_brigade b ON b.id = s.brigade_id
+        WHERE s.id = #{id}
+    </select>
+
+    <select id="selectAll" resultMap="StationResultMap">
+        SELECT
+        <include refid="StationColumns"/>
+        FROM ccds_station s
+        LEFT JOIN ccds_brigade b ON b.id = s.brigade_id
+        ORDER BY s.sort_no ASC, s.id ASC
+    </select>
+
+    <select id="selectByBrigadeId" resultMap="StationResultMap">
+        SELECT
+        <include refid="StationColumns"/>
+        FROM ccds_station s
+        LEFT JOIN ccds_brigade b ON b.id = s.brigade_id
+        WHERE s.brigade_id = #{brigadeId}
+        ORDER BY s.sort_no ASC, s.id ASC
+    </select>
+</mapper>

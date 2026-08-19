@@ -74,6 +74,16 @@ public final class TencentCloudEnvConstant {
     public static final String JWT_REFRESH_SECRET = "CCDS_JWT_REFRESH_SECRET";
 
     /**
+     * 访问令牌有效秒数。
+     */
+    public static final String JWT_ACCESS_TTL_SECONDS = "CCDS_JWT_ACCESS_TTL_SECONDS";
+
+    /**
+     * 刷新令牌有效秒数。
+     */
+    public static final String JWT_REFRESH_TTL_SECONDS = "CCDS_JWT_REFRESH_TTL_SECONDS";
+
+    /**
      * 百度地图服务端 AK。
      */
     public static final String BAIDU_MAP_AK = "CCDS_BAIDU_MAP_AK";

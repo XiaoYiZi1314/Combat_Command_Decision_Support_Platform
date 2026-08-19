@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ccds.iam.identity.mapper.AccountMapper">
+
+    <resultMap id="AccountResultMap" type="com.ccds.iam.identity.entity.AccountDO">
+        <id column="id" property="id"/>
+        <result column="username" property="username"/>
+        <result column="password_hash" property="passwordHash"/>
+        <result column="role" property="role"/>
+        <result column="station_id" property="stationId"/>
+        <result column="brigade_id" property="brigadeId"/>
+        <result column="is_must_change_password" property="mustChangePassword"/>
+        <result column="failed_login_count" property="failedLoginCount"/>
+        <result column="locked_until" property="lockedUntil"/>
+        <result column="gmt_create" property="gmtCreate"/>
+        <result column="gmt_modified" property="gmtModified"/>
+    </resultMap>
+
+    <sql id="AccountColumns">
+        id, username, password_hash, role, station_id, brigade_id,
+        is_must_change_password, failed_login_count, locked_until, gmt_create, gmt_modified
+    </sql>
+
+    <select id="selectByUsername" resultMap="AccountResultMap">
+        SELECT
+        <include refid="AccountColumns"/>
+        FROM ccds_account
+        WHERE username = #{username}
+    </select>
+
+    <select id="selectById" resultMap="AccountResultMap">
+        SELECT
+        <include refid="AccountColumns"/>
+        FROM ccds_account
+        WHERE id = #{id}
+    </select>
+
+    <update id="updateLoginFailure">
+        UPDATE ccds_account
+        SET failed_login_count = #{failedLoginCount},
+            locked_until = #{lockedUntil},
+            gmt_modified = #{gmtModified}
+        WHERE id = #{id}
+    </update>
+
+    <update id="clearLoginFailure">
+        UPDATE ccds_account
+        SET failed_login_count = 0,
+            locked_until = NULL,
+            gmt_modified = #{gmtModified}
+        WHERE id = #{id}
+    </update>
+
+    <update id="updatePassword">
+        UPDATE ccds_account
+        SET password_hash = #{passwordHash},
+            is_must_change_password = 0,
+            gmt_modified = #{gmtModified}
+        WHERE id = #{id}
+    </update>
+</mapper>

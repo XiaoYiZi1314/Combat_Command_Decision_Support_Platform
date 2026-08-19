@@ -1,0 +1,18 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": [
+    "AGENTS.md",
+    "harness/README.md"
+  ],
+  "skills": {
+    "paths": [
+      ".opencode/skills"
+    ]
+  },
+  "references": {
+    "harness": {
+      "path": "./harness",
+      "description": "作战指挥辅助决策平台开发规范。改代码前必须先读 AGENTS.md，再按任务类型阅读本目录分册与 CHECKLIST。"
+    }
+  }
+}
