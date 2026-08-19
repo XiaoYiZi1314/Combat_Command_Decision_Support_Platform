@@ -5,6 +5,7 @@ import { renderLoginPage } from './pages/login/index.js';
 import { renderLegalPage } from './pages/legal/index.js';
 import { renderRosterPage } from './pages/roster/index.js';
 import { renderRosterEditPage } from './pages/roster/edit.js';
+import { renderAttackPage } from './pages/attack/index.js';
 import { fetchMe, fetchOrgStations, refreshSession } from './api/auth.js';
 import {
   getAccessToken,
@@ -88,7 +89,17 @@ async function restoreSession() {
   }
 }
 
+let unmountCurrent = null;
+
+function unmountPage() {
+  if (typeof unmountCurrent === 'function') {
+    unmountCurrent();
+    unmountCurrent = null;
+  }
+}
+
 async function render() {
+  unmountPage();
   const hash = currentHash();
   const pathOnly = hash.split('?')[0];
   const { route, params } = matchRoute(pathOnly);
@@ -139,6 +150,11 @@ async function render() {
     return;
   }
 
+  if (route.path === '/attack' || route.path === '/attack/quick-add') {
+    app.innerHTML = '';
+    unmountCurrent = renderAttackPage(app) || null;
+    return;
+  }
   if (route.path === '/roster') {
     app.innerHTML = '';
     renderRosterPage(app);

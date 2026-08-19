@@ -83,6 +83,21 @@ public final class ApiPathConstant {
      */
     public static final String STATION_PROFILE_TEMPLATE = "/stations/{stationId}/profiles/template";
 
+    /**
+     * 本站内攻卡片与快照。
+     */
+    public static final String STATION_ATTACK = "/stations/{stationId}/attack";
+
+    /**
+     * 本站内攻事件（预录入/入场/复测/撤出/删除）。
+     */
+    public static final String STATION_ATTACK_EVENTS = "/stations/{stationId}/attack/events";
+
+    /**
+     * 指挥端站快照列表。
+     */
+    public static final String ATTACK_SNAPSHOTS = "/attack/snapshots";
+
     private ApiPathConstant() {
     }
 }

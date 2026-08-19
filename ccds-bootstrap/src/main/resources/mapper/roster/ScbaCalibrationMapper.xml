@@ -21,4 +21,14 @@
         WHERE profile_id = #{profileId}
         ORDER BY measured_at DESC, id DESC
     </select>
+
+    <select id="selectByStationId" resultMap="ScbaCalibrationResultMap">
+        SELECT c.id, c.profile_id, c.pressure, c.full_time_sec, c.cyl_type, c.source, c.measured_at,
+               c.gmt_create, c.gmt_modified
+        FROM ccds_scba_calibration c
+        INNER JOIN ccds_profile p ON p.id = c.profile_id
+        WHERE p.station_id = #{stationId}
+          AND p.deleted_at IS NULL
+        ORDER BY c.measured_at DESC, c.id DESC
+    </select>
 </mapper>

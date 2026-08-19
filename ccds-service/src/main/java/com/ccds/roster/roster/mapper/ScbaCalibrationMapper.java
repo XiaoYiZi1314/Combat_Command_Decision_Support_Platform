@@ -23,4 +23,12 @@ public interface ScbaCalibrationMapper {
      * @return 标定列表，不会为 null
      */
     List<ScbaCalibrationDO> selectByProfileId(@Param("profileId") Long profileId);
+
+    /**
+     * 本站全部标定，按时间倒序。
+     *
+     * @param stationId 站主键
+     * @return 标定列表，不会为 null
+     */
+    List<ScbaCalibrationDO> selectByStationId(@Param("stationId") Long stationId);
 }

@@ -75,7 +75,9 @@ public class GlobalExceptionHandler {
         if (ErrorCodeConstant.AUTH_LOCKED.equals(code)
                 || ErrorCodeConstant.AUTH_MUST_CHANGE_PASSWORD.equals(code)
                 || ErrorCodeConstant.ROSTER_STATION_FORBIDDEN.equals(code)
-                || ErrorCodeConstant.ROSTER_WRITE_FORBIDDEN.equals(code)) {
+                || ErrorCodeConstant.ROSTER_WRITE_FORBIDDEN.equals(code)
+                || ErrorCodeConstant.ATTACK_STATION_FORBIDDEN.equals(code)
+                || ErrorCodeConstant.ATTACK_WRITE_FORBIDDEN.equals(code)) {
             return HttpStatus.FORBIDDEN;
         }
         if (ErrorCodeConstant.PARAM_INVALID.equals(code)
@@ -85,7 +87,12 @@ public class GlobalExceptionHandler {
                 || ErrorCodeConstant.ROSTER_NFC_DUPLICATE.equals(code)
                 || ErrorCodeConstant.ROSTER_IMPORT_INVALID.equals(code)
                 || ErrorCodeConstant.ROSTER_PROFILE_NOT_FOUND.equals(code)
-                || ErrorCodeConstant.ROSTER_PROFILE_IN_ATTACK.equals(code)) {
+                || ErrorCodeConstant.ROSTER_PROFILE_IN_ATTACK.equals(code)
+                || ErrorCodeConstant.ATTACK_PERSON_NOT_FOUND.equals(code)
+                || ErrorCodeConstant.ATTACK_PERSON_DUPLICATE.equals(code)
+                || ErrorCodeConstant.ATTACK_STATUS_INVALID.equals(code)
+                || ErrorCodeConstant.ATTACK_EVENT_INVALID.equals(code)
+                || ErrorCodeConstant.ATTACK_NFC_NOT_FOUND.equals(code)) {
             return HttpStatus.BAD_REQUEST;
         }
         return HttpStatus.BAD_REQUEST;

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ccds.attack.attack.mapper.StationSnapshotMapper">
+
+    <resultMap id="StationSnapshotResultMap" type="com.ccds.attack.attack.entity.StationSnapshotDO">
+        <id column="station_id" property="stationId"/>
+        <result column="in_count" property="inCount"/>
+        <result column="warn_count" property="warnCount"/>
+        <result column="danger_count" property="dangerCount"/>
+        <result column="out_count" property="outCount"/>
+        <result column="pending_count" property="pendingCount"/>
+        <result column="group_count" property="groupCount"/>
+        <result column="last_event_at" property="lastEventAt"/>
+        <result column="payload_json" property="payloadJson"/>
+        <result column="gmt_create" property="gmtCreate"/>
+        <result column="gmt_modified" property="gmtModified"/>
+    </resultMap>
+
+    <sql id="SnapshotColumns">
+        station_id, in_count, warn_count, danger_count, out_count, pending_count, group_count,
+        last_event_at, payload_json, gmt_create, gmt_modified
+    </sql>
+
+    <select id="selectByStationId" resultMap="StationSnapshotResultMap">
+        SELECT
+        <include refid="SnapshotColumns"/>
+        FROM ccds_station_snapshot
+        WHERE station_id = #{stationId}
+    </select>
+
+    <insert id="insert">
+        INSERT INTO ccds_station_snapshot
+            (station_id, in_count, warn_count, danger_count, out_count, pending_count, group_count,
+             last_event_at, payload_json, gmt_create, gmt_modified)
+        VALUES
+            (#{stationId}, #{inCount}, #{warnCount}, #{dangerCount}, #{outCount}, #{pendingCount}, #{groupCount},
+             #{lastEventAt}, #{payloadJson}, #{gmtCreate}, #{gmtModified})
+    </insert>
+
+    <update id="update">
+        UPDATE ccds_station_snapshot
+        SET in_count = #{inCount},
+            warn_count = #{warnCount},
+            danger_count = #{dangerCount},
+            out_count = #{outCount},
+            pending_count = #{pendingCount},
+            group_count = #{groupCount},
+            last_event_at = #{lastEventAt},
+            payload_json = #{payloadJson},
+            gmt_modified = #{gmtModified}
+        WHERE station_id = #{stationId}
+    </update>
+
+    <select id="selectActive" resultMap="StationSnapshotResultMap">
+        SELECT
+        <include refid="SnapshotColumns"/>
+        FROM ccds_station_snapshot
+        WHERE (in_count + warn_count + danger_count) &gt; 0
+        ORDER BY last_event_at DESC, station_id ASC
+    </select>
+</mapper>

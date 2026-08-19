@@ -88,6 +88,41 @@ public final class ErrorCodeConstant {
      */
     public static final String ROSTER_PROFILE_IN_ATTACK = "ROSTER_PROFILE_IN_ATTACK";
 
+    /**
+     * 无权查看该站内攻。
+     */
+    public static final String ATTACK_STATION_FORBIDDEN = "ATTACK_STATION_FORBIDDEN";
+
+    /**
+     * 无权改该站内攻。
+     */
+    public static final String ATTACK_WRITE_FORBIDDEN = "ATTACK_WRITE_FORBIDDEN";
+
+    /**
+     * 人员卡片不存在。
+     */
+    public static final String ATTACK_PERSON_NOT_FOUND = "ATTACK_PERSON_NOT_FOUND";
+
+    /**
+     * 同一人已有未撤出卡片。
+     */
+    public static final String ATTACK_PERSON_DUPLICATE = "ATTACK_PERSON_DUPLICATE";
+
+    /**
+     * 状态不允许该操作。
+     */
+    public static final String ATTACK_STATUS_INVALID = "ATTACK_STATUS_INVALID";
+
+    /**
+     * 事件类型或载荷不合法。
+     */
+    public static final String ATTACK_EVENT_INVALID = "ATTACK_EVENT_INVALID";
+
+    /**
+     * NFC 未匹配本站花名册。
+     */
+    public static final String ATTACK_NFC_NOT_FOUND = "ATTACK_NFC_NOT_FOUND";
+
     private ErrorCodeConstant() {
     }
 }

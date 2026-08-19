@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ccds.attack.attack.mapper.AttackPersonMapper">
+
+    <resultMap id="AttackPersonResultMap" type="com.ccds.attack.attack.entity.AttackPersonDO">
+        <id column="id" property="id"/>
+        <result column="station_id" property="stationId"/>
+        <result column="profile_id" property="profileId"/>
+        <result column="display_name" property="displayName"/>
+        <result column="group_name" property="groupName"/>
+        <result column="cyl_type" property="cylType"/>
+        <result column="init_pressure" property="initPressure"/>
+        <result column="current_pressure" property="currentPressure"/>
+        <result column="entered_at" property="enteredAt"/>
+        <result column="withdrawn_at" property="withdrawnAt"/>
+        <result column="work_level" property="workLevel"/>
+        <result column="scene" property="scene"/>
+        <result column="status" property="status"/>
+        <result column="remain_sec" property="remainSec"/>
+        <result column="client_event_id" property="clientEventId"/>
+        <result column="gmt_create" property="gmtCreate"/>
+        <result column="gmt_modified" property="gmtModified"/>
+    </resultMap>
+
+    <sql id="AttackPersonColumns">
+        id, station_id, profile_id, display_name, group_name, cyl_type, init_pressure, current_pressure,
+        entered_at, withdrawn_at, work_level, scene, status, remain_sec, client_event_id, gmt_create, gmt_modified
+    </sql>
+
+    <select id="selectById" resultMap="AttackPersonResultMap">
+        SELECT
+        <include refid="AttackPersonColumns"/>
+        FROM ccds_attack_person
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectByClientEventId" resultMap="AttackPersonResultMap">
+        SELECT
+        <include refid="AttackPersonColumns"/>
+        FROM ccds_attack_person
+        WHERE client_event_id = #{clientEventId}
+        LIMIT 1
+    </select>
+
+    <select id="selectByStationId" resultMap="AttackPersonResultMap">
+        SELECT
+        <include refid="AttackPersonColumns"/>
+        FROM ccds_attack_person
+        WHERE station_id = #{stationId}
+        ORDER BY CASE WHEN withdrawn_at IS NULL THEN 0 ELSE 1 END ASC,
+                 CASE status
+                     WHEN 'danger' THEN 0
+                     WHEN 'warn' THEN 1
+                     WHEN 'in' THEN 2
+                     WHEN 'pending' THEN 3
+                     ELSE 4
+                 END ASC,
+                 id ASC
+    </select>
+
+    <select id="selectActiveByStationAndProfile" resultMap="AttackPersonResultMap">
+        SELECT
+        <include refid="AttackPersonColumns"/>
+        FROM ccds_attack_person
+        WHERE station_id = #{stationId}
+          AND profile_id = #{profileId}
+          AND withdrawn_at IS NULL
+        LIMIT 1
+    </select>
+
+    <select id="selectActiveTempByStationAndName" resultMap="AttackPersonResultMap">
+        SELECT
+        <include refid="AttackPersonColumns"/>
+        FROM ccds_attack_person
+        WHERE station_id = #{stationId}
+          AND profile_id IS NULL
+          AND display_name = #{displayName}
+          AND withdrawn_at IS NULL
+        LIMIT 1
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ccds_attack_person
+            (station_id, profile_id, display_name, group_name, cyl_type, init_pressure, current_pressure,
+             entered_at, withdrawn_at, work_level, scene, status, remain_sec, client_event_id, gmt_create, gmt_modified)
+        VALUES
+            (#{stationId}, #{profileId}, #{displayName}, #{groupName}, #{cylType}, #{initPressure}, #{currentPressure},
+             #{enteredAt}, #{withdrawnAt}, #{workLevel}, #{scene}, #{status}, #{remainSec}, #{clientEventId},
+             #{gmtCreate}, #{gmtModified})
+    </insert>
+
+    <update id="update">
+        UPDATE ccds_attack_person
+        SET profile_id = #{profileId},
+            display_name = #{displayName},
+            group_name = #{groupName},
+            cyl_type = #{cylType},
+            init_pressure = #{initPressure},
+            current_pressure = #{currentPressure},
+            entered_at = #{enteredAt},
+            withdrawn_at = #{withdrawnAt},
+            work_level = #{workLevel},
+            scene = #{scene},
+            status = #{status},
+            remain_sec = #{remainSec},
+            client_event_id = #{clientEventId},
+            gmt_modified = #{gmtModified}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM ccds_attack_person
+        WHERE id = #{id}
+    </delete>
+</mapper>
