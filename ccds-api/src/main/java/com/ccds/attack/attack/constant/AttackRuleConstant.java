@@ -135,6 +135,71 @@ public final class AttackRuleConstant {
      */
     public static final String GROUP_TAB_ALL = "全部";
 
+    /**
+     * 指挥端 WS 断线后改轮询的等待毫秒。
+     */
+    public static final int COMMAND_POLL_AFTER_DISCONNECT_MS = 3000;
+
+    /**
+     * 指挥端降级轮询间隔毫秒。
+     */
+    public static final int COMMAND_POLL_INTERVAL_MS = 5000;
+
+    /**
+     * 离线补传最大重试次数。
+     */
+    public static final int OFFLINE_RETRY_MAX = 5;
+
+    /**
+     * 离线补传首次退避毫秒。
+     */
+    public static final int OFFLINE_RETRY_BASE_MS = 1000;
+
+    /**
+     * 离线补传最大退避毫秒。
+     */
+    public static final int OFFLINE_RETRY_MAX_MS = 30000;
+
+    /**
+     * Redis 内攻快照通道。
+     */
+    public static final String REDIS_ATTACK_CHANNEL = "ccds:attack:snapshot";
+
+    /**
+     * Redis 补传去重键前缀。
+     */
+    public static final String REDIS_EVENT_DEDUP_PREFIX = "ccds:attack:event:";
+
+    /**
+     * Redis 补传去重键过期秒。
+     */
+    public static final long REDIS_EVENT_DEDUP_TTL_SECONDS = 7L * 24L * 3600L;
+
+    /**
+     * 指挥 WS 握手查询参数名。
+     */
+    public static final String WS_TOKEN_QUERY = "token";
+
+    /**
+     * 指挥端未更新变琥珀的秒数。
+     */
+    public static final int STALE_AMBER_SEC = 120;
+
+    /**
+     * 指挥端未更新变红的秒数。
+     */
+    public static final int STALE_RED_SEC = 300;
+
+    /**
+     * 指挥端未更新文案。
+     */
+    public static final String STALE_HINT = "请向现场核实";
+
+    /**
+     * 覆盖冲突提示。
+     */
+    public static final String MSG_CLOUD_OVERRIDE = "已用云端更新覆盖";
+
     private AttackRuleConstant() {
     }
 }

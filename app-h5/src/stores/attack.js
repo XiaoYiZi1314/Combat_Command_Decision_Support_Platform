@@ -1,6 +1,7 @@
 const STATION_KEY = 'ccds_attack_station';
 const CACHE_PREFIX = 'ccds_attack_cache_';
 const QUEUE_KEY = 'ccds_attack_offline_queue';
+const WRITTEN_KEY = 'ccds_attack_written_events';
 
 function readJson(key) {
   try {
@@ -51,7 +52,17 @@ export function readAttackCache(stationId) {
 
 export function enqueueAttackEvent(stationId, body) {
   const queue = readJson(QUEUE_KEY) || [];
-  queue.push({ stationId, body, queuedAt: Date.now() });
+  const eventId = body && body.eventId;
+  if (eventId && queue.some((item) => item.body && item.body.eventId === eventId)) {
+    return queue.length;
+  }
+  queue.push({
+    stationId,
+    body,
+    queuedAt: Date.now(),
+    attempts: 0,
+    nextAt: Date.now()
+  });
   writeJson(QUEUE_KEY, queue);
   return queue.length;
 }
@@ -71,6 +82,31 @@ export function shiftAttackQueue() {
   return first;
 }
 
+export function markQueueRetry(delayMs) {
+  const queue = peekAttackQueue();
+  if (!queue.length) {
+    return 0;
+  }
+  const first = queue[0];
+  first.attempts = (Number(first.attempts) || 0) + 1;
+  first.nextAt = Date.now() + Math.max(0, Number(delayMs) || 0);
+  writeJson(QUEUE_KEY, queue);
+  return first.attempts;
+}
+
+export function dropQueueHead() {
+  return shiftAttackQueue();
+}
+
+export function resetQueueBackoff() {
+  const queue = peekAttackQueue();
+  queue.forEach((item) => {
+    item.nextAt = 0;
+  });
+  writeJson(QUEUE_KEY, queue);
+  return queue.length;
+}
+
 export function rewriteQueuedPersonId(localId, serverId) {
   if (localId == null || serverId == null) {
     return;
@@ -86,4 +122,24 @@ export function rewriteQueuedPersonId(localId, serverId) {
 
 export function attackQueueLength() {
   return peekAttackQueue().length;
+}
+
+export function markWrittenEvent(eventId) {
+  if (!eventId) {
+    return;
+  }
+  const map = readJson(WRITTEN_KEY) || {};
+  map[eventId] = Date.now();
+  const keys = Object.keys(map);
+  if (keys.length > 200) {
+    keys.sort((a, b) => map[a] - map[b]);
+    keys.slice(0, keys.length - 200).forEach((key) => {
+      delete map[key];
+    });
+  }
+  writeJson(WRITTEN_KEY, map);
+}
+
+export function writtenEventMap() {
+  return readJson(WRITTEN_KEY) || {};
 }

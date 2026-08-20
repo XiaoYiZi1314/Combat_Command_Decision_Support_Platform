@@ -6,6 +6,9 @@ import { renderLegalPage } from './pages/legal/index.js';
 import { renderRosterPage } from './pages/roster/index.js';
 import { renderRosterEditPage } from './pages/roster/edit.js';
 import { renderAttackPage } from './pages/attack/index.js';
+import { renderHqPage } from './pages/hq/index.js';
+import { renderHqStationPage } from './pages/hq/station.js';
+import { renderSettingsPage } from './pages/settings/index.js';
 import { fetchMe, fetchOrgStations, refreshSession } from './api/auth.js';
 import {
   getAccessToken,
@@ -163,6 +166,21 @@ async function render() {
   if (route.path === '/roster/:id') {
     app.innerHTML = '';
     renderRosterEditPage(app, params);
+    return;
+  }
+  if (route.path === '/hq') {
+    app.innerHTML = '';
+    unmountCurrent = renderHqPage(app) || null;
+    return;
+  }
+  if (route.path === '/hq/station/:stationId') {
+    app.innerHTML = '';
+    unmountCurrent = renderHqStationPage(app, params) || null;
+    return;
+  }
+  if (route.path === '/settings') {
+    app.innerHTML = '';
+    renderSettingsPage(app);
     return;
   }
 

@@ -1,0 +1,115 @@
+.hq-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.hq-head {
+  background: linear-gradient(135deg, var(--header-from), var(--header-to));
+  padding: 10px 14px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.hq-head h1 {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.hq-head .sub {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.55);
+  margin-top: 2px;
+}
+
+.hq-status {
+  padding: 8px 14px;
+  font-size: 11px;
+  color: var(--dim);
+}
+
+.hq-status.live {
+  color: var(--green);
+}
+
+.hq-status.poll {
+  color: var(--amber);
+}
+
+.hq-list {
+  padding: 8px 14px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hq-card {
+  background: var(--glass-fill);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  padding: 14px 14px 12px;
+  box-shadow: 0 16px 44px rgba(5, 12, 35, 0.3);
+}
+
+.hq-card .name {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.hq-card .brigade {
+  font-size: 11px;
+  color: var(--dim);
+  margin-top: 2px;
+}
+
+.hq-counts {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+  font-size: 12px;
+}
+
+.hq-counts span.in {
+  color: var(--blue);
+}
+
+.hq-counts span.warn {
+  color: var(--amber);
+}
+
+.hq-counts span.danger {
+  color: var(--red);
+}
+
+.hq-meta {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--dim);
+}
+
+.hq-card.stale-amber .hq-meta {
+  color: var(--amber);
+}
+
+.hq-card.stale-red .hq-meta {
+  color: var(--red);
+}
+
+.hq-empty {
+  margin: 40px 18px;
+  text-align: center;
+  color: var(--dim);
+  font-size: 14px;
+}
+
+.hq-back {
+  margin: 10px 14px 0;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  color: #fff;
+  font-size: 13px;
+  padding: 8px 12px;
+}

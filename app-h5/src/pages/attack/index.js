@@ -5,15 +5,27 @@ import { fetchStationAttack, submitAttackEvent } from '../../api/attack.js';
 import { bridge } from '../../bridge/index.js';
 import {
   attackQueueLength,
+  dropQueueHead,
   enqueueAttackEvent,
   getAttackStationId,
+  markQueueRetry,
+  markWrittenEvent,
   peekAttackQueue,
+  resetQueueBackoff,
   readAttackCache,
   rewriteQueuedPersonId,
   saveAttackCache,
   setAttackStationId,
-  shiftAttackQueue
+  writtenEventMap
 } from '../../stores/attack.js';
+import {
+  SYNC,
+  isDropEvent,
+  isTransient,
+  mergeAttack,
+  retryDelayMs,
+  syncStatusText
+} from '../../lib/sync.js';
 import {
   SCBA,
   fmtElapsed,
@@ -101,7 +113,8 @@ export function renderAttackPage(root) {
     groupTab: '全部',
     focusId: '',
     nfcReady: bridge.hasNfc(),
-    syncing: false
+    syncing: false,
+    online: typeof navigator === 'undefined' ? true : navigator.onLine
   };
 
   const head = el('div', 'attack-head');
@@ -142,6 +155,7 @@ export function renderAttackPage(root) {
   const quickBtn = el('button', 'btn-glass primary', '快速录入');
   const syncBtn = el('button', 'btn-glass accent', '云同步');
   const moreBtn = el('button', 'btn-glass', '更多功能');
+  const syncHint = el('div', 'sync-hint');
   quickBtn.type = 'button';
   syncBtn.type = 'button';
   moreBtn.type = 'button';
@@ -149,6 +163,7 @@ export function renderAttackPage(root) {
   actions.appendChild(syncBtn);
   actions.appendChild(moreBtn);
   page.appendChild(actions);
+  page.appendChild(syncHint);
 
   const list = el('div', 'list main-pager');
   const peoplePage = el('div', 'main-page main-people-page');
@@ -818,39 +833,74 @@ export function renderAttackPage(root) {
     return current;
   }
 
-  function applyAttack(data) {
-    state.attack = data;
-    saveAttackCache(state.stationId, data);
-    if (data && data.stationName) {
-      title.textContent = data.stationName;
-      sub.textContent = headSub(me, data);
+  function applyAttack(data, options) {
+    const opts = options || {};
+    let next = data;
+    if (opts.merge && state.attack) {
+      const merged = mergeAttack(state.attack, data, writtenEventMap());
+      next = merged.attack;
+      if (merged.overridden) {
+        showToast(SYNC.cloudOverride);
+      }
     }
+    state.attack = next;
+    saveAttackCache(state.stationId, next);
+    if (next && next.stationName) {
+      title.textContent = next.stationName;
+      sub.textContent = headSub(me, next);
+    }
+    renderSyncHint();
+  }
+
+  function renderSyncHint() {
+    const n = attackQueueLength();
+    syncHint.textContent = `同步状态：${syncStatusText(state.online, n)}`;
+    syncHint.className = state.online && n === 0 ? 'sync-hint ok' : 'sync-hint';
   }
 
   async function flushQueue() {
     while (peekAttackQueue().length) {
       const item = peekAttackQueue()[0];
+      const wait = Number(item.nextAt || 0) - Date.now();
+      if (wait > 0) {
+        return;
+      }
       try {
         const result = await submitAttackEvent(item.stationId, item.body);
-        shiftAttackQueue();
+        dropQueueHead();
+        if (item.body && item.body.eventId) {
+          markWrittenEvent(item.body.eventId);
+        }
         if (item.body && item.body.type === 'pre_add' && result.person && item.body.eventId) {
           rewriteQueuedPersonId(`local_${item.body.eventId}`, result.person.id);
         }
-        if (String(item.stationId) === String(state.stationId)) {
-          applyAttack(result.attack);
+        if (String(item.stationId) === String(state.stationId) && result.attack) {
+          applyAttack(result.attack, { merge: true });
         }
+        renderSyncHint();
       } catch (err) {
-        if (err.code === 'NETWORK') {
+        if (isTransient(err) || err.code === 'NETWORK') {
+          state.online = false;
+          const attempts = markQueueRetry(retryDelayMs(item.attempts || 0));
+          if (attempts >= SYNC.retryMax) {
+            showToast(`待传失败 ${attempts} 次，点云同步重试`);
+          }
+          renderSyncHint();
           return;
         }
-        if (err.code === 'ATTACK_PERSON_DUPLICATE' || err.code === 'ATTACK_EVENT_INVALID'
-            || err.code === 'ATTACK_STATUS_INVALID') {
-          shiftAttackQueue();
+        if (isDropEvent(err)) {
+          dropQueueHead();
+          renderSyncHint();
           throw err;
         }
+        state.online = false;
+        markQueueRetry(retryDelayMs(item.attempts || 0));
+        renderSyncHint();
         return;
       }
     }
+    state.online = true;
+    renderSyncHint();
   }
 
   async function load() {
@@ -866,7 +916,8 @@ export function renderAttackPage(root) {
     }
     try {
       const data = await fetchStationAttack(state.stationId);
-      applyAttack(data);
+      state.online = true;
+      applyAttack(data, { merge: Boolean(cached) });
       if (writableStation) {
         state.roster = await fetchRoster(state.stationId);
       }
@@ -874,6 +925,8 @@ export function renderAttackPage(root) {
       renderStats();
       renderCards();
     } catch (err) {
+      state.online = err.code === 'NETWORK' ? false : state.online;
+      renderSyncHint();
       if (!cached) {
         peoplePage.textContent = err.message || '加载失败';
       } else {
@@ -892,12 +945,22 @@ export function renderAttackPage(root) {
   moreBtn.addEventListener('click', () => setDrawer(true));
   overlay.addEventListener('click', () => setDrawer(false));
   syncBtn.addEventListener('click', async () => {
+    if (state.syncing) {
+      return;
+    }
+    state.syncing = true;
     syncBtn.textContent = '同步中…';
-    await flushQueue();
-    await load();
-    const n = attackQueueLength();
-    syncBtn.textContent = '云同步';
-    showToast(n ? `仍有 ${n} 条待传` : '已同步');
+    resetQueueBackoff();
+    try {
+      await flushQueue();
+      await load();
+      const n = attackQueueLength();
+      showToast(n ? `仍有 ${n} 条待传` : '已同步');
+    } finally {
+      state.syncing = false;
+      syncBtn.textContent = '云同步';
+      renderSyncHint();
+    }
   });
   nfcBtn.addEventListener('click', async () => {
     if (!writableStation) {
@@ -977,17 +1040,41 @@ export function renderAttackPage(root) {
     nfcBar.style.display = 'none';
   }
 
+  const onOnline = () => {
+    state.online = true;
+    renderSyncHint();
+    flushQueue().then(() => {
+      renderStats();
+      renderCards();
+    }).catch(() => undefined);
+  };
+  const onOffline = () => {
+    state.online = false;
+    renderSyncHint();
+  };
+  window.addEventListener('online', onOnline);
+  window.addEventListener('offline', onOffline);
+
   const timer = window.setInterval(() => {
     if (!state.attack) {
       return;
     }
     renderStats();
     renderCards();
+    const head = peekAttackQueue()[0];
+    if (head && Number(head.nextAt || 0) <= Date.now()) {
+      flushQueue().catch(() => undefined);
+    }
   }, 1000);
+  renderSyncHint();
 
   load();
   if (window.location.hash.indexOf('/attack/quick-add') >= 0 && writableStation) {
     window.setTimeout(() => setQuick(true), 0);
   }
-  return () => window.clearInterval(timer);
+  return () => {
+    window.clearInterval(timer);
+    window.removeEventListener('online', onOnline);
+    window.removeEventListener('offline', onOffline);
+  };
 }

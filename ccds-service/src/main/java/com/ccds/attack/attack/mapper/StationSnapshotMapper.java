@@ -1,5 +1,6 @@
 package com.ccds.attack.attack.mapper;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.apache.ibatis.annotations.Mapper;
@@ -46,4 +47,12 @@ public interface StationSnapshotMapper {
      * @return 快照列表，不会为 null
      */
     List<StationSnapshotDO> selectActive();
+
+    /**
+     * 指定时刻之后有更新的站快照（含已无人在场，便于指挥端摘掉卡片）。
+     *
+     * @param since 起始时刻，含边界
+     * @return 快照列表，不会为 null
+     */
+    List<StationSnapshotDO> selectModifiedSince(@Param("since") LocalDateTime since);
 }

@@ -118,6 +118,7 @@ public class AttackViewTranslator {
                 .groupCount(nz(snapshot.getGroupCount()))
                 .lastEventAt(snapshot.getLastEventAt())
                 .gmtModified(snapshot.getGmtModified())
+                .staleSec(null)
                 .build();
     }
 

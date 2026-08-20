@@ -78,4 +78,9 @@ public class AttackSnapshotVO {
      * 修改时间。
      */
     private LocalDateTime gmtModified;
+
+    /**
+     * 距最近事件的秒数。指挥端用来标琥珀 / 红。
+     */
+    private Integer staleSec;
 }

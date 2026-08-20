@@ -34,6 +34,7 @@ export async function submitAttackEvent(stationId, body) {
   }));
 }
 
-export async function fetchAttackSnapshots() {
-  return withRefresh(() => apiRequest('/attack/snapshots', { headers: authHeader() }));
+export async function fetchAttackSnapshots(since) {
+  const query = since ? `?since=${encodeURIComponent(since)}` : '';
+  return withRefresh(() => apiRequest(`/attack/snapshots${query}`, { headers: authHeader() }));
 }

@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ccds.attack.attack.dto.AttackEventCommand;
@@ -65,14 +66,17 @@ public class AttackController {
     }
 
     /**
-     * 指挥端快照。仅可见且正在内攻人数大于 0 的站。
+     * 指挥端快照。仅可见站。无 since 时只返回正在内攻人数大于 0 的站。
      *
      * @param request HTTP 请求
+     * @param since   增量起点，ISO-8601 本地时间
      * @return 快照列表
      */
     @GetMapping(ApiPathConstant.ATTACK_SNAPSHOTS)
-    public ApiResultVO<List<AttackSnapshotVO>> snapshots(HttpServletRequest request) {
-        return ApiResultVO.ok(attackService.listSnapshots(current(request)));
+    public ApiResultVO<List<AttackSnapshotVO>> snapshots(
+            HttpServletRequest request,
+            @RequestParam(value = "since", required = false) String since) {
+        return ApiResultVO.ok(attackService.listSnapshots(current(request), since));
     }
 
     private AuthPrincipal current(HttpServletRequest request) {

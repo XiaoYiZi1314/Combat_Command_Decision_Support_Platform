@@ -3,6 +3,8 @@ package com.ccds.attack.attack.service.impl;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -15,6 +17,8 @@ import java.util.regex.Pattern;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.ccds.attack.attack.constant.AttackRuleConstant;
 import com.ccds.attack.attack.dto.AttackEventCommand;
@@ -29,6 +33,7 @@ import com.ccds.attack.attack.mapper.AttackEventMapper;
 import com.ccds.attack.attack.mapper.AttackPersonMapper;
 import com.ccds.attack.attack.mapper.StationSnapshotMapper;
 import com.ccds.attack.attack.service.AttackService;
+import com.ccds.attack.attack.service.CommandPushService;
 import com.ccds.attack.attack.service.ScbaEstimateService;
 import com.ccds.attack.attack.vo.AttackEventResultVO;
 import com.ccds.attack.attack.vo.AttackPersonVO;
@@ -36,11 +41,14 @@ import com.ccds.attack.attack.vo.AttackSnapshotVO;
 import com.ccds.attack.attack.vo.StationAttackVO;
 import com.ccds.common.api.constant.ErrorCodeConstant;
 import com.ccds.common.api.exception.BizException;
+import com.ccds.infra.redis.AttackEventDedupStore;
+import com.ccds.infra.redis.AttackRealtimePublisher;
 import com.ccds.iam.identity.entity.AccountDO;
 import com.ccds.iam.identity.mapper.AccountMapper;
 import com.ccds.iam.identity.model.AuthPrincipal;
 import com.ccds.iam.identity.vo.StationVO;
 import com.ccds.org.org.entity.StationDO;
+import com.ccds.org.org.mapper.StationMapper;
 import com.ccds.org.org.service.OrgQueryService;
 import com.ccds.roster.roster.entity.BattleGroupDO;
 import com.ccds.roster.roster.entity.BattleGroupMemberDO;
@@ -85,11 +93,15 @@ public class AttackServiceImpl implements AttackService {
 
     private static final String MSG_NFC_NOT_FOUND = "未找到对应花名册";
 
+    private static final String MSG_SINCE_INVALID = "增量时间不合法";
+
     private static final Pattern NFC_TRIM = Pattern.compile("[\\s:：\\-_]");
 
     private final AccountMapper accountMapper;
 
     private final OrgQueryService orgQueryService;
+
+    private final StationMapper stationMapper;
 
     private final RosterAccessService rosterAccessService;
 
@@ -110,6 +122,12 @@ public class AttackServiceImpl implements AttackService {
     private final ScbaEstimateService scbaEstimateService;
 
     private final AttackViewTranslator attackViewTranslator;
+
+    private final AttackEventDedupStore attackEventDedupStore;
+
+    private final AttackRealtimePublisher attackRealtimePublisher;
+
+    private final CommandPushService commandPushService;
 
     /**
      * {@inheritDoc}
@@ -140,6 +158,13 @@ public class AttackServiceImpl implements AttackService {
         if (existed != null) {
             return duplicateResult(station, existed, now, true);
         }
+        boolean firstSeen = attackEventDedupStore.tryMark(eventId);
+        if (!firstSeen) {
+            AttackEventDO racedEarly = attackEventMapper.selectByClientEventId(eventId);
+            if (racedEarly != null) {
+                return duplicateResult(station, racedEarly, now, true);
+            }
+        }
         AttackPersonDO person;
         try {
             person = dispatchEvent(stationId, command, type, eventId, now);
@@ -147,15 +172,18 @@ public class AttackServiceImpl implements AttackService {
         } catch (DuplicateKeyException ex) {
             return recoverDuplicateKey(station, stationId, command, eventId, now, ex);
         }
-        refreshSnapshot(stationId, now);
+        AttackSnapshotVO snapshot = refreshSnapshot(stationId, now);
+        publishAfterCommit(snapshot);
         log.info("attack event type={} stationId={} personId={} eventIdHash={}",
-                type.getCode(), stationId, person == null ? null : person.getId(), eventId.hashCode());
+                type.getCode(), stationId, person == null ? null : person.getId(),
+                Integer.valueOf(eventId.hashCode()));
         AttackPersonVO personVo = null;
         if (person != null && type != AttackEventTypeEnum.DELETE) {
             personVo = toLivePerson(person, now);
         }
         return AttackEventResultVO.builder()
                 .duplicate(Boolean.FALSE)
+                .cloudOverride(Boolean.FALSE)
                 .person(personVo)
                 .attack(buildStationAttack(station, true, now))
                 .build();
@@ -199,18 +227,23 @@ public class AttackServiceImpl implements AttackService {
      * {@inheritDoc}
      */
     @Override
-    public List<AttackSnapshotVO> listSnapshots(AuthPrincipal principal) {
+    public List<AttackSnapshotVO> listSnapshots(AuthPrincipal principal, String sinceRaw) {
         AccountDO account = requireAccount(principal);
         Map<Long, StationDO> visible = visibleStationMap(account);
         LocalDateTime now = LocalDateTime.now();
+        LocalDateTime since = parseSince(sinceRaw);
+        List<StationSnapshotDO> rows = since == null
+                ? stationSnapshotMapper.selectActive()
+                : stationSnapshotMapper.selectModifiedSince(since);
         List<AttackSnapshotVO> result = new ArrayList<AttackSnapshotVO>();
-        for (StationSnapshotDO row : stationSnapshotMapper.selectActive()) {
+        for (StationSnapshotDO row : rows) {
             StationDO station = visible.get(row.getStationId());
             if (station == null) {
                 continue;
             }
             AttackSnapshotVO live = liveSnapshot(station, now);
-            if (nz(live.getInCount()) + nz(live.getWarnCount()) + nz(live.getDangerCount()) <= 0) {
+            if (since == null
+                    && nz(live.getInCount()) + nz(live.getWarnCount()) + nz(live.getDangerCount()) <= 0) {
                 continue;
             }
             result.add(live);
@@ -371,6 +404,7 @@ public class AttackServiceImpl implements AttackService {
         }
         return AttackEventResultVO.builder()
                 .duplicate(Boolean.TRUE)
+                .cloudOverride(Boolean.FALSE)
                 .person(personVo)
                 .attack(buildStationAttack(station, writable, now))
                 .build();
@@ -390,13 +424,40 @@ public class AttackServiceImpl implements AttackService {
         attackEventMapper.insert(event);
     }
 
-    private void refreshSnapshot(Long stationId, LocalDateTime now) {
+    private AttackSnapshotVO refreshSnapshot(Long stationId, LocalDateTime now) {
         List<AttackPersonDO> persons = attackPersonMapper.selectByStationId(stationId);
         Map<Long, ScbaCalibrationDO> latest = latestCalibrationMap(stationId);
         for (AttackPersonDO person : persons) {
             refreshDisplayedRemain(person, now, latest.get(person.getProfileId()));
         }
         persistLiveSnapshot(stationId, countStatuses(persons), now);
+        StationDO station = stationMapper.selectById(stationId);
+        if (station == null) {
+            StationDO fallback = new StationDO();
+            fallback.setId(stationId);
+            return liveSnapshot(fallback, now);
+        }
+        return liveSnapshot(station, now);
+    }
+
+    private void publishAfterCommit(AttackSnapshotVO snapshot) {
+        if (snapshot == null) {
+            return;
+        }
+        Runnable publish = () -> {
+            commandPushService.broadcast(snapshot);
+            attackRealtimePublisher.publishSnapshot(snapshot);
+        };
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            publish.run();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                publish.run();
+            }
+        });
     }
 
     private StatusCounts countStatuses(List<AttackPersonDO> persons) {
@@ -437,6 +498,7 @@ public class AttackServiceImpl implements AttackService {
 
     private AttackSnapshotVO countsToSnapshot(StationDO station, StatusCounts counts, LocalDateTime now) {
         StationSnapshotDO existed = stationSnapshotMapper.selectByStationId(station.getId());
+        LocalDateTime lastEvent = existed == null ? now : existed.getLastEventAt();
         return AttackSnapshotVO.builder()
                 .stationId(station.getId())
                 .stationName(station.getName())
@@ -448,9 +510,24 @@ public class AttackServiceImpl implements AttackService {
                 .outCount(counts.outCount)
                 .pendingCount(counts.pendingCount)
                 .groupCount(counts.groupCount)
-                .lastEventAt(existed == null ? now : existed.getLastEventAt())
+                .lastEventAt(lastEvent)
                 .gmtModified(now)
+                .staleSec(staleSec(lastEvent, now))
                 .build();
+    }
+
+    private Integer staleSec(LocalDateTime lastEvent, LocalDateTime now) {
+        if (lastEvent == null || now == null) {
+            return null;
+        }
+        long seconds = Duration.between(lastEvent, now).getSeconds();
+        if (seconds < 0L) {
+            return 0;
+        }
+        if (seconds > Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+        return (int) seconds;
     }
 
     private void persistLiveSnapshot(Long stationId, StatusCounts counts, LocalDateTime now) {
@@ -709,5 +786,21 @@ public class AttackServiceImpl implements AttackService {
         }
         String trimmed = raw.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private LocalDateTime parseSince(String since) {
+        if (since == null || since.isBlank()) {
+            return null;
+        }
+        String trimmed = since.trim();
+        try {
+            return LocalDateTime.parse(trimmed, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        } catch (DateTimeParseException ex) {
+            try {
+                return LocalDateTime.parse(trimmed, DateTimeFormatter.ISO_DATE_TIME);
+            } catch (DateTimeParseException nested) {
+                throw new BizException(ErrorCodeConstant.PARAM_INVALID, MSG_SINCE_INVALID);
+            }
+        }
     }
 }

@@ -98,6 +98,11 @@ public final class ApiPathConstant {
      */
     public static final String ATTACK_SNAPSHOTS = "/attack/snapshots";
 
+    /**
+     * 指挥端 WebSocket。查询参数 token=访问令牌。
+     */
+    public static final String WS_COMMAND = "/ws/command";
+
     private ApiPathConstant() {
     }
 }

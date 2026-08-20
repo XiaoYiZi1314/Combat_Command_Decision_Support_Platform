@@ -60,4 +60,12 @@
         WHERE (in_count + warn_count + danger_count) &gt; 0
         ORDER BY last_event_at DESC, station_id ASC
     </select>
+
+    <select id="selectModifiedSince" resultMap="StationSnapshotResultMap">
+        SELECT
+        <include refid="SnapshotColumns"/>
+        FROM ccds_station_snapshot
+        WHERE gmt_modified &gt;= #{since}
+        ORDER BY gmt_modified ASC, station_id ASC
+    </select>
 </mapper>

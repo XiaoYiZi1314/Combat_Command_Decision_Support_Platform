@@ -31,4 +31,9 @@ public class AttackEventResultVO {
      * 最新本站内攻。
      */
     private StationAttackVO attack;
+
+    /**
+     * 是否用云端卡片覆盖了本机刚写的结果。
+     */
+    private Boolean cloudOverride;
 }

@@ -1,6 +1,9 @@
 spring:
   application:
     name: ccds-bootstrap
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
   datasource:
     url: ${CCDS_MYSQL_URL:jdbc:mysql://127.0.0.1:3306/ccds?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai}
     username: ${CCDS_MYSQL_USERNAME:ccds}
@@ -15,6 +18,9 @@ spring:
       host: ${CCDS_REDIS_HOST:127.0.0.1}
       port: ${CCDS_REDIS_PORT:6379}
       password: ${CCDS_REDIS_PASSWORD:}
+      timeout: 3s
+      lettuce:
+        shutdown-timeout: 100ms
 
 mybatis:
   mapper-locations: classpath:mapper/**/*.xml

@@ -120,6 +120,16 @@
   color: #7ddf9b;
 }
 
+.sync-hint {
+  padding: 6px 14px 0;
+  font-size: 11px;
+  color: var(--dim);
+}
+
+.sync-hint.ok {
+  color: var(--green);
+}
+
 .list.main-pager {
   display: flex;
   gap: 0;

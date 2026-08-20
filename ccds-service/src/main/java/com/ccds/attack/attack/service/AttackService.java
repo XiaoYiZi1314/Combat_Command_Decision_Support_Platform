@@ -39,7 +39,8 @@ public interface AttackService {
      * 指挥端快照。仅可见且正在内攻人数大于 0 的站。
      *
      * @param principal 当前身份
+     * @param since     增量起点 ISO-8601，空则全量活跃站
      * @return 快照列表，不会为 null
      */
-    List<AttackSnapshotVO> listSnapshots(AuthPrincipal principal);
+    List<AttackSnapshotVO> listSnapshots(AuthPrincipal principal, String since);
 }
