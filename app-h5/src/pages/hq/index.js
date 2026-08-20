@@ -3,10 +3,10 @@ import { getMe, getAccessToken } from '../../stores/session.js';
 import { fetchAttackSnapshots } from '../../api/attack.js';
 import { refreshSession } from '../../api/auth.js';
 import {
-  SYNC,
+  connectCommandSocket,
   snapshotStaleClass,
-  snapshotStaleText,
-  wsUrl
+  snapshotStaleSec,
+  snapshotStaleText
 } from '../../lib/sync.js';
 
 function el(tag, className, text) {
@@ -56,9 +56,6 @@ export function renderHqPage(root) {
     rows: {},
     mode: 'ws',
     since: '',
-    socket: null,
-    pollTimer: null,
-    fallbackTimer: null,
     closed: false
   };
 
@@ -95,7 +92,8 @@ export function renderHqPage(root) {
     }
     const now = Date.now();
     rows.forEach((row) => {
-      const card = el('div', `hq-card ${snapshotStaleClass(row.staleSec)}`);
+      const staleSec = snapshotStaleSec(row.lastEventAt, now);
+      const card = el('div', `hq-card ${snapshotStaleClass(staleSec)}`);
       card.appendChild(el('div', 'name', row.stationName || '消防站'));
       if (row.brigadeName) {
         card.appendChild(el('div', 'brigade', row.brigadeName));
@@ -139,98 +137,37 @@ export function renderHqPage(root) {
     }
   }
 
-  function stopPoll() {
-    if (state.pollTimer) {
-      window.clearInterval(state.pollTimer);
-      state.pollTimer = null;
-    }
-  }
-
-  function startPoll() {
-    if (state.pollTimer || state.closed) {
-      return;
-    }
-    setMode('poll', '轮询中（WebSocket 已断开）');
-    poll(true);
-    state.pollTimer = window.setInterval(() => poll(true), SYNC.pollIntervalMs);
-  }
-
-  function closeSocket() {
-    if (state.socket) {
-      try {
-        state.socket.close();
-      } catch (err) {
-        console.warn('hq ws close failed', err.name);
-      }
-      state.socket = null;
-    }
-  }
-
-  async function connectWs() {
-    if (state.closed) {
-      return;
-    }
-    let token = getAccessToken();
-    if (!token) {
+  async function token() {
+    let access = getAccessToken();
+    if (!access) {
       const refreshed = await refreshSession();
-      token = refreshed && refreshed.accessToken ? refreshed.accessToken : getAccessToken();
+      access = refreshed && refreshed.accessToken ? refreshed.accessToken : getAccessToken();
     }
-    if (!token) {
-      startPoll();
-      return;
-    }
-    closeSocket();
-    const socket = new WebSocket(wsUrl(token));
-    state.socket = socket;
-    socket.addEventListener('open', () => {
-      if (state.fallbackTimer) {
-        window.clearTimeout(state.fallbackTimer);
-        state.fallbackTimer = null;
-      }
-      stopPoll();
-      setMode('ws', '实时推送已连接');
-      poll(false);
-    });
-    socket.addEventListener('message', (event) => {
-      try {
-        const payload = JSON.parse(event.data);
-        if (payload && payload.snapshot) {
-          applyRows([payload.snapshot]);
-        }
-      } catch (err) {
-        console.warn('hq ws payload invalid', err.name);
-      }
-    });
-    socket.addEventListener('close', () => {
-      if (state.closed) {
-        return;
-      }
-      state.socket = null;
-      if (state.fallbackTimer) {
-        window.clearTimeout(state.fallbackTimer);
-      }
-      state.fallbackTimer = window.setTimeout(() => {
-        startPoll();
-        connectWs();
-      }, SYNC.pollAfterDisconnectMs);
-    });
-    socket.addEventListener('error', () => {
-      if (socket.readyState !== WebSocket.OPEN) {
-        socket.close();
-      }
-    });
+    return access;
   }
+
+  const disconnect = connectCommandSocket({
+    token,
+    onOpen() {
+      setMode('ws', '实时推送已连接');
+      poll(Boolean(state.since));
+    },
+    onMessage(payload) {
+      if (payload && payload.snapshot) {
+        applyRows([payload.snapshot]);
+      }
+    },
+    onPoll(incremental) {
+      setMode('poll', '轮询中（WebSocket 已断开）');
+      poll(incremental);
+    }
+  });
 
   const tick = window.setInterval(renderList, 1000);
-  poll(false).then(() => connectWs());
 
   return () => {
     state.closed = true;
     window.clearInterval(tick);
-    stopPoll();
-    if (state.fallbackTimer) {
-      window.clearTimeout(state.fallbackTimer);
-    }
-    closeSocket();
+    disconnect();
   };
 }

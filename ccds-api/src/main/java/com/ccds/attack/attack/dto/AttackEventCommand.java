@@ -1,6 +1,7 @@
 package com.ccds.attack.attack.dto;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -94,4 +95,9 @@ public class AttackEventCommand {
      */
     @Size(max = RosterRuleConstant.NFC_MAX_LENGTH)
     private String nfcTag;
+
+    /**
+     * 本机卡片修改时间。冲突时与云端 gmtModified 比较。
+     */
+    private LocalDateTime clientUpdatedAt;
 }

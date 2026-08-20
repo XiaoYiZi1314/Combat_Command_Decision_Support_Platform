@@ -161,21 +161,6 @@ public final class AttackRuleConstant {
     public static final int OFFLINE_RETRY_MAX_MS = 30000;
 
     /**
-     * Redis 内攻快照通道。
-     */
-    public static final String REDIS_ATTACK_CHANNEL = "ccds:attack:snapshot";
-
-    /**
-     * Redis 补传去重键前缀。
-     */
-    public static final String REDIS_EVENT_DEDUP_PREFIX = "ccds:attack:event:";
-
-    /**
-     * Redis 补传去重键过期秒。
-     */
-    public static final long REDIS_EVENT_DEDUP_TTL_SECONDS = 7L * 24L * 3600L;
-
-    /**
      * 指挥 WS 握手查询参数名。
      */
     public static final String WS_TOKEN_QUERY = "token";

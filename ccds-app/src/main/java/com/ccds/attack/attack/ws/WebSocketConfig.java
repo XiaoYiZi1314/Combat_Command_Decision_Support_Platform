@@ -31,6 +31,9 @@ public class WebSocketConfig implements WebSocketConfigurer {
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(commandWebSocketHandler, ApiPathConstant.WS_COMMAND)
                 .addInterceptors(commandHandshakeInterceptor)
-                .setAllowedOriginPatterns("http://127.0.0.1:*", "http://localhost:*");
+                .setAllowedOriginPatterns(
+                        "http://127.0.0.1:*",
+                        "http://localhost:*",
+                        "https://*");
     }
 }

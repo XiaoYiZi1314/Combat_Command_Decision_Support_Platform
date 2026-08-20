@@ -91,6 +91,18 @@ public class AttackViewTranslator {
      * @return 视图
      */
     public AttackSnapshotVO toSnapshotVo(StationSnapshotDO snapshot, StationDO station) {
+        return toSnapshotVo(snapshot, station, LocalDateTime.now());
+    }
+
+    /**
+     * 快照视图。
+     *
+     * @param snapshot 快照
+     * @param station  站
+     * @param now      当前时间
+     * @return 视图
+     */
+    public AttackSnapshotVO toSnapshotVo(StationSnapshotDO snapshot, StationDO station, LocalDateTime now) {
         if (snapshot == null) {
             return AttackSnapshotVO.builder()
                     .stationId(station.getId())
@@ -103,8 +115,10 @@ public class AttackViewTranslator {
                     .outCount(0)
                     .pendingCount(0)
                     .groupCount(0)
+                    .staleSec(null)
                     .build();
         }
+        LocalDateTime lastEvent = snapshot.getLastEventAt();
         return AttackSnapshotVO.builder()
                 .stationId(snapshot.getStationId())
                 .stationName(station.getName())
@@ -116,10 +130,24 @@ public class AttackViewTranslator {
                 .outCount(nz(snapshot.getOutCount()))
                 .pendingCount(nz(snapshot.getPendingCount()))
                 .groupCount(nz(snapshot.getGroupCount()))
-                .lastEventAt(snapshot.getLastEventAt())
+                .lastEventAt(lastEvent)
                 .gmtModified(snapshot.getGmtModified())
-                .staleSec(null)
+                .staleSec(staleSec(lastEvent, now))
                 .build();
+    }
+
+    private Integer staleSec(LocalDateTime lastEvent, LocalDateTime now) {
+        if (lastEvent == null || now == null) {
+            return null;
+        }
+        long seconds = Duration.between(lastEvent, now).getSeconds();
+        if (seconds < 0L) {
+            return 0;
+        }
+        if (seconds > Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+        return (int) seconds;
     }
 
     /**

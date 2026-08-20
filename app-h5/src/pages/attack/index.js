@@ -324,7 +324,8 @@ export function renderAttackPage(root) {
         del.addEventListener('click', () => submit({
           eventId: newEventId(),
           type: 'delete',
-          personId: person.id
+          personId: person.id,
+          clientUpdatedAt: person.gmtModified || null
         }, '已删除'));
         actionsRow.appendChild(enter);
         actionsRow.appendChild(del);
@@ -341,7 +342,8 @@ export function renderAttackPage(root) {
         out.addEventListener('click', () => submit({
           eventId: newEventId(),
           type: 'withdraw',
-          personId: person.id
+          personId: person.id,
+          clientUpdatedAt: person.gmtModified || null
         }, `${person.displayName} 已撤出`));
         actionsRow.appendChild(update);
         actionsRow.appendChild(out);
@@ -795,13 +797,29 @@ export function renderAttackPage(root) {
     showToast('本组未在场人员已预录入');
   }
 
+  function withClientUpdatedAt(body) {
+    const next = Object.assign({}, body);
+    if (next.clientUpdatedAt) {
+      return next;
+    }
+    if (next.personId == null) {
+      return next;
+    }
+    const local = ((state.attack && state.attack.persons) || []).find((p) => String(p.id) === String(next.personId));
+    if (local && local.gmtModified) {
+      next.clientUpdatedAt = local.gmtModified;
+    }
+    return next;
+  }
+
   async function submit(body, okText) {
     if (!state.stationId) {
       showToast('没有可见单位');
       return null;
     }
-    const local = applyLocalEvent(body);
-    enqueueAttackEvent(state.stationId, body);
+    const payload = withClientUpdatedAt(body);
+    const local = applyLocalEvent(payload);
+    await enqueueAttackEvent(state.stationId, payload);
     state.openEnterId = '';
     state.openUpdateId = '';
     renderStats();
@@ -812,7 +830,7 @@ export function renderAttackPage(root) {
       if (err.code === 'ATTACK_PERSON_DUPLICATE') {
         showToast(err.message || '该人员已有未撤出卡片');
         await load();
-        const existing = body.profileId ? findActiveByProfile(body.profileId) : findActiveByName(body.displayName);
+        const existing = payload.profileId ? findActiveByProfile(payload.profileId) : findActiveByName(payload.displayName);
         if (existing) {
           focusPerson(existing.id);
         }
@@ -823,8 +841,8 @@ export function renderAttackPage(root) {
         return local;
       }
     }
-    const current = body.profileId ? findActiveByProfile(body.profileId) : local;
-    if (current && body.type === 'pre_add') {
+    const current = payload.profileId ? findActiveByProfile(payload.profileId) : local;
+    if (current && payload.type === 'pre_add') {
       focusPerson(current.id);
     }
     if (okText) {
@@ -849,58 +867,65 @@ export function renderAttackPage(root) {
       title.textContent = next.stationName;
       sub.textContent = headSub(me, next);
     }
-    renderSyncHint();
+    renderSyncHint().catch(() => undefined);
   }
 
-  function renderSyncHint() {
-    const n = attackQueueLength();
+  async function renderSyncHint() {
+    const n = await attackQueueLength();
     syncHint.textContent = `同步状态：${syncStatusText(state.online, n)}`;
     syncHint.className = state.online && n === 0 ? 'sync-hint ok' : 'sync-hint';
   }
 
   async function flushQueue() {
-    while (peekAttackQueue().length) {
-      const item = peekAttackQueue()[0];
+    while (true) {
+      const queue = await peekAttackQueue();
+      if (!queue.length) {
+        break;
+      }
+      const item = queue[0];
       const wait = Number(item.nextAt || 0) - Date.now();
       if (wait > 0) {
         return;
       }
       try {
         const result = await submitAttackEvent(item.stationId, item.body);
-        dropQueueHead();
+        await dropQueueHead();
         if (item.body && item.body.eventId) {
           markWrittenEvent(item.body.eventId);
         }
         if (item.body && item.body.type === 'pre_add' && result.person && item.body.eventId) {
-          rewriteQueuedPersonId(`local_${item.body.eventId}`, result.person.id);
+          await rewriteQueuedPersonId(`local_${item.body.eventId}`, result.person.id);
         }
         if (String(item.stationId) === String(state.stationId) && result.attack) {
           applyAttack(result.attack, { merge: true });
         }
-        renderSyncHint();
+        if (result && result.cloudOverride) {
+          showToast(SYNC.cloudOverride);
+        }
+        await renderSyncHint();
       } catch (err) {
         if (isTransient(err) || err.code === 'NETWORK') {
           state.online = false;
-          const attempts = markQueueRetry(retryDelayMs(item.attempts || 0));
+          const attempts = await markQueueRetry(retryDelayMs(item.attempts || 0));
           if (attempts >= SYNC.retryMax) {
             showToast(`待传失败 ${attempts} 次，点云同步重试`);
           }
-          renderSyncHint();
+          await renderSyncHint();
           return;
         }
         if (isDropEvent(err)) {
-          dropQueueHead();
-          renderSyncHint();
+          await dropQueueHead();
+          await renderSyncHint();
           throw err;
         }
         state.online = false;
-        markQueueRetry(retryDelayMs(item.attempts || 0));
-        renderSyncHint();
+        await markQueueRetry(retryDelayMs(item.attempts || 0));
+        await renderSyncHint();
         return;
       }
     }
     state.online = true;
-    renderSyncHint();
+    await renderSyncHint();
   }
 
   async function load() {
@@ -926,7 +951,7 @@ export function renderAttackPage(root) {
       renderCards();
     } catch (err) {
       state.online = err.code === 'NETWORK' ? false : state.online;
-      renderSyncHint();
+      await renderSyncHint();
       if (!cached) {
         peoplePage.textContent = err.message || '加载失败';
       } else {
@@ -950,16 +975,16 @@ export function renderAttackPage(root) {
     }
     state.syncing = true;
     syncBtn.textContent = '同步中…';
-    resetQueueBackoff();
+    await resetQueueBackoff();
     try {
       await flushQueue();
       await load();
-      const n = attackQueueLength();
+      const n = await attackQueueLength();
       showToast(n ? `仍有 ${n} 条待传` : '已同步');
     } finally {
       state.syncing = false;
       syncBtn.textContent = '云同步';
-      renderSyncHint();
+      await renderSyncHint();
     }
   });
   nfcBtn.addEventListener('click', async () => {
@@ -1050,7 +1075,7 @@ export function renderAttackPage(root) {
   };
   const onOffline = () => {
     state.online = false;
-    renderSyncHint();
+    renderSyncHint().catch(() => undefined);
   };
   window.addEventListener('online', onOnline);
   window.addEventListener('offline', onOffline);
@@ -1061,10 +1086,12 @@ export function renderAttackPage(root) {
     }
     renderStats();
     renderCards();
-    const head = peekAttackQueue()[0];
-    if (head && Number(head.nextAt || 0) <= Date.now()) {
-      flushQueue().catch(() => undefined);
-    }
+    peekAttackQueue().then((queue) => {
+      const head = queue[0];
+      if (head && Number(head.nextAt || 0) <= Date.now()) {
+        flushQueue().catch(() => undefined);
+      }
+    }).catch(() => undefined);
   }, 1000);
   renderSyncHint();
 

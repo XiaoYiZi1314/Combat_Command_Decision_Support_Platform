@@ -38,8 +38,6 @@ public class CommandPushServiceImpl implements CommandPushService {
 
     private final Map<String, SessionEntry> sessions = new ConcurrentHashMap<String, SessionEntry>();
 
-    private final Map<Long, String> lastFingerprints = new ConcurrentHashMap<Long, String>();
-
     /**
      * {@inheritDoc}
      */
@@ -82,11 +80,6 @@ public class CommandPushServiceImpl implements CommandPushService {
         if (snapshot == null || snapshot.getStationId() == null) {
             return;
         }
-        String fingerprint = fingerprint(snapshot);
-        String previous = lastFingerprints.put(snapshot.getStationId(), fingerprint);
-        if (fingerprint.equals(previous)) {
-            return;
-        }
         CommandPushVO push = CommandPushVO.builder()
                 .type(TYPE_SNAPSHOT)
                 .snapshot(snapshot)
@@ -102,18 +95,6 @@ public class CommandPushServiceImpl implements CommandPushService {
                 log.warn("command ws send failed stationId={}", stationId, ex);
             }
         }
-    }
-
-    private String fingerprint(AttackSnapshotVO snapshot) {
-        StringBuilder builder = new StringBuilder();
-        builder.append(snapshot.getStationId()).append('|')
-                .append(snapshot.getInCount()).append('|')
-                .append(snapshot.getWarnCount()).append('|')
-                .append(snapshot.getDangerCount()).append('|')
-                .append(snapshot.getOutCount()).append('|')
-                .append(snapshot.getPendingCount()).append('|')
-                .append(snapshot.getGmtModified());
-        return builder.toString();
     }
 
     private static final class SessionEntry {

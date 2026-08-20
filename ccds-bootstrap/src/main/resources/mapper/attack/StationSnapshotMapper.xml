@@ -65,7 +65,7 @@
         SELECT
         <include refid="SnapshotColumns"/>
         FROM ccds_station_snapshot
-        WHERE gmt_modified &gt;= #{since}
+        WHERE gmt_modified &gt; #{since}
         ORDER BY gmt_modified ASC, station_id ASC
     </select>
 </mapper>

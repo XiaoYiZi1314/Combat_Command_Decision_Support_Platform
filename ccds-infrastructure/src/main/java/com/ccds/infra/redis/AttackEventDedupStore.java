@@ -15,4 +15,11 @@ public interface AttackEventDedupStore {
      * @return true 表示首次见到该键
      */
     boolean tryMark(String eventId);
+
+    /**
+     * 释放占位。事务回滚或写失败时调用，允许同一 eventId 再投。
+     *
+     * @param eventId 客户端幂等键
+     */
+    void release(String eventId);
 }

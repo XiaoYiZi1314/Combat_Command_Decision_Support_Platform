@@ -1,8 +1,9 @@
 import './hq.css';
-import { getMe } from '../../stores/session.js';
+import { getMe, getAccessToken } from '../../stores/session.js';
 import { fetchStationAttack } from '../../api/attack.js';
+import { refreshSession } from '../../api/auth.js';
 import { remainSecOf, resolveStatus, statusLabel, fmtMinSec, fmtElapsed, SCBA } from '../../lib/scba.js';
-import { SYNC } from '../../lib/sync.js';
+import { connectCommandSocket } from '../../lib/sync.js';
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -56,12 +57,21 @@ export function renderHqStationPage(root, params) {
   head.appendChild(sub);
   page.appendChild(head);
   page.appendChild(back);
+  const status = el('div', 'hq-status', '连接中…');
+  page.appendChild(status);
   const list = el('div', 'hq-list');
   page.appendChild(list);
   root.appendChild(page);
 
   let attack = null;
   let closed = false;
+  let mode = 'ws';
+
+  function setMode(next, text) {
+    mode = next;
+    status.textContent = text;
+    status.className = next === 'ws' ? 'hq-status live' : 'hq-status poll';
+  }
 
   function render() {
     list.innerHTML = '';
@@ -101,27 +111,52 @@ export function renderHqStationPage(root, params) {
     try {
       attack = await fetchStationAttack(stationId);
       render();
+      if (mode === 'poll') {
+        setMode('poll', '轮询中（WebSocket 已断开）');
+      }
     } catch (err) {
       list.innerHTML = '';
       list.appendChild(el('div', 'hq-empty', err.message || '加载失败'));
     }
   }
 
+  async function token() {
+    let access = getAccessToken();
+    if (!access) {
+      const refreshed = await refreshSession();
+      access = refreshed && refreshed.accessToken ? refreshed.accessToken : getAccessToken();
+    }
+    return access;
+  }
+
+  const disconnect = connectCommandSocket({
+    token,
+    onOpen() {
+      setMode('ws', '实时推送已连接');
+      load();
+    },
+    onMessage(payload) {
+      const snapshot = payload && payload.snapshot;
+      if (!snapshot || String(snapshot.stationId) !== String(stationId)) {
+        return;
+      }
+      load();
+    },
+    onPoll() {
+      setMode('poll', '轮询中（WebSocket 已断开）');
+      load();
+    }
+  });
+
   const tick = window.setInterval(() => {
-    if (attack) {
+    if (attack && !closed) {
       render();
     }
   }, 1000);
-  const poll = window.setInterval(() => {
-    if (!closed) {
-      load();
-    }
-  }, SYNC.pollIntervalMs);
-  load();
 
   return () => {
     closed = true;
     window.clearInterval(tick);
-    window.clearInterval(poll);
+    disconnect();
   };
 }

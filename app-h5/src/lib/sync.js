@@ -120,6 +120,17 @@ export function mergeAttack(localAttack, remoteAttack, justWrittenEventIds) {
   };
 }
 
+export function snapshotStaleSec(lastEventAt, nowMs) {
+  if (!lastEventAt) {
+    return null;
+  }
+  const ts = new Date(lastEventAt).getTime();
+  if (!Number.isFinite(ts)) {
+    return null;
+  }
+  return Math.max(0, Math.floor(((nowMs || Date.now()) - ts) / 1000));
+}
+
 export function snapshotStaleClass(staleSec) {
   const n = Number(staleSec);
   if (!Number.isFinite(n)) {
@@ -135,14 +146,10 @@ export function snapshotStaleClass(staleSec) {
 }
 
 export function snapshotStaleText(lastEventAt, nowMs) {
-  if (!lastEventAt) {
+  const sec = snapshotStaleSec(lastEventAt, nowMs);
+  if (sec == null) {
     return '';
   }
-  const ts = new Date(lastEventAt).getTime();
-  if (!Number.isFinite(ts)) {
-    return '';
-  }
-  const sec = Math.max(0, Math.floor(((nowMs || Date.now()) - ts) / 1000));
   if (sec >= SYNC.staleRedSec) {
     return SYNC.staleHint;
   }
@@ -150,4 +157,115 @@ export function snapshotStaleText(lastEventAt, nowMs) {
     return '超过 2 分钟未更新';
   }
   return '';
+}
+
+export function connectCommandSocket(handlers) {
+  const cbs = handlers || {};
+  const state = {
+    socket: null,
+    pollTimer: null,
+    fallbackTimer: null,
+    closed: false
+  };
+
+  function stopPoll() {
+    if (state.pollTimer) {
+      window.clearInterval(state.pollTimer);
+      state.pollTimer = null;
+    }
+  }
+
+  function startPoll() {
+    if (state.pollTimer || state.closed) {
+      return;
+    }
+    if (typeof cbs.onPoll === 'function') {
+      cbs.onPoll(true);
+    }
+    state.pollTimer = window.setInterval(() => {
+      if (typeof cbs.onPoll === 'function') {
+        cbs.onPoll(true);
+      }
+    }, SYNC.pollIntervalMs);
+  }
+
+  function closeSocket() {
+    if (state.socket) {
+      try {
+        state.socket.close();
+      } catch (err) {
+        console.warn('hq ws close failed', err.name);
+      }
+      state.socket = null;
+    }
+  }
+
+  async function connectWs() {
+    if (state.closed) {
+      return;
+    }
+    let token = '';
+    if (typeof cbs.token === 'function') {
+      token = await cbs.token();
+    }
+    if (!token) {
+      startPoll();
+      return;
+    }
+    closeSocket();
+    const socket = new WebSocket(wsUrl(token));
+    state.socket = socket;
+    socket.addEventListener('open', () => {
+      if (state.fallbackTimer) {
+        window.clearTimeout(state.fallbackTimer);
+        state.fallbackTimer = null;
+      }
+      stopPoll();
+      if (typeof cbs.onOpen === 'function') {
+        cbs.onOpen();
+      }
+    });
+    socket.addEventListener('message', (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        if (typeof cbs.onMessage === 'function') {
+          cbs.onMessage(payload);
+        }
+      } catch (err) {
+        console.warn('hq ws payload invalid', err.name);
+      }
+    });
+    socket.addEventListener('close', () => {
+      if (state.closed) {
+        return;
+      }
+      state.socket = null;
+      if (state.fallbackTimer) {
+        window.clearTimeout(state.fallbackTimer);
+      }
+      state.fallbackTimer = window.setTimeout(() => {
+        startPoll();
+        connectWs();
+      }, SYNC.pollAfterDisconnectMs);
+    });
+    socket.addEventListener('error', () => {
+      if (socket.readyState !== WebSocket.OPEN) {
+        socket.close();
+      }
+    });
+  }
+
+  if (typeof cbs.onPoll === 'function') {
+    cbs.onPoll(false);
+  }
+  connectWs();
+
+  return () => {
+    state.closed = true;
+    stopPoll();
+    if (state.fallbackTimer) {
+      window.clearTimeout(state.fallbackTimer);
+    }
+    closeSocket();
+  };
 }

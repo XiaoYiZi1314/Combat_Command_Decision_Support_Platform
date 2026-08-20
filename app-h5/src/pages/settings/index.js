@@ -33,7 +33,13 @@ export function renderSettingsPage(root) {
   const syncCard = el('div', 'hq-card');
   const online = typeof navigator === 'undefined' ? true : navigator.onLine;
   syncCard.appendChild(el('div', 'name', '同步状态'));
-  syncCard.appendChild(el('div', 'hq-meta', syncStatusText(online, attackQueueLength())));
+  const meta = el('div', 'hq-meta', '读取中…');
+  syncCard.appendChild(meta);
+  attackQueueLength().then((n) => {
+    meta.textContent = syncStatusText(online, n);
+  }).catch(() => {
+    meta.textContent = syncStatusText(online, 0);
+  });
   list.appendChild(syncCard);
   const out = el('button', 'hq-back', '退出登录');
   out.type = 'button';

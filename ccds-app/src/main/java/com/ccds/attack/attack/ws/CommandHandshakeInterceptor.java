@@ -51,7 +51,7 @@ public class CommandHandshakeInterceptor implements HandshakeInterceptor {
         try {
             payload = jwtTokenUtil.parseAccessToken(token);
         } catch (RuntimeException ex) {
-            log.warn("command ws token parse failed");
+            log.warn("command ws token parse failed", ex);
             return false;
         }
         AccountRoleEnum role = AccountRoleEnum.fromCode(payload.getRole());
@@ -71,7 +71,7 @@ public class CommandHandshakeInterceptor implements HandshakeInterceptor {
             authGuardService.assertActiveSession(principal);
             authGuardService.assertPasswordChangedIfRequired(principal);
         } catch (RuntimeException ex) {
-            log.warn("command ws auth rejected");
+            log.warn("command ws auth rejected", ex);
             return false;
         }
         attributes.put(RequestAttributeConstant.AUTH_PRINCIPAL, principal);

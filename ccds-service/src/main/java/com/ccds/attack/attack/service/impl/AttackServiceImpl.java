@@ -156,14 +156,15 @@ public class AttackServiceImpl implements AttackService {
         LocalDateTime now = LocalDateTime.now();
         AttackEventDO existed = attackEventMapper.selectByClientEventId(eventId);
         if (existed != null) {
-            return duplicateResult(station, existed, now, true);
+            return duplicateResult(station, existed, now, true, command);
         }
         boolean firstSeen = attackEventDedupStore.tryMark(eventId);
         if (!firstSeen) {
             AttackEventDO racedEarly = attackEventMapper.selectByClientEventId(eventId);
             if (racedEarly != null) {
-                return duplicateResult(station, racedEarly, now, true);
+                return duplicateResult(station, racedEarly, now, true, command);
             }
+            throw new BizException(ErrorCodeConstant.ATTACK_EVENT_INVALID, MSG_EVENT_INVALID);
         }
         AttackPersonDO person;
         try {
@@ -171,7 +172,11 @@ public class AttackServiceImpl implements AttackService {
             insertEvent(stationId, person, type, eventId, now);
         } catch (DuplicateKeyException ex) {
             return recoverDuplicateKey(station, stationId, command, eventId, now, ex);
+        } catch (RuntimeException ex) {
+            attackEventDedupStore.release(eventId);
+            throw ex;
         }
+        releaseDedupAfterRollback(eventId);
         AttackSnapshotVO snapshot = refreshSnapshot(stationId, now);
         publishAfterCommit(snapshot);
         log.info("attack event type={} stationId={} personId={} eventIdHash={}",
@@ -181,11 +186,12 @@ public class AttackServiceImpl implements AttackService {
         if (person != null && type != AttackEventTypeEnum.DELETE) {
             personVo = toLivePerson(person, now);
         }
+        StationAttackVO attack = buildStationAttack(station, true, now);
         return AttackEventResultVO.builder()
                 .duplicate(Boolean.FALSE)
-                .cloudOverride(Boolean.FALSE)
+                .cloudOverride(Boolean.valueOf(isCloudOverride(command, personVo, attack)))
                 .person(personVo)
-                .attack(buildStationAttack(station, true, now))
+                .attack(attack)
                 .build();
     }
 
@@ -211,7 +217,7 @@ public class AttackServiceImpl implements AttackService {
                                                     String eventId, LocalDateTime now, DuplicateKeyException ex) {
         AttackEventDO raced = attackEventMapper.selectByClientEventId(eventId);
         if (raced != null) {
-            return duplicateResult(station, raced, now, true);
+            return duplicateResult(station, raced, now, true, command);
         }
         ProfileDO profile = resolveProfileQuiet(stationId, command);
         String displayName = profile != null ? profile.getName() : trimToNull(command.getDisplayName());
@@ -241,12 +247,12 @@ public class AttackServiceImpl implements AttackService {
             if (station == null) {
                 continue;
             }
-            AttackSnapshotVO live = liveSnapshot(station, now);
+            AttackSnapshotVO snapshot = attackViewTranslator.toSnapshotVo(row, station, now);
             if (since == null
-                    && nz(live.getInCount()) + nz(live.getWarnCount()) + nz(live.getDangerCount()) <= 0) {
+                    && nz(snapshot.getInCount()) + nz(snapshot.getWarnCount()) + nz(snapshot.getDangerCount()) <= 0) {
                 continue;
             }
-            result.add(live);
+            result.add(snapshot);
         }
         return result;
     }
@@ -393,7 +399,7 @@ public class AttackServiceImpl implements AttackService {
     }
 
     private AttackEventResultVO duplicateResult(StationDO station, AttackEventDO existed, LocalDateTime now,
-                                                boolean writable) {
+                                                boolean writable, AttackEventCommand command) {
         AttackPersonDO person = existed.getPersonId() == null
                 ? null
                 : attackPersonMapper.selectById(existed.getPersonId());
@@ -402,12 +408,48 @@ public class AttackServiceImpl implements AttackService {
         if (person != null && existedType != AttackEventTypeEnum.DELETE) {
             personVo = toLivePerson(person, now);
         }
+        StationAttackVO attack = buildStationAttack(station, writable, now);
         return AttackEventResultVO.builder()
                 .duplicate(Boolean.TRUE)
-                .cloudOverride(Boolean.FALSE)
+                .cloudOverride(Boolean.valueOf(isCloudOverride(command, personVo, attack)))
                 .person(personVo)
-                .attack(buildStationAttack(station, writable, now))
+                .attack(attack)
                 .build();
+    }
+
+    private boolean isCloudOverride(AttackEventCommand command, AttackPersonVO person, StationAttackVO attack) {
+        if (command == null || command.getClientUpdatedAt() == null) {
+            return false;
+        }
+        LocalDateTime localAt = command.getClientUpdatedAt();
+        if (person != null && person.getGmtModified() != null && person.getGmtModified().isAfter(localAt)) {
+            return true;
+        }
+        if (attack == null || attack.getPersons() == null || command.getPersonId() == null) {
+            return false;
+        }
+        for (AttackPersonVO item : attack.getPersons()) {
+            if (item.getId() != null && item.getId().equals(command.getPersonId())
+                    && item.getGmtModified() != null && item.getGmtModified().isAfter(localAt)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void releaseDedupAfterRollback(String eventId) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status != STATUS_ROLLED_BACK) {
+                    return;
+                }
+                attackEventDedupStore.release(eventId);
+            }
+        });
     }
 
     private void insertEvent(Long stationId, AttackPersonDO person, AttackEventTypeEnum type, String eventId,
@@ -430,14 +472,15 @@ public class AttackServiceImpl implements AttackService {
         for (AttackPersonDO person : persons) {
             refreshDisplayedRemain(person, now, latest.get(person.getProfileId()));
         }
-        persistLiveSnapshot(stationId, countStatuses(persons), now);
+        StatusCounts counts = countStatuses(persons);
+        persistLiveSnapshot(stationId, counts, now);
         StationDO station = stationMapper.selectById(stationId);
         if (station == null) {
             StationDO fallback = new StationDO();
             fallback.setId(stationId);
-            return liveSnapshot(fallback, now);
+            return countsToSnapshot(fallback, counts, now);
         }
-        return liveSnapshot(station, now);
+        return countsToSnapshot(station, counts, now);
     }
 
     private void publishAfterCommit(AttackSnapshotVO snapshot) {
@@ -579,15 +622,6 @@ public class AttackServiceImpl implements AttackService {
         List<AttackPersonVO> persons = attackViewTranslator.toPersonVos(live, now, calibrated, personalKs);
         AttackSnapshotVO snapshotVo = countsToSnapshot(station, countStatuses(live), now);
         return attackViewTranslator.toStationAttack(station, writable, persons, snapshotVo);
-    }
-
-    private AttackSnapshotVO liveSnapshot(StationDO station, LocalDateTime now) {
-        List<AttackPersonDO> rows = attackPersonMapper.selectByStationId(station.getId());
-        Map<Long, ScbaCalibrationDO> latest = latestCalibrationMap(station.getId());
-        for (AttackPersonDO row : rows) {
-            refreshDisplayedRemain(row, now, latest.get(row.getProfileId()));
-        }
-        return countsToSnapshot(station, countStatuses(rows), now);
     }
 
     private void refreshDisplayedRemain(AttackPersonDO person, LocalDateTime now, ScbaCalibrationDO calibration) {

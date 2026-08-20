@@ -1,8 +1,6 @@
 package com.ccds.attack.attack.ws;
 
 import java.io.IOException;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
@@ -36,8 +34,6 @@ public class CommandWebSocketHandler extends TextWebSocketHandler {
 
     private final ObjectMapper objectMapper;
 
-    private final Map<String, WebSocketSession> sessions = new ConcurrentHashMap<String, WebSocketSession>();
-
     /**
      * {@inheritDoc}
      */
@@ -48,7 +44,6 @@ public class CommandWebSocketHandler extends TextWebSocketHandler {
             closeQuiet(session, CloseStatus.NOT_ACCEPTABLE);
             return;
         }
-        sessions.put(session.getId(), session);
         commandPushService.register(session.getId(), principal, new WsSink(session));
         log.info("command ws opened sessionHash={}", Integer.valueOf(session.getId().hashCode()));
     }
@@ -58,7 +53,6 @@ public class CommandWebSocketHandler extends TextWebSocketHandler {
      */
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
-        sessions.remove(session.getId());
         commandPushService.unregister(session.getId());
         log.info("command ws closed sessionHash={} code={}", Integer.valueOf(session.getId().hashCode()),
                 Integer.valueOf(status.getCode()));
@@ -70,7 +64,6 @@ public class CommandWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void handleTransportError(WebSocketSession session, Throwable exception) {
         log.warn("command ws transport error sessionHash={}", Integer.valueOf(session.getId().hashCode()), exception);
-        sessions.remove(session.getId());
         commandPushService.unregister(session.getId());
         closeQuiet(session, CloseStatus.SERVER_ERROR);
     }
