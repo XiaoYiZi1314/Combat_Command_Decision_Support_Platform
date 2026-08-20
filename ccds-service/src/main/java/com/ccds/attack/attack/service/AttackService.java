@@ -36,7 +36,7 @@ public interface AttackService {
     AttackEventResultVO submitEvent(AuthPrincipal principal, Long stationId, AttackEventCommand command);
 
     /**
-     * 指挥端快照。仅可见且正在内攻人数大于 0 的站。
+     * 指挥端快照。仅可见且至少 1 张未撤出卡片的站。
      *
      * @param principal 当前身份
      * @param since     增量起点 ISO-8601，空则全量活跃站

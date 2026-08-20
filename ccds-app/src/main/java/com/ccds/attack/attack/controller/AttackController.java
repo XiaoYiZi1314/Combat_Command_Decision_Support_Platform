@@ -66,7 +66,7 @@ public class AttackController {
     }
 
     /**
-     * 指挥端快照。仅可见站。无 since 时只返回正在内攻人数大于 0 的站。
+     * 指挥端快照。仅可见站。无 since 时只返回有未撤出卡片的站。
      *
      * @param request HTTP 请求
      * @param since   增量起点，ISO-8601 本地时间

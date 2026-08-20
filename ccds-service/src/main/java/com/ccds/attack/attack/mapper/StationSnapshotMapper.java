@@ -42,7 +42,7 @@ public interface StationSnapshotMapper {
     int update(StationSnapshotDO snapshot);
 
     /**
-     * 有未撤出内攻人员的站快照。
+     * 有未撤出卡片（预录入或内攻中）的站快照。
      *
      * @return 快照列表，不会为 null
      */

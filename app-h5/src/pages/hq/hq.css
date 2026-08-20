@@ -11,6 +11,28 @@
   position: sticky;
   top: 0;
   z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hq-head-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.hq-head .btn-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .hq-head h1 {
@@ -89,12 +111,21 @@
   color: var(--dim);
 }
 
+.hq-card.stale-amber {
+  border-color: rgba(229, 169, 34, 0.45);
+}
+
 .hq-card.stale-amber .hq-meta {
   color: var(--amber);
 }
 
+.hq-card.stale-red {
+  border-color: rgba(248, 81, 73, 0.5);
+}
+
 .hq-card.stale-red .hq-meta {
   color: var(--red);
+  font-weight: 600;
 }
 
 .hq-empty {

@@ -154,6 +154,10 @@ async function render() {
   }
 
   if (route.path === '/attack' || route.path === '/attack/quick-add') {
+    if (me && me.role !== 'station') {
+      window.location.hash = '#/hq';
+      return;
+    }
     app.innerHTML = '';
     unmountCurrent = renderAttackPage(app) || null;
     return;
@@ -168,13 +172,16 @@ async function render() {
     renderRosterEditPage(app, params);
     return;
   }
-  if (route.path === '/hq') {
+  if (route.path === '/hq' || route.path === '/hq/station/:stationId') {
+    if (me && me.role === 'station') {
+      window.location.hash = '#/attack';
+      return;
+    }
     app.innerHTML = '';
-    unmountCurrent = renderHqPage(app) || null;
-    return;
-  }
-  if (route.path === '/hq/station/:stationId') {
-    app.innerHTML = '';
+    if (route.path === '/hq') {
+      unmountCurrent = renderHqPage(app) || null;
+      return;
+    }
     unmountCurrent = renderHqStationPage(app, params) || null;
     return;
   }

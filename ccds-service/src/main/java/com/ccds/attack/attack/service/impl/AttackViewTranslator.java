@@ -151,6 +151,20 @@ public class AttackViewTranslator {
     }
 
     /**
+     * 是否仍有未撤出卡片（预录入或内攻中）。
+     *
+     * @param snapshot 快照
+     * @return true 表示指挥首页应列出该站
+     */
+    public boolean hasUnwithdrawn(AttackSnapshotVO snapshot) {
+        if (snapshot == null) {
+            return false;
+        }
+        return nz(snapshot.getInCount()) + nz(snapshot.getWarnCount()) + nz(snapshot.getDangerCount())
+                + nz(snapshot.getPendingCount()) > 0;
+    }
+
+    /**
      * 空编组名回落到未分组。
      *
      * @param groupName 编组名

@@ -248,8 +248,7 @@ public class AttackServiceImpl implements AttackService {
                 continue;
             }
             AttackSnapshotVO snapshot = attackViewTranslator.toSnapshotVo(row, station, now);
-            if (since == null
-                    && nz(snapshot.getInCount()) + nz(snapshot.getWarnCount()) + nz(snapshot.getDangerCount()) <= 0) {
+            if (since == null && !attackViewTranslator.hasUnwithdrawn(snapshot)) {
                 continue;
             }
             result.add(snapshot);

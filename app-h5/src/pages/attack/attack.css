@@ -6,6 +6,24 @@
   padding-bottom: calc(var(--nfc-bottom-space, 86px) + env(safe-area-inset-bottom));
 }
 
+.attack-page.command-readonly {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.attack-page.command-readonly .list.main-pager {
+  height: calc(100vh - 92px);
+}
+
+.hq-back-inline {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: var(--radius-sm);
+  color: #fff;
+  font-size: 12px;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
 .attack-head {
   background: linear-gradient(135deg, var(--header-from), var(--header-to));
   padding: 8px 14px;

@@ -4,6 +4,7 @@ import { fetchAttackSnapshots } from '../../api/attack.js';
 import { refreshSession } from '../../api/auth.js';
 import {
   connectCommandSocket,
+  snapshotActiveCount,
   snapshotStaleClass,
   snapshotStaleSec,
   snapshotStaleText
@@ -20,10 +21,6 @@ function el(tag, className, text) {
   return node;
 }
 
-function activeCount(row) {
-  return Number(row.inCount || 0) + Number(row.warnCount || 0) + Number(row.dangerCount || 0);
-}
-
 function fmtTime(value) {
   if (!value) {
     return '--';
@@ -38,13 +35,31 @@ function fmtTime(value) {
   return `${hh}:${mm}:${ss}`;
 }
 
+function headTitle(me) {
+  if (me.role === 'brigade') {
+    return me.brigadeName || '大队汇总';
+  }
+  if (me.role === 'developer') {
+    return '指挥汇总';
+  }
+  return me.brigadeName || '支队汇总';
+}
+
 export function renderHqPage(root) {
   root.innerHTML = '';
   const me = getMe() || {};
   const page = el('div', 'hq-page');
   const head = el('div', 'hq-head');
-  head.appendChild(el('h1', '', me.brigadeName || '指挥汇总'));
-  head.appendChild(el('div', 'sub', '只列出有未撤出人员的站'));
+  const text = el('div', 'hq-head-text');
+  text.appendChild(el('h1', '', headTitle(me)));
+  text.appendChild(el('div', 'sub', '只列出有未撤出人员的站'));
+  head.appendChild(text);
+  const settingsBtn = el('button', 'btn-icon', '⚙');
+  settingsBtn.type = 'button';
+  settingsBtn.addEventListener('click', () => {
+    window.location.hash = '#/settings';
+  });
+  head.appendChild(settingsBtn);
   page.appendChild(head);
   const status = el('div', 'hq-status', '连接中…');
   page.appendChild(status);
@@ -62,7 +77,7 @@ export function renderHqPage(root) {
   function visibleRows() {
     return Object.keys(state.rows)
       .map((id) => state.rows[id])
-      .filter((row) => activeCount(row) > 0)
+      .filter((row) => snapshotActiveCount(row) > 0)
       .sort((a, b) => {
         const ta = a.lastEventAt ? new Date(a.lastEventAt).getTime() : 0;
         const tb = b.lastEventAt ? new Date(b.lastEventAt).getTime() : 0;
@@ -93,7 +108,7 @@ export function renderHqPage(root) {
     const now = Date.now();
     rows.forEach((row) => {
       const staleSec = snapshotStaleSec(row.lastEventAt, now);
-      const card = el('div', `hq-card ${snapshotStaleClass(staleSec)}`);
+      const card = el('div', `hq-card ${snapshotStaleClass(staleSec)}`.trim());
       card.appendChild(el('div', 'name', row.stationName || '消防站'));
       if (row.brigadeName) {
         card.appendChild(el('div', 'brigade', row.brigadeName));
@@ -102,6 +117,9 @@ export function renderHqPage(root) {
       counts.appendChild(el('span', 'in', `安全 ${row.inCount || 0}`));
       counts.appendChild(el('span', 'warn', `预警 ${row.warnCount || 0}`));
       counts.appendChild(el('span', 'danger', `危险 ${row.dangerCount || 0}`));
+      if (Number(row.pendingCount || 0) > 0) {
+        counts.appendChild(el('span', '', `预录入 ${row.pendingCount}`));
+      }
       counts.appendChild(el('span', '', `组 ${row.groupCount || 0}`));
       card.appendChild(counts);
       const hint = snapshotStaleText(row.lastEventAt, now);

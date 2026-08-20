@@ -57,7 +57,8 @@
         SELECT
         <include refid="SnapshotColumns"/>
         FROM ccds_station_snapshot
-        WHERE (in_count + warn_count + danger_count) &gt; 0
+        WHERE (IFNULL(in_count, 0) + IFNULL(warn_count, 0) + IFNULL(danger_count, 0)
+            + IFNULL(pending_count, 0)) &gt; 0
         ORDER BY last_event_at DESC, station_id ASC
     </select>
 

@@ -20,8 +20,10 @@ export function renderSettingsPage(root) {
   const me = getMe() || {};
   const page = el('div', 'hq-page');
   const head = el('div', 'hq-head');
-  head.appendChild(el('h1', '', '参数设置'));
-  head.appendChild(el('div', 'sub', me.stationName || me.brigadeName || '作战指挥辅助决策平台'));
+  const text = el('div', 'hq-head-text');
+  text.appendChild(el('h1', '', '参数设置'));
+  text.appendChild(el('div', 'sub', me.stationName || me.brigadeName || '作战指挥辅助决策平台'));
+  head.appendChild(text);
   page.appendChild(head);
   const back = el('button', 'hq-back', '返回');
   back.type = 'button';

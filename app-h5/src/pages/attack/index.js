@@ -1,7 +1,8 @@
 import './attack.css';
-import { getMe } from '../../stores/session.js';
+import { getMe, getAccessToken } from '../../stores/session.js';
 import { fetchRoster } from '../../api/roster.js';
 import { fetchStationAttack, submitAttackEvent } from '../../api/attack.js';
+import { refreshSession } from '../../api/auth.js';
 import { bridge } from '../../bridge/index.js';
 import {
   attackQueueLength,
@@ -20,6 +21,7 @@ import {
 } from '../../stores/attack.js';
 import {
   SYNC,
+  connectCommandSocket,
   isDropEvent,
   isTransient,
   mergeAttack,
@@ -97,13 +99,15 @@ function countsOf(persons) {
   return counts;
 }
 
-export function renderAttackPage(root) {
+export function renderAttackPage(root, options) {
   root.innerHTML = '';
+  const opts = options || {};
   const me = getMe() || {};
-  const writableStation = me.role === 'station';
-  const page = el('div', 'attack-page');
+  const commandReadonly = Boolean(opts.readonly);
+  const writableStation = me.role === 'station' && !commandReadonly;
+  const page = el('div', commandReadonly ? 'attack-page command-readonly' : 'attack-page');
   const state = {
-    stationId: getAttackStationId(me),
+    stationId: opts.stationId ? String(opts.stationId) : getAttackStationId(me),
     attack: null,
     roster: null,
     filter: '',
@@ -124,7 +128,14 @@ export function renderAttackPage(root) {
   text.appendChild(title);
   text.appendChild(sub);
   head.appendChild(text);
-  if (!writableStation && visibleStations().length) {
+  if (commandReadonly) {
+    const back = el('button', 'hq-back-inline', '返回主界面');
+    back.type = 'button';
+    back.addEventListener('click', () => {
+      window.location.hash = '#/hq';
+    });
+    head.appendChild(back);
+  } else if (!writableStation && visibleStations().length) {
     const select = el('select');
     visibleStations().forEach((station) => {
       const opt = document.createElement('option');
@@ -140,12 +151,14 @@ export function renderAttackPage(root) {
     });
     head.appendChild(select);
   }
-  const settingsBtn = el('button', 'btn-icon', '⚙');
-  settingsBtn.type = 'button';
-  settingsBtn.addEventListener('click', () => {
-    window.location.hash = '#/settings';
-  });
-  head.appendChild(settingsBtn);
+  if (!commandReadonly) {
+    const settingsBtn = el('button', 'btn-icon', '⚙');
+    settingsBtn.type = 'button';
+    settingsBtn.addEventListener('click', () => {
+      window.location.hash = '#/settings';
+    });
+    head.appendChild(settingsBtn);
+  }
   page.appendChild(head);
 
   const stats = el('div', 'stats');
@@ -159,11 +172,13 @@ export function renderAttackPage(root) {
   quickBtn.type = 'button';
   syncBtn.type = 'button';
   moreBtn.type = 'button';
-  actions.appendChild(quickBtn);
-  actions.appendChild(syncBtn);
-  actions.appendChild(moreBtn);
-  page.appendChild(actions);
-  page.appendChild(syncHint);
+  if (!commandReadonly) {
+    actions.appendChild(quickBtn);
+    actions.appendChild(syncBtn);
+    actions.appendChild(moreBtn);
+    page.appendChild(actions);
+    page.appendChild(syncHint);
+  }
 
   const list = el('div', 'list main-pager');
   const peoplePage = el('div', 'main-page main-people-page');
@@ -179,16 +194,19 @@ export function renderAttackPage(root) {
   const nfcBtn = el('button', '', state.nfcReady ? '请进行NFC扫描' : '本机无 NFC，请用快速录入');
   nfcBtn.type = 'button';
   nfcBar.appendChild(nfcBtn);
-  page.appendChild(nfcBar);
+  if (!commandReadonly) {
+    page.appendChild(nfcBar);
+  }
 
   const overlay = el('div', 'drawer-overlay');
   const drawer = el('div', 'drawer');
   drawer.appendChild(buildDrawer());
-  page.appendChild(overlay);
-  page.appendChild(drawer);
-
   const quick = el('div', 'quick-panel');
-  page.appendChild(quick);
+  if (!commandReadonly) {
+    page.appendChild(overlay);
+    page.appendChild(drawer);
+    page.appendChild(quick);
+  }
   root.appendChild(page);
 
   function showToast(message) {
@@ -862,12 +880,18 @@ export function renderAttackPage(root) {
       }
     }
     state.attack = next;
-    saveAttackCache(state.stationId, next);
+    if (!commandReadonly) {
+      saveAttackCache(state.stationId, next);
+    }
     if (next && next.stationName) {
       title.textContent = next.stationName;
-      sub.textContent = headSub(me, next);
+      sub.textContent = commandReadonly
+        ? (next.brigadeName ? `${next.brigadeName} · 只读` : '只读')
+        : headSub(me, next);
     }
-    renderSyncHint().catch(() => undefined);
+    if (!commandReadonly) {
+      renderSyncHint().catch(() => undefined);
+    }
   }
 
   async function renderSyncHint() {
@@ -933,7 +957,7 @@ export function renderAttackPage(root) {
       peoplePage.textContent = '没有可见单位';
       return;
     }
-    const cached = readAttackCache(state.stationId);
+    const cached = commandReadonly ? null : readAttackCache(state.stationId);
     if (cached) {
       applyAttack(cached);
       renderStats();
@@ -942,16 +966,20 @@ export function renderAttackPage(root) {
     try {
       const data = await fetchStationAttack(state.stationId);
       state.online = true;
-      applyAttack(data, { merge: Boolean(cached) });
+      applyAttack(data, { merge: Boolean(cached) && !commandReadonly });
       if (writableStation) {
         state.roster = await fetchRoster(state.stationId);
       }
-      await flushQueue();
+      if (!commandReadonly) {
+        await flushQueue();
+      }
       renderStats();
       renderCards();
     } catch (err) {
       state.online = err.code === 'NETWORK' ? false : state.online;
-      await renderSyncHint();
+      if (!commandReadonly) {
+        await renderSyncHint();
+      }
       if (!cached) {
         peoplePage.textContent = err.message || '加载失败';
       } else {
@@ -960,6 +988,7 @@ export function renderAttackPage(root) {
     }
   }
 
+  if (!commandReadonly) {
   quickBtn.addEventListener('click', () => {
     if (!writableStation) {
       showToast('指挥端只读');
@@ -1059,14 +1088,19 @@ export function renderAttackPage(root) {
       cylType
     }, `${matched.name} 已预录入`);
   });
+  }
 
-  if (!writableStation) {
+  if (!writableStation && !commandReadonly) {
     quickBtn.style.display = 'none';
     nfcBar.style.display = 'none';
   }
 
   const onOnline = () => {
     state.online = true;
+    if (commandReadonly) {
+      load();
+      return;
+    }
     renderSyncHint();
     flushQueue().then(() => {
       renderStats();
@@ -1075,7 +1109,9 @@ export function renderAttackPage(root) {
   };
   const onOffline = () => {
     state.online = false;
-    renderSyncHint().catch(() => undefined);
+    if (!commandReadonly) {
+      renderSyncHint().catch(() => undefined);
+    }
   };
   window.addEventListener('online', onOnline);
   window.addEventListener('offline', onOffline);
@@ -1086,6 +1122,9 @@ export function renderAttackPage(root) {
     }
     renderStats();
     renderCards();
+    if (commandReadonly) {
+      return;
+    }
     peekAttackQueue().then((queue) => {
       const head = queue[0];
       if (head && Number(head.nextAt || 0) <= Date.now()) {
@@ -1093,15 +1132,48 @@ export function renderAttackPage(root) {
       }
     }).catch(() => undefined);
   }, 1000);
-  renderSyncHint();
+  if (!commandReadonly) {
+    renderSyncHint();
+  }
 
   load();
   if (window.location.hash.indexOf('/attack/quick-add') >= 0 && writableStation) {
     window.setTimeout(() => setQuick(true), 0);
   }
+
+  let disconnectCommand = null;
+  if (commandReadonly) {
+    disconnectCommand = connectCommandSocket({
+      async token() {
+        let access = getAccessToken();
+        if (!access) {
+          const refreshed = await refreshSession();
+          access = refreshed && refreshed.accessToken ? refreshed.accessToken : getAccessToken();
+        }
+        return access;
+      },
+      onOpen() {
+        load();
+      },
+      onMessage(payload) {
+        const snapshot = payload && payload.snapshot;
+        if (!snapshot || String(snapshot.stationId) !== String(state.stationId)) {
+          return;
+        }
+        load();
+      },
+      onPoll() {
+        load();
+      }
+    });
+  }
+
   return () => {
     window.clearInterval(timer);
     window.removeEventListener('online', onOnline);
     window.removeEventListener('offline', onOffline);
+    if (typeof disconnectCommand === 'function') {
+      disconnectCommand();
+    }
   };
 }

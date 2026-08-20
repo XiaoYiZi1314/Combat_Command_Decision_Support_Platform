@@ -151,12 +151,22 @@ export function snapshotStaleText(lastEventAt, nowMs) {
     return '';
   }
   if (sec >= SYNC.staleRedSec) {
-    return SYNC.staleHint;
+    return `超过 5 分钟未更新 · ${SYNC.staleHint}`;
   }
   if (sec >= SYNC.staleAmberSec) {
     return '超过 2 分钟未更新';
   }
   return '';
+}
+
+export function snapshotActiveCount(row) {
+  if (!row) {
+    return 0;
+  }
+  return Number(row.inCount || 0)
+    + Number(row.warnCount || 0)
+    + Number(row.dangerCount || 0)
+    + Number(row.pendingCount || 0);
 }
 
 export function connectCommandSocket(handlers) {
