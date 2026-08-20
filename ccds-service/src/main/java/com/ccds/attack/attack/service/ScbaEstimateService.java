@@ -28,6 +28,14 @@ public interface ScbaEstimateService {
                       ScbaCalibrationDO calibration);
 
     /**
+     * 高强度标定相对默认 RMV 的个人 K。无有效标定返回 null。
+     *
+     * @param calibration 高强度标定，可空
+     * @return 个人 K，无法计算为 null
+     */
+    BigDecimal personalK(ScbaCalibrationDO calibration);
+
+    /**
      * 按压力与剩余时间判定状态。先到先得，取更严重。
      *
      * @param current     当前状态

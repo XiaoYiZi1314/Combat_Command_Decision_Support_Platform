@@ -44,6 +44,9 @@ async function mockInvoke(method, payload) {
 }
 
 export const bridge = {
+  hasNfc() {
+    return Boolean(resolveNativeBridge());
+  },
   nfcRead() {
     return invoke('nfcRead');
   },

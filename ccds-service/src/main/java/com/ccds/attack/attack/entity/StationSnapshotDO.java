@@ -20,6 +20,11 @@ import lombok.NoArgsConstructor;
 public class StationSnapshotDO {
 
     /**
+     * 主键。
+     */
+    private Long id;
+
+    /**
      * 所属站。
      */
     private Long stationId;

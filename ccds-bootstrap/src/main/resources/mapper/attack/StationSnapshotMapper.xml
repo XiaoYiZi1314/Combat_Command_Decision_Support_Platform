@@ -4,7 +4,8 @@
 <mapper namespace="com.ccds.attack.attack.mapper.StationSnapshotMapper">
 
     <resultMap id="StationSnapshotResultMap" type="com.ccds.attack.attack.entity.StationSnapshotDO">
-        <id column="station_id" property="stationId"/>
+        <id column="id" property="id"/>
+        <result column="station_id" property="stationId"/>
         <result column="in_count" property="inCount"/>
         <result column="warn_count" property="warnCount"/>
         <result column="danger_count" property="dangerCount"/>
@@ -18,7 +19,7 @@
     </resultMap>
 
     <sql id="SnapshotColumns">
-        station_id, in_count, warn_count, danger_count, out_count, pending_count, group_count,
+        id, station_id, in_count, warn_count, danger_count, out_count, pending_count, group_count,
         last_event_at, payload_json, gmt_create, gmt_modified
     </sql>
 
@@ -29,7 +30,7 @@
         WHERE station_id = #{stationId}
     </select>
 
-    <insert id="insert">
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO ccds_station_snapshot
             (station_id, in_count, warn_count, danger_count, out_count, pending_count, group_count,
              last_event_at, payload_json, gmt_create, gmt_modified)

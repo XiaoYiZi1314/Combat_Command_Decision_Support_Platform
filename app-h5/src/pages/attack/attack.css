@@ -394,12 +394,32 @@
   padding: 40px 20px;
 }
 
+.empty .station-badge {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 10px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #8b1e1e, #c9302c);
+  letter-spacing: 0;
+}
+
 .empty .station {
   font-size: 15px;
   color: #c9302c;
   font-weight: 700;
   letter-spacing: 2px;
   margin-bottom: 8px;
+}
+
+.card.focus {
+  outline: 2px solid var(--amber);
+  box-shadow: 0 0 0 4px rgba(229, 169, 34, 0.25);
 }
 
 .empty p {

@@ -37,11 +37,11 @@ import com.ccds.attack.attack.vo.StationAttackVO;
 import com.ccds.common.api.constant.ErrorCodeConstant;
 import com.ccds.common.api.exception.BizException;
 import com.ccds.iam.identity.entity.AccountDO;
-import com.ccds.iam.identity.enums.AccountRoleEnum;
 import com.ccds.iam.identity.mapper.AccountMapper;
 import com.ccds.iam.identity.model.AuthPrincipal;
+import com.ccds.iam.identity.vo.StationVO;
 import com.ccds.org.org.entity.StationDO;
-import com.ccds.org.org.mapper.StationMapper;
+import com.ccds.org.org.service.OrgQueryService;
 import com.ccds.roster.roster.entity.BattleGroupDO;
 import com.ccds.roster.roster.entity.BattleGroupMemberDO;
 import com.ccds.roster.roster.entity.ProfileDO;
@@ -89,7 +89,7 @@ public class AttackServiceImpl implements AttackService {
 
     private final AccountMapper accountMapper;
 
-    private final StationMapper stationMapper;
+    private final OrgQueryService orgQueryService;
 
     private final RosterAccessService rosterAccessService;
 
@@ -142,32 +142,10 @@ public class AttackServiceImpl implements AttackService {
         }
         AttackPersonDO person;
         try {
-            switch (type) {
-                case PRE_ADD:
-                    person = handlePreAdd(stationId, command, eventId, now);
-                    break;
-                case ENTER:
-                    person = handleEnter(stationId, command, eventId, now);
-                    break;
-                case REMEASURE:
-                    person = handleRemeasure(stationId, command, eventId, now);
-                    break;
-                case WITHDRAW:
-                    person = handleWithdraw(stationId, command, eventId, now);
-                    break;
-                case DELETE:
-                    person = handleDelete(stationId, command, eventId, now);
-                    break;
-                default:
-                    throw new BizException(ErrorCodeConstant.ATTACK_EVENT_INVALID, MSG_EVENT_INVALID);
-            }
+            person = dispatchEvent(stationId, command, type, eventId, now);
             insertEvent(stationId, person, type, eventId, now);
         } catch (DuplicateKeyException ex) {
-            AttackEventDO raced = attackEventMapper.selectByClientEventId(eventId);
-            if (raced != null) {
-                return duplicateResult(station, raced, now, true);
-            }
-            throw new BizException(ErrorCodeConstant.ATTACK_EVENT_INVALID, MSG_EVENT_INVALID);
+            return recoverDuplicateKey(station, stationId, command, eventId, now, ex);
         }
         refreshSnapshot(stationId, now);
         log.info("attack event type={} stationId={} personId={} eventIdHash={}",
@@ -183,6 +161,40 @@ public class AttackServiceImpl implements AttackService {
                 .build();
     }
 
+    private AttackPersonDO dispatchEvent(Long stationId, AttackEventCommand command, AttackEventTypeEnum type,
+                                         String eventId, LocalDateTime now) {
+        switch (type) {
+            case PRE_ADD:
+                return handlePreAdd(stationId, command, eventId, now);
+            case ENTER:
+                return handleEnter(stationId, command, eventId, now);
+            case REMEASURE:
+                return handleRemeasure(stationId, command, eventId, now);
+            case WITHDRAW:
+                return handleWithdraw(stationId, command, eventId, now);
+            case DELETE:
+                return handleDelete(stationId, command, eventId, now);
+            default:
+                throw new BizException(ErrorCodeConstant.ATTACK_EVENT_INVALID, MSG_EVENT_INVALID);
+        }
+    }
+
+    private AttackEventResultVO recoverDuplicateKey(StationDO station, Long stationId, AttackEventCommand command,
+                                                    String eventId, LocalDateTime now, DuplicateKeyException ex) {
+        AttackEventDO raced = attackEventMapper.selectByClientEventId(eventId);
+        if (raced != null) {
+            return duplicateResult(station, raced, now, true);
+        }
+        ProfileDO profile = resolveProfileQuiet(stationId, command);
+        String displayName = profile != null ? profile.getName() : trimToNull(command.getDisplayName());
+        AttackPersonDO existing = findActive(stationId, profile, displayName);
+        if (existing != null) {
+            throw new BizException(ErrorCodeConstant.ATTACK_PERSON_DUPLICATE, MSG_DUPLICATE);
+        }
+        log.warn("attack event duplicate key stationId={} eventIdHash={}", stationId, eventId.hashCode(), ex);
+        throw new BizException(ErrorCodeConstant.ATTACK_EVENT_INVALID, MSG_EVENT_INVALID);
+    }
+
     /**
      * {@inheritDoc}
      */
@@ -190,34 +202,33 @@ public class AttackServiceImpl implements AttackService {
     public List<AttackSnapshotVO> listSnapshots(AuthPrincipal principal) {
         AccountDO account = requireAccount(principal);
         Map<Long, StationDO> visible = visibleStationMap(account);
-        List<StationSnapshotDO> rows = stationSnapshotMapper.selectActive();
+        LocalDateTime now = LocalDateTime.now();
         List<AttackSnapshotVO> result = new ArrayList<AttackSnapshotVO>();
-        for (StationSnapshotDO row : rows) {
+        for (StationSnapshotDO row : stationSnapshotMapper.selectActive()) {
             StationDO station = visible.get(row.getStationId());
             if (station == null) {
                 continue;
             }
-            result.add(attackViewTranslator.toSnapshotVo(row, station));
+            AttackSnapshotVO live = liveSnapshot(station, now);
+            if (nz(live.getInCount()) + nz(live.getWarnCount()) + nz(live.getDangerCount()) <= 0) {
+                continue;
+            }
+            result.add(live);
         }
         return result;
     }
 
     private Map<Long, StationDO> visibleStationMap(AccountDO account) {
-        AccountRoleEnum role = AccountRoleEnum.fromCode(account.getRole());
-        List<StationDO> stations;
-        if (role == AccountRoleEnum.STATION && account.getStationId() != null) {
-            StationDO own = stationMapper.selectById(account.getStationId());
-            stations = own == null ? List.of() : List.of(own);
-        } else if (role == AccountRoleEnum.BRIGADE && account.getBrigadeId() != null) {
-            stations = stationMapper.selectByBrigadeId(account.getBrigadeId());
-        } else if (role == AccountRoleEnum.HQ || role == AccountRoleEnum.DEVELOPER) {
-            stations = stationMapper.selectAll();
-        } else {
-            stations = List.of();
-        }
         Map<Long, StationDO> map = new HashMap<Long, StationDO>();
-        for (StationDO station : stations) {
-            map.put(station.getId(), station);
+        for (StationVO station : orgQueryService.listVisibleStations(account)) {
+            StationDO row = new StationDO();
+            row.setId(station.getId());
+            row.setName(station.getName());
+            row.setBrigadeId(station.getBrigadeId());
+            row.setBrigadeName(station.getBrigadeName());
+            row.setCategory(station.getCategory());
+            row.setSortNo(station.getSortNo());
+            map.put(station.getId(), row);
         }
         return map;
     }
@@ -381,11 +392,15 @@ public class AttackServiceImpl implements AttackService {
 
     private void refreshSnapshot(Long stationId, LocalDateTime now) {
         List<AttackPersonDO> persons = attackPersonMapper.selectByStationId(stationId);
-        int inCount = 0;
-        int warnCount = 0;
-        int dangerCount = 0;
-        int outCount = 0;
-        int pendingCount = 0;
+        Map<Long, ScbaCalibrationDO> latest = latestCalibrationMap(stationId);
+        for (AttackPersonDO person : persons) {
+            refreshDisplayedRemain(person, now, latest.get(person.getProfileId()));
+        }
+        persistLiveSnapshot(stationId, countStatuses(persons), now);
+    }
+
+    private StatusCounts countStatuses(List<AttackPersonDO> persons) {
+        StatusCounts counts = new StatusCounts();
         Set<String> groups = new LinkedHashSet<String>();
         for (AttackPersonDO person : persons) {
             AttackStatusEnum status = AttackStatusEnum.fromCode(person.getStatus());
@@ -394,39 +409,61 @@ public class AttackServiceImpl implements AttackService {
             }
             switch (status) {
                 case IN:
-                    inCount++;
+                    counts.inCount++;
                     groups.add(attackViewTranslator.blankToUngrouped(person.getGroupName()));
                     break;
                 case WARN:
-                    warnCount++;
+                    counts.warnCount++;
                     groups.add(attackViewTranslator.blankToUngrouped(person.getGroupName()));
                     break;
                 case DANGER:
-                    dangerCount++;
+                    counts.dangerCount++;
                     groups.add(attackViewTranslator.blankToUngrouped(person.getGroupName()));
                     break;
                 case OUT:
-                    outCount++;
+                    counts.outCount++;
                     break;
                 case PENDING:
-                    pendingCount++;
+                    counts.pendingCount++;
                     groups.add(attackViewTranslator.blankToUngrouped(person.getGroupName()));
                     break;
                 default:
                     break;
             }
         }
+        counts.groupCount = groups.size();
+        return counts;
+    }
+
+    private AttackSnapshotVO countsToSnapshot(StationDO station, StatusCounts counts, LocalDateTime now) {
+        StationSnapshotDO existed = stationSnapshotMapper.selectByStationId(station.getId());
+        return AttackSnapshotVO.builder()
+                .stationId(station.getId())
+                .stationName(station.getName())
+                .brigadeId(station.getBrigadeId())
+                .brigadeName(station.getBrigadeName())
+                .inCount(counts.inCount)
+                .warnCount(counts.warnCount)
+                .dangerCount(counts.dangerCount)
+                .outCount(counts.outCount)
+                .pendingCount(counts.pendingCount)
+                .groupCount(counts.groupCount)
+                .lastEventAt(existed == null ? now : existed.getLastEventAt())
+                .gmtModified(now)
+                .build();
+    }
+
+    private void persistLiveSnapshot(Long stationId, StatusCounts counts, LocalDateTime now) {
         StationSnapshotDO existed = stationSnapshotMapper.selectByStationId(stationId);
         StationSnapshotDO snapshot = existed == null ? new StationSnapshotDO() : existed;
         snapshot.setStationId(stationId);
-        snapshot.setInCount(inCount);
-        snapshot.setWarnCount(warnCount);
-        snapshot.setDangerCount(dangerCount);
-        snapshot.setOutCount(outCount);
-        snapshot.setPendingCount(pendingCount);
-        snapshot.setGroupCount(groups.size());
+        snapshot.setInCount(counts.inCount);
+        snapshot.setWarnCount(counts.warnCount);
+        snapshot.setDangerCount(counts.dangerCount);
+        snapshot.setOutCount(counts.outCount);
+        snapshot.setPendingCount(counts.pendingCount);
+        snapshot.setGroupCount(counts.groupCount);
         snapshot.setLastEventAt(now);
-        snapshot.setPayloadJson(null);
         snapshot.setGmtModified(now);
         if (existed == null) {
             snapshot.setGmtCreate(now);
@@ -436,20 +473,44 @@ public class AttackServiceImpl implements AttackService {
         stationSnapshotMapper.update(snapshot);
     }
 
+    private int nz(Integer value) {
+        return value == null ? 0 : value;
+    }
+
+    private static final class StatusCounts {
+        private int inCount;
+        private int warnCount;
+        private int dangerCount;
+        private int outCount;
+        private int pendingCount;
+        private int groupCount;
+    }
+
     private StationAttackVO buildStationAttack(StationDO station, boolean writable, LocalDateTime now) {
         List<AttackPersonDO> rows = attackPersonMapper.selectByStationId(station.getId());
         Map<Long, ScbaCalibrationDO> latest = latestCalibrationMap(station.getId());
         List<Boolean> calibrated = new ArrayList<Boolean>();
+        List<BigDecimal> personalKs = new ArrayList<BigDecimal>();
         List<AttackPersonDO> live = new ArrayList<AttackPersonDO>();
         for (AttackPersonDO row : rows) {
-            refreshDisplayedRemain(row, now, latest.get(row.getProfileId()));
+            ScbaCalibrationDO calibration = latest.get(row.getProfileId());
+            refreshDisplayedRemain(row, now, calibration);
             live.add(row);
-            calibrated.add(Boolean.valueOf(latest.get(row.getProfileId()) != null));
+            calibrated.add(Boolean.valueOf(calibration != null));
+            personalKs.add(scbaEstimateService.personalK(calibration));
         }
-        List<AttackPersonVO> persons = attackViewTranslator.toPersonVos(live, now, calibrated);
-        StationSnapshotDO snapshot = stationSnapshotMapper.selectByStationId(station.getId());
-        AttackSnapshotVO snapshotVo = attackViewTranslator.toSnapshotVo(snapshot, station);
+        List<AttackPersonVO> persons = attackViewTranslator.toPersonVos(live, now, calibrated, personalKs);
+        AttackSnapshotVO snapshotVo = countsToSnapshot(station, countStatuses(live), now);
         return attackViewTranslator.toStationAttack(station, writable, persons, snapshotVo);
+    }
+
+    private AttackSnapshotVO liveSnapshot(StationDO station, LocalDateTime now) {
+        List<AttackPersonDO> rows = attackPersonMapper.selectByStationId(station.getId());
+        Map<Long, ScbaCalibrationDO> latest = latestCalibrationMap(station.getId());
+        for (AttackPersonDO row : rows) {
+            refreshDisplayedRemain(row, now, latest.get(row.getProfileId()));
+        }
+        return countsToSnapshot(station, countStatuses(rows), now);
     }
 
     private void refreshDisplayedRemain(AttackPersonDO person, LocalDateTime now, ScbaCalibrationDO calibration) {
@@ -467,7 +528,16 @@ public class AttackServiceImpl implements AttackService {
     private AttackPersonVO toLivePerson(AttackPersonDO person, LocalDateTime now) {
         ScbaCalibrationDO calibration = latestCalibration(person.getProfileId());
         refreshDisplayedRemain(person, now, calibration);
-        return attackViewTranslator.toPersonVo(person, now, calibration != null);
+        return attackViewTranslator.toPersonVo(person, now, calibration != null,
+                scbaEstimateService.personalK(calibration));
+    }
+
+    private ProfileDO resolveProfileQuiet(Long stationId, AttackEventCommand command) {
+        try {
+            return resolveProfile(stationId, command);
+        } catch (BizException ex) {
+            return null;
+        }
     }
 
     private ProfileDO resolveProfile(Long stationId, AttackEventCommand command) {

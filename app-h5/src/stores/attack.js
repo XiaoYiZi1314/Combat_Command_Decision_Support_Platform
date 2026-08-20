@@ -71,6 +71,19 @@ export function shiftAttackQueue() {
   return first;
 }
 
+export function rewriteQueuedPersonId(localId, serverId) {
+  if (localId == null || serverId == null) {
+    return;
+  }
+  const queue = peekAttackQueue();
+  queue.forEach((item) => {
+    if (item.body && String(item.body.personId) === String(localId)) {
+      item.body.personId = serverId;
+    }
+  });
+  writeJson(QUEUE_KEY, queue);
+}
+
 export function attackQueueLength() {
   return peekAttackQueue().length;
 }

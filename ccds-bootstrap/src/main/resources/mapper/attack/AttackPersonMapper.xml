@@ -92,10 +92,7 @@
 
     <update id="update">
         UPDATE ccds_attack_person
-        SET profile_id = #{profileId},
-            display_name = #{displayName},
-            group_name = #{groupName},
-            cyl_type = #{cylType},
+        SET cyl_type = #{cylType},
             init_pressure = #{initPressure},
             current_pressure = #{currentPressure},
             entered_at = #{enteredAt},

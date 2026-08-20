@@ -9,6 +9,7 @@ import {
   getAttackStationId,
   peekAttackQueue,
   readAttackCache,
+  rewriteQueuedPersonId,
   saveAttackCache,
   setAttackStationId,
   shiftAttackQueue
@@ -40,6 +41,15 @@ function visibleStations() {
   return Array.isArray(me.visibleStations) ? me.visibleStations : [];
 }
 
+function headSub(me, attack) {
+  const stationName = (attack && attack.stationName) || me.stationName;
+  const brigadeName = (attack && attack.brigadeName) || me.brigadeName;
+  if (brigadeName && stationName && brigadeName !== stationName) {
+    return `${brigadeName} / ${stationName}`;
+  }
+  return brigadeName || stationName || '作战指挥辅助决策平台';
+}
+
 function livePerson(person, nowMs) {
   const copy = Object.assign({}, person);
   const entered = copy.enteredAt ? new Date(copy.enteredAt).getTime() : 0;
@@ -53,7 +63,13 @@ function livePerson(person, nowMs) {
   const modified = copy.gmtModified ? new Date(copy.gmtModified).getTime() : entered;
   const sinceMeasure = Math.max(0, Math.floor((nowMs - Math.max(entered, modified)) / 1000));
   copy.liveElapsed = elapsedSec;
-  copy.liveRemain = Math.max(0, remainSecOf(copy.currentPressure, copy.cylType, copy.workLevel, copy.scene) - sinceMeasure);
+  copy.liveRemain = Math.max(0, remainSecOf(
+    copy.currentPressure,
+    copy.cylType,
+    copy.workLevel,
+    copy.scene,
+    copy.personalK
+  ) - sinceMeasure);
   copy.liveStatus = resolveStatus(copy.status, copy.currentPressure, copy.liveRemain);
   return copy;
 }
@@ -83,13 +99,15 @@ export function renderAttackPage(root) {
     openUpdateId: '',
     selectedIds: {},
     groupTab: '全部',
+    focusId: '',
+    nfcReady: bridge.hasNfc(),
     syncing: false
   };
 
   const head = el('div', 'attack-head');
   const text = el('div', 'attack-head-text');
-  const title = el('h1', '', me.stationName || '齐齐哈尔市消防救援支队');
-  const sub = el('div', 'sub', '作战指挥辅助决策平台');
+  const title = el('h1', '', me.stationName || me.brigadeName || '作战指挥辅助决策平台');
+  const sub = el('div', 'sub', headSub(me, null));
   text.appendChild(title);
   text.appendChild(sub);
   head.appendChild(text);
@@ -143,7 +161,7 @@ export function renderAttackPage(root) {
   page.appendChild(toast);
 
   const nfcBar = el('div', 'nfc-bar');
-  const nfcBtn = el('button', '', '请进行NFC扫描');
+  const nfcBtn = el('button', '', state.nfcReady ? '请进行NFC扫描' : '本机无 NFC，请用快速录入');
   nfcBtn.type = 'button';
   nfcBar.appendChild(nfcBtn);
   page.appendChild(nfcBar);
@@ -199,6 +217,7 @@ export function renderAttackPage(root) {
     const filtered = state.filter ? persons.filter((p) => p.liveStatus === state.filter) : persons;
     if (!filtered.length) {
       const empty = el('div', 'empty');
+      empty.appendChild(el('div', 'station-badge', ((state.attack && state.attack.stationName) || '本站').slice(0, 1)));
       empty.appendChild(el('div', 'station', (state.attack && state.attack.stationName) || '本站'));
       empty.appendChild(el('p', '', '暂无内攻人员'));
       peoplePage.appendChild(empty);
@@ -237,6 +256,10 @@ export function renderAttackPage(root) {
 
   function renderCard(person) {
     const card = el('div', `card ${person.liveStatus}`);
+    card.dataset.personId = String(person.id);
+    if (String(state.focusId) === String(person.id)) {
+      card.classList.add('focus');
+    }
     const top = el('div', 'top');
     const name = el('div', 'name', person.displayName || '');
     name.appendChild(el('span', 'cyl-tag', `${person.cylType || '6.8'}L`));
@@ -550,8 +573,9 @@ export function renderAttackPage(root) {
     body.appendChild(grid);
 
     const inputRow = el('div', 'input-row');
-    const pressure = pressureControl('quick', SCBA.defaultPressure);
-    const cyl = cylSelect('6.8');
+    const defaults = selectedDefaults();
+    const pressure = pressureControl('quick', defaults.pressure);
+    const cyl = cylSelect(defaults.cylType);
     inputRow.appendChild(pressure);
     inputRow.appendChild(cyl);
     body.appendChild(inputRow);
@@ -595,6 +619,124 @@ export function renderAttackPage(root) {
     quick.appendChild(handle);
     quick.appendChild(header);
     quick.appendChild(body);
+  }
+
+  function selectedDefaults() {
+    const ids = Object.keys(state.selectedIds);
+    const first = ((state.roster && state.roster.profiles) || []).find((item) => String(item.id) === ids[0]);
+    if (!first) {
+      return { pressure: SCBA.defaultPressure, cylType: '6.8' };
+    }
+    return {
+      pressure: Number(first.morningPressure || SCBA.defaultPressure),
+      cylType: first.cylType || '6.8'
+    };
+  }
+
+  function focusPerson(personId) {
+    state.focusId = personId;
+    renderCards();
+    window.setTimeout(() => {
+      const node = peoplePage.querySelector(`[data-person-id="${personId}"]`);
+      if (node && node.scrollIntoView) {
+        node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 0);
+    window.setTimeout(() => {
+      if (String(state.focusId) === String(personId)) {
+        state.focusId = '';
+        renderCards();
+      }
+    }, 3200);
+  }
+
+  function findActiveByProfile(profileId) {
+    return currentPersons().find((p) => String(p.profileId) === String(profileId) && p.liveStatus !== 'out');
+  }
+
+  function findActiveByName(name) {
+    return currentPersons().find((p) => p.temp && p.displayName === name && p.liveStatus !== 'out');
+  }
+
+  function groupNameOf(profileId) {
+    if (!profileId) {
+      return SCBA.ungrouped;
+    }
+    const groups = (state.roster && state.roster.groups) || [];
+    for (let i = 0; i < groups.length; i += 1) {
+      const group = groups[i];
+      const hit = (group.members || []).some((m) => String(m.profileId) === String(profileId));
+      if (hit) {
+        return group.name;
+      }
+    }
+    return SCBA.ungrouped;
+  }
+
+  function applyLocalEvent(body) {
+    if (body.type === 'pre_add') {
+      const existing = body.profileId ? findActiveByProfile(body.profileId) : findActiveByName(body.displayName);
+      if (existing) {
+        return existing;
+      }
+      const prof = body.profileId
+        ? ((state.roster && state.roster.profiles) || []).find((item) => String(item.id) === String(body.profileId))
+        : null;
+      const groupName = body.groupName || groupNameOf(body.profileId);
+      const local = {
+        id: `local_${body.eventId}`,
+        stationId: Number(state.stationId),
+        profileId: body.profileId || null,
+        displayName: body.displayName || (prof && prof.name) || '',
+        groupName: groupName || SCBA.ungrouped,
+        cylType: body.cylType || '6.8',
+        initPressure: body.pressure,
+        currentPressure: body.pressure,
+        enteredAt: null,
+        withdrawnAt: null,
+        workLevel: body.workLevel || 'moderate',
+        scene: body.scene || 'flat',
+        status: 'pending',
+        remainSec: null,
+        elapsedSec: 0,
+        temp: !body.profileId,
+        calibrated: false,
+        personalK: null,
+        clientEventId: body.eventId,
+        gmtModified: new Date().toISOString()
+      };
+      const base = state.attack || { stationId: Number(state.stationId), persons: [] };
+      applyAttack(Object.assign({}, base, { persons: (base.persons || []).concat([local]) }));
+      return local;
+    }
+    const persons = ((state.attack && state.attack.persons) || []).slice();
+    const idx = persons.findIndex((p) => String(p.id) === String(body.personId));
+    if (idx < 0) {
+      return null;
+    }
+    const next = Object.assign({}, persons[idx]);
+    if (body.type === 'enter') {
+      next.status = 'in';
+      next.enteredAt = new Date().toISOString();
+      next.currentPressure = body.pressure;
+      next.initPressure = body.pressure;
+      next.cylType = body.cylType || next.cylType;
+    } else if (body.type === 'remeasure') {
+      next.currentPressure = body.pressure;
+      next.gmtModified = new Date().toISOString();
+    } else if (body.type === 'withdraw') {
+      next.status = 'out';
+      next.withdrawnAt = new Date().toISOString();
+    } else if (body.type === 'delete') {
+      persons.splice(idx, 1);
+      const attack = Object.assign({}, state.attack, { persons });
+      applyAttack(attack);
+      return null;
+    }
+    next.clientEventId = body.eventId;
+    persons[idx] = next;
+    applyAttack(Object.assign({}, state.attack, { persons }));
+    return next;
   }
 
   async function preAddSelected(pressure, cylType) {
@@ -641,50 +783,59 @@ export function renderAttackPage(root) {
   async function submit(body, okText) {
     if (!state.stationId) {
       showToast('没有可见单位');
-      return;
+      return null;
     }
+    const local = applyLocalEvent(body);
+    enqueueAttackEvent(state.stationId, body);
+    state.openEnterId = '';
+    state.openUpdateId = '';
+    renderStats();
+    renderCards();
     try {
-      const result = await submitAttackEvent(state.stationId, body);
-      applyAttack(result.attack);
-      if (result.duplicate) {
-        showToast('已用云端记录，未重复生成');
-      } else if (okText) {
-        showToast(okText);
-      }
-      state.openEnterId = '';
-      state.openUpdateId = '';
-      renderStats();
-      renderCards();
+      await flushQueue();
     } catch (err) {
-      if (err.code === 'NETWORK') {
-        enqueueAttackEvent(state.stationId, body);
-        showToast('已离线保存，恢复网络后自动补传');
-        return;
-      }
       if (err.code === 'ATTACK_PERSON_DUPLICATE') {
         showToast(err.message || '该人员已有未撤出卡片');
         await load();
-        return;
+        const existing = body.profileId ? findActiveByProfile(body.profileId) : findActiveByName(body.displayName);
+        if (existing) {
+          focusPerson(existing.id);
+        }
+        return existing;
       }
-      showToast(err.message || '操作失败');
+      if (err.code !== 'NETWORK') {
+        showToast(err.message || '操作失败');
+        return local;
+      }
     }
+    const current = body.profileId ? findActiveByProfile(body.profileId) : local;
+    if (current && body.type === 'pre_add') {
+      focusPerson(current.id);
+    }
+    if (okText) {
+      showToast(okText);
+    }
+    return current;
   }
 
   function applyAttack(data) {
     state.attack = data;
     saveAttackCache(state.stationId, data);
+    if (data && data.stationName) {
+      title.textContent = data.stationName;
+      sub.textContent = headSub(me, data);
+    }
   }
 
   async function flushQueue() {
-    const queue = peekAttackQueue();
-    if (!queue.length) {
-      return;
-    }
     while (peekAttackQueue().length) {
       const item = peekAttackQueue()[0];
       try {
         const result = await submitAttackEvent(item.stationId, item.body);
         shiftAttackQueue();
+        if (item.body && item.body.type === 'pre_add' && result.person && item.body.eventId) {
+          rewriteQueuedPersonId(`local_${item.body.eventId}`, result.person.id);
+        }
         if (String(item.stationId) === String(state.stationId)) {
           applyAttack(result.attack);
         }
@@ -692,7 +843,12 @@ export function renderAttackPage(root) {
         if (err.code === 'NETWORK') {
           return;
         }
-        shiftAttackQueue();
+        if (err.code === 'ATTACK_PERSON_DUPLICATE' || err.code === 'ATTACK_EVENT_INVALID'
+            || err.code === 'ATTACK_STATUS_INVALID') {
+          shiftAttackQueue();
+          throw err;
+        }
+        return;
       }
     }
   }
@@ -747,6 +903,10 @@ export function renderAttackPage(root) {
     if (!writableStation) {
       return;
     }
+    if (!state.nfcReady) {
+      setQuick(true);
+      return;
+    }
     const result = await bridge.nfcRead();
     if (!result || !result.ok || !result.data || !result.data.tag) {
       showToast('本机无 NFC，请用快速录入');
@@ -778,13 +938,37 @@ export function renderAttackPage(root) {
       showToast(`${matched.name} 已在场，请复测`);
       return;
     }
+    const pressure = Number(matched.morningPressure || SCBA.defaultPressure);
+    const cylType = matched.cylType || '6.8';
+    if (matched.morningPressure) {
+      const pre = await submit({
+        eventId: newEventId(),
+        type: 'pre_add',
+        profileId: matched.id,
+        nfcTag: tag,
+        pressure,
+        cylType
+      });
+      const card = pre || findActiveByProfile(matched.id);
+      if (card && (card.liveStatus === 'pending' || card.status === 'pending')) {
+        await submit({
+          eventId: newEventId(),
+          type: 'enter',
+          personId: card.id,
+          pressure,
+          cylType
+        }, `${matched.name} 已入场`);
+        return;
+      }
+      return;
+    }
     await submit({
       eventId: newEventId(),
       type: 'pre_add',
       profileId: matched.id,
       nfcTag: tag,
-      pressure: Number(matched.morningPressure || SCBA.defaultPressure),
-      cylType: matched.cylType || '6.8'
+      pressure,
+      cylType
     }, `${matched.name} 已预录入`);
   });
 

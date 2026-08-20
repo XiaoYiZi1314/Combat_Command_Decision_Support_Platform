@@ -1,5 +1,6 @@
 package com.ccds.attack.attack.service.impl;
 
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -39,6 +40,7 @@ public class AttackViewTranslator {
         return StationAttackVO.builder()
                 .stationId(station.getId())
                 .stationName(station.getName())
+                .brigadeName(station.getBrigadeName())
                 .writable(writable)
                 .persons(persons)
                 .snapshot(snapshot)
@@ -48,12 +50,13 @@ public class AttackViewTranslator {
     /**
      * 卡片视图。
      *
-     * @param person      卡片
-     * @param now         当前时间
-     * @param calibrated  是否有标定
+     * @param person     卡片
+     * @param now        当前时间
+     * @param calibrated 是否有标定
+     * @param personalK  个人空呼 K，可空
      * @return 视图
      */
-    public AttackPersonVO toPersonVo(AttackPersonDO person, LocalDateTime now, boolean calibrated) {
+    public AttackPersonVO toPersonVo(AttackPersonDO person, LocalDateTime now, boolean calibrated, BigDecimal personalK) {
         AttackStatusEnum status = AttackStatusEnum.fromCode(person.getStatus());
         Integer elapsed = elapsedSec(person, now);
         return AttackPersonVO.builder()
@@ -74,6 +77,7 @@ public class AttackViewTranslator {
                 .elapsedSec(elapsed)
                 .temp(person.getProfileId() == null)
                 .calibrated(calibrated)
+                .personalK(personalK)
                 .clientEventId(person.getClientEventId())
                 .gmtModified(person.getGmtModified())
                 .build();
@@ -133,16 +137,19 @@ public class AttackViewTranslator {
     /**
      * 批量转卡片。
      *
-     * @param persons     卡片
-     * @param now         当前时间
-     * @param calibrated  是否有标定，与 persons 下标对齐
+     * @param persons      卡片
+     * @param now          当前时间
+     * @param calibrated   是否有标定，与 persons 下标对齐
+     * @param personalKs   个人 K，与 persons 下标对齐
      * @return 视图列表
      */
-    public List<AttackPersonVO> toPersonVos(List<AttackPersonDO> persons, LocalDateTime now, List<Boolean> calibrated) {
+    public List<AttackPersonVO> toPersonVos(List<AttackPersonDO> persons, LocalDateTime now, List<Boolean> calibrated,
+                                            List<BigDecimal> personalKs) {
         List<AttackPersonVO> result = new ArrayList<AttackPersonVO>();
         for (int i = 0; i < persons.size(); i++) {
             boolean flag = calibrated != null && i < calibrated.size() && Boolean.TRUE.equals(calibrated.get(i));
-            result.add(toPersonVo(persons.get(i), now, flag));
+            BigDecimal k = personalKs != null && i < personalKs.size() ? personalKs.get(i) : null;
+            result.add(toPersonVo(persons.get(i), now, flag, k));
         }
         return result;
     }

@@ -106,6 +106,11 @@ public class AttackPersonVO {
     private Boolean calibrated;
 
     /**
+     * 个人空呼 K 值。无标定时为空，H5 倒计时与后端共用。
+     */
+    private BigDecimal personalK;
+
+    /**
      * 最近客户端事件幂等键。
      */
     private String clientEventId;

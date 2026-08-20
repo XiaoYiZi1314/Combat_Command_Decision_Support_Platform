@@ -30,6 +30,11 @@ public class StationAttackVO {
     private String stationName;
 
     /**
+     * 所属大队名，支队直属为空。
+     */
+    private String brigadeName;
+
+    /**
      * 是否可写（站级本站）。
      */
     private Boolean writable;

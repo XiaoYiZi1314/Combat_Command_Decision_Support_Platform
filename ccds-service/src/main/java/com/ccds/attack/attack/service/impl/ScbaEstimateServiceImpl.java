@@ -77,25 +77,11 @@ public class ScbaEstimateServiceImpl implements ScbaEstimateService {
         return AttackStatusEnum.IN;
     }
 
-    private BigDecimal cylVolume(String cylType) {
-        CylTypeEnum type = CylTypeEnum.fromCodeOrDefault(cylType);
-        if (RosterRuleConstant.CYL_TYPE_9.equals(type.getCode())) {
-            return AttackRuleConstant.CYL_VOLUME_9;
-        }
-        return AttackRuleConstant.CYL_VOLUME_68;
-    }
-
-    private BigDecimal effectiveRmv(String workLevel, ScbaCalibrationDO calibration) {
-        WorkLevelEnum level = WorkLevelEnum.fromCodeOrDefault(workLevel);
-        BigDecimal defaultRmv = BigDecimal.valueOf(level.getRmv());
-        BigDecimal personalK = personalK(calibration);
-        if (personalK == null) {
-            return defaultRmv;
-        }
-        return defaultRmv.multiply(personalK);
-    }
-
-    private BigDecimal personalK(ScbaCalibrationDO calibration) {
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public BigDecimal personalK(ScbaCalibrationDO calibration) {
         if (calibration == null || calibration.getPressure() == null || calibration.getFullTimeSec() == null) {
             return null;
         }
@@ -113,5 +99,23 @@ public class ScbaEstimateServiceImpl implements ScbaEstimateService {
             return null;
         }
         return formulaMin.divide(measuredMin, SCALE, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal cylVolume(String cylType) {
+        CylTypeEnum type = CylTypeEnum.fromCodeOrDefault(cylType);
+        if (RosterRuleConstant.CYL_TYPE_9.equals(type.getCode())) {
+            return AttackRuleConstant.CYL_VOLUME_9;
+        }
+        return AttackRuleConstant.CYL_VOLUME_68;
+    }
+
+    private BigDecimal effectiveRmv(String workLevel, ScbaCalibrationDO calibration) {
+        WorkLevelEnum level = WorkLevelEnum.fromCodeOrDefault(workLevel);
+        BigDecimal defaultRmv = BigDecimal.valueOf(level.getRmv());
+        BigDecimal k = personalK(calibration);
+        if (k == null) {
+            return defaultRmv;
+        }
+        return defaultRmv.multiply(k);
     }
 }
