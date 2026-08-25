@@ -117,9 +117,6 @@ export function renderHqPage(root) {
       counts.appendChild(el('span', 'in', `安全 ${row.inCount || 0}`));
       counts.appendChild(el('span', 'warn', `预警 ${row.warnCount || 0}`));
       counts.appendChild(el('span', 'danger', `危险 ${row.dangerCount || 0}`));
-      if (Number(row.pendingCount || 0) > 0) {
-        counts.appendChild(el('span', '', `预录入 ${row.pendingCount}`));
-      }
       counts.appendChild(el('span', '', `组 ${row.groupCount || 0}`));
       card.appendChild(counts);
       const hint = snapshotStaleText(row.lastEventAt, now);

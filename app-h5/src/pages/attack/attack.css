@@ -11,7 +11,21 @@
 }
 
 .attack-page.command-readonly .list.main-pager {
-  height: calc(100vh - 92px);
+  height: calc(100vh - 128px);
+}
+
+.attack-page .hq-status {
+  padding: 8px 14px;
+  font-size: 11px;
+  color: var(--dim);
+}
+
+.attack-page .hq-status.live {
+  color: var(--green);
+}
+
+.attack-page .hq-status.poll {
+  color: var(--amber);
 }
 
 .hq-back-inline {

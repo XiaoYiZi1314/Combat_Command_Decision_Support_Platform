@@ -151,10 +151,10 @@ export function snapshotStaleText(lastEventAt, nowMs) {
     return '';
   }
   if (sec >= SYNC.staleRedSec) {
-    return `超过 5 分钟未更新 · ${SYNC.staleHint}`;
+    return `超过 ${Math.round(SYNC.staleRedSec / 60)} 分钟未更新 · ${SYNC.staleHint}`;
   }
   if (sec >= SYNC.staleAmberSec) {
-    return '超过 2 分钟未更新';
+    return `超过 ${Math.round(SYNC.staleAmberSec / 60)} 分钟未更新`;
   }
   return '';
 }

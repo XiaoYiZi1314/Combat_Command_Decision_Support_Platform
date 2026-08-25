@@ -1,8 +1,7 @@
 import './attack.css';
-import { getMe, getAccessToken } from '../../stores/session.js';
+import { getMe } from '../../stores/session.js';
 import { fetchRoster } from '../../api/roster.js';
 import { fetchStationAttack, submitAttackEvent } from '../../api/attack.js';
-import { refreshSession } from '../../api/auth.js';
 import { bridge } from '../../bridge/index.js';
 import {
   attackQueueLength,
@@ -21,7 +20,6 @@ import {
 } from '../../stores/attack.js';
 import {
   SYNC,
-  connectCommandSocket,
   isDropEvent,
   isTransient,
   mergeAttack,
@@ -30,25 +28,15 @@ import {
 } from '../../lib/sync.js';
 import {
   SCBA,
-  fmtElapsed,
-  fmtMinSec,
-  newEventId,
-  remainSecOf,
-  resolveStatus,
-  statusLabel,
-  worstStatus
+  newEventId
 } from '../../lib/scba.js';
-
-function el(tag, className, text) {
-  const node = document.createElement(tag);
-  if (className) {
-    node.className = className;
-  }
-  if (text) {
-    node.textContent = text;
-  }
-  return node;
-}
+import {
+  el,
+  livePersons,
+  paintPeopleAndGroups,
+  paintPersonCard,
+  paintStats
+} from './board.js';
 
 function visibleStations() {
   const me = getMe() || {};
@@ -64,50 +52,19 @@ function headSub(me, attack) {
   return brigadeName || stationName || '作战指挥辅助决策平台';
 }
 
-function livePerson(person, nowMs) {
-  const copy = Object.assign({}, person);
-  const entered = copy.enteredAt ? new Date(copy.enteredAt).getTime() : 0;
-  if (copy.status === 'out' || copy.status === 'pending' || !entered) {
-    copy.liveRemain = null;
-    copy.liveElapsed = 0;
-    copy.liveStatus = copy.status || 'pending';
-    return copy;
+function ignoreBackground(err) {
+  if (err) {
+    console.warn('attack background task failed', err.code || err.name);
   }
-  const elapsedSec = Math.max(0, Math.floor((nowMs - entered) / 1000));
-  const modified = copy.gmtModified ? new Date(copy.gmtModified).getTime() : entered;
-  const sinceMeasure = Math.max(0, Math.floor((nowMs - Math.max(entered, modified)) / 1000));
-  copy.liveElapsed = elapsedSec;
-  copy.liveRemain = Math.max(0, remainSecOf(
-    copy.currentPressure,
-    copy.cylType,
-    copy.workLevel,
-    copy.scene,
-    copy.personalK
-  ) - sinceMeasure);
-  copy.liveStatus = resolveStatus(copy.status, copy.currentPressure, copy.liveRemain);
-  return copy;
 }
 
-function countsOf(persons) {
-  const counts = { in: 0, warn: 0, danger: 0, out: 0, pending: 0 };
-  persons.forEach((p) => {
-    const key = p.liveStatus;
-    if (counts[key] != null) {
-      counts[key] += 1;
-    }
-  });
-  return counts;
-}
-
-export function renderAttackPage(root, options) {
+export function renderAttackPage(root) {
   root.innerHTML = '';
-  const opts = options || {};
   const me = getMe() || {};
-  const commandReadonly = Boolean(opts.readonly);
-  const writableStation = me.role === 'station' && !commandReadonly;
-  const page = el('div', commandReadonly ? 'attack-page command-readonly' : 'attack-page');
+  const writableStation = me.role === 'station';
+  const page = el('div', 'attack-page');
   const state = {
-    stationId: opts.stationId ? String(opts.stationId) : getAttackStationId(me),
+    stationId: getAttackStationId(me),
     attack: null,
     roster: null,
     filter: '',
@@ -128,14 +85,7 @@ export function renderAttackPage(root, options) {
   text.appendChild(title);
   text.appendChild(sub);
   head.appendChild(text);
-  if (commandReadonly) {
-    const back = el('button', 'hq-back-inline', '返回主界面');
-    back.type = 'button';
-    back.addEventListener('click', () => {
-      window.location.hash = '#/hq';
-    });
-    head.appendChild(back);
-  } else if (!writableStation && visibleStations().length) {
+  if (!writableStation && visibleStations().length) {
     const select = el('select');
     visibleStations().forEach((station) => {
       const opt = document.createElement('option');
@@ -151,14 +101,12 @@ export function renderAttackPage(root, options) {
     });
     head.appendChild(select);
   }
-  if (!commandReadonly) {
-    const settingsBtn = el('button', 'btn-icon', '⚙');
-    settingsBtn.type = 'button';
-    settingsBtn.addEventListener('click', () => {
-      window.location.hash = '#/settings';
-    });
-    head.appendChild(settingsBtn);
-  }
+  const settingsBtn = el('button', 'btn-icon', '⚙');
+  settingsBtn.type = 'button';
+  settingsBtn.addEventListener('click', () => {
+    window.location.hash = '#/settings';
+  });
+  head.appendChild(settingsBtn);
   page.appendChild(head);
 
   const stats = el('div', 'stats');
@@ -172,13 +120,11 @@ export function renderAttackPage(root, options) {
   quickBtn.type = 'button';
   syncBtn.type = 'button';
   moreBtn.type = 'button';
-  if (!commandReadonly) {
-    actions.appendChild(quickBtn);
-    actions.appendChild(syncBtn);
-    actions.appendChild(moreBtn);
-    page.appendChild(actions);
-    page.appendChild(syncHint);
-  }
+  actions.appendChild(quickBtn);
+  actions.appendChild(syncBtn);
+  actions.appendChild(moreBtn);
+  page.appendChild(actions);
+  page.appendChild(syncHint);
 
   const list = el('div', 'list main-pager');
   const peoplePage = el('div', 'main-page main-people-page');
@@ -194,19 +140,15 @@ export function renderAttackPage(root, options) {
   const nfcBtn = el('button', '', state.nfcReady ? '请进行NFC扫描' : '本机无 NFC，请用快速录入');
   nfcBtn.type = 'button';
   nfcBar.appendChild(nfcBtn);
-  if (!commandReadonly) {
-    page.appendChild(nfcBar);
-  }
+  page.appendChild(nfcBar);
 
   const overlay = el('div', 'drawer-overlay');
   const drawer = el('div', 'drawer');
   drawer.appendChild(buildDrawer());
   const quick = el('div', 'quick-panel');
-  if (!commandReadonly) {
-    page.appendChild(overlay);
-    page.appendChild(drawer);
-    page.appendChild(quick);
-  }
+  page.appendChild(overlay);
+  page.appendChild(drawer);
+  page.appendChild(quick);
   root.appendChild(page);
 
   function showToast(message) {
@@ -216,173 +158,85 @@ export function renderAttackPage(root, options) {
   }
 
   function currentPersons() {
-    const now = Date.now();
-    const listData = ((state.attack && state.attack.persons) || []).map((p) => livePerson(p, now));
-    return listData;
+    return livePersons(state.attack);
   }
 
   function renderStats() {
-    const counts = countsOf(currentPersons());
-    stats.innerHTML = '';
-    [
-      ['in', '安全', 'var(--blue)', counts.in],
-      ['warn', '预警', 'var(--amber)', counts.warn],
-      ['danger', '危险', 'var(--red)', counts.danger],
-      ['out', '已撤出', 'var(--dim)', counts.out]
-    ].forEach((item) => {
-      const box = el('div', state.filter === item[0] ? 'stat active' : 'stat');
-      const num = el('div', 'num', String(item[3]));
-      num.style.color = item[2];
-      box.appendChild(num);
-      box.appendChild(el('div', 'label', item[1]));
-      box.addEventListener('click', () => {
-        state.filter = state.filter === item[0] ? '' : item[0];
+    paintStats({
+      statsEl: stats,
+      filter: state.filter,
+      persons: currentPersons(),
+      onFilter(next) {
+        state.filter = next;
         renderCards();
         renderStats();
-      });
-      stats.appendChild(box);
+      }
     });
   }
 
   function renderCards() {
-    peoplePage.innerHTML = '';
-    const persons = currentPersons();
-    const filtered = state.filter ? persons.filter((p) => p.liveStatus === state.filter) : persons;
-    if (!filtered.length) {
-      const empty = el('div', 'empty');
-      empty.appendChild(el('div', 'station-badge', ((state.attack && state.attack.stationName) || '本站').slice(0, 1)));
-      empty.appendChild(el('div', 'station', (state.attack && state.attack.stationName) || '本站'));
-      empty.appendChild(el('p', '', '暂无内攻人员'));
-      peoplePage.appendChild(empty);
-      renderGroups(persons);
-      return;
-    }
-    filtered.forEach((person) => peoplePage.appendChild(renderCard(person)));
-    renderGroups(persons);
-  }
-
-  function renderGroups(persons) {
-    groupPage.innerHTML = '';
-    const map = {};
-    persons.forEach((p) => {
-      const name = p.groupName || SCBA.ungrouped;
-      if (!map[name]) {
-        map[name] = { name, items: [] };
-      }
-      map[name].items.push(p);
-    });
-    const names = Object.keys(map);
-    if (!names.length) {
-      groupPage.appendChild(el('div', 'empty', '暂无战斗编组'));
-      return;
-    }
-    names.forEach((name) => {
-      const row = map[name];
-      const card = el('div', 'group-overview-card');
-      const worst = worstStatus(row.items.map((item) => item.liveStatus));
-      card.appendChild(el('div', 'gc-name', `${name} · ${statusLabel(worst)}`));
-      const counts = countsOf(row.items);
-      card.appendChild(el('div', 'gc-counts', `安全 ${counts.in}  预警 ${counts.warn}  危险 ${counts.danger}  预录入 ${counts.pending}`));
-      groupPage.appendChild(card);
+    paintPeopleAndGroups({
+      peoplePage,
+      groupPage,
+      persons: currentPersons(),
+      filter: state.filter,
+      stationName: (state.attack && state.attack.stationName) || '本站',
+      focusId: state.focusId,
+      buildCard: renderCard
     });
   }
 
   function renderCard(person) {
-    const card = el('div', `card ${person.liveStatus}`);
-    card.dataset.personId = String(person.id);
-    if (String(state.focusId) === String(person.id)) {
-      card.classList.add('focus');
+    const card = paintPersonCard(person, state.focusId);
+    if (!writableStation) {
+      return card;
     }
-    const top = el('div', 'top');
-    const name = el('div', 'name', person.displayName || '');
-    name.appendChild(el('span', 'cyl-tag', `${person.cylType || '6.8'}L`));
-    if (person.groupName) {
-      name.appendChild(el('span', 'group-tag', person.groupName));
+    const actionsRow = el('div', 'actions');
+    if (person.liveStatus === 'pending') {
+      const enter = el('button', 'btn-card btn-update', '入场');
+      enter.type = 'button';
+      enter.addEventListener('click', () => {
+        state.openEnterId = state.openEnterId === person.id ? '' : person.id;
+        state.openUpdateId = '';
+        renderCards();
+      });
+      const del = el('button', 'btn-card btn-del', '删除');
+      del.type = 'button';
+      del.addEventListener('click', () => submit({
+        eventId: newEventId(),
+        type: 'delete',
+        personId: person.id,
+        clientUpdatedAt: person.gmtModified || null
+      }, '已删除'));
+      actionsRow.appendChild(enter);
+      actionsRow.appendChild(del);
+    } else if (person.liveStatus !== 'out') {
+      const update = el('button', 'btn-card btn-update', '复测压力');
+      update.type = 'button';
+      update.addEventListener('click', () => {
+        state.openUpdateId = state.openUpdateId === person.id ? '' : person.id;
+        state.openEnterId = '';
+        renderCards();
+      });
+      const out = el('button', 'btn-card btn-out', '撤出');
+      out.type = 'button';
+      out.addEventListener('click', () => submit({
+        eventId: newEventId(),
+        type: 'withdraw',
+        personId: person.id,
+        clientUpdatedAt: person.gmtModified || null
+      }, `${person.displayName} 已撤出`));
+      actionsRow.appendChild(update);
+      actionsRow.appendChild(out);
     }
-    if (person.temp) {
-      name.appendChild(el('span', 'temp-tag', '临时'));
+    card.appendChild(actionsRow);
+    if (state.openEnterId === person.id) {
+      card.appendChild(enterPanel(person));
     }
-    if (person.calibrated) {
-      name.appendChild(el('span', 'curve-tag', '标定'));
-    }
-    top.appendChild(name);
-    top.appendChild(el('div', `status s-${person.liveStatus}`, statusLabel(person.liveStatus)));
-    card.appendChild(top);
-
-    const metrics = el('div', 'metrics');
-    const pressure = Number(person.currentPressure || 0);
-    const remain = person.liveRemain;
-    const pCls = pressure <= SCBA.dangerPressure ? 'c-danger' : (pressure <= SCBA.warnPressure ? 'c-warn' : 'c-ok');
-    const rCls = remain != null && remain <= SCBA.dangerTimeSec ? 'c-danger' : (remain != null && remain <= SCBA.warnTimeSec ? 'c-warn' : 'c-ok');
-    metrics.appendChild(metric('当前压力', pressure.toFixed(1), 'MPa', pCls));
-    metrics.appendChild(metric('剩余时间', person.liveStatus === 'pending' || person.liveStatus === 'out' ? '--' : fmtMinSec(remain), '', rCls));
-    metrics.appendChild(metric('已作业', person.liveStatus === 'pending' ? '--' : fmtElapsed(person.liveElapsed), '', 'c-ok'));
-    card.appendChild(metrics);
-
-    const bar = el('div', 'bar');
-    const fill = el('div', 'bar-fill');
-    const init = Number(person.initPressure || 0);
-    fill.style.width = init > 0 ? `${Math.min(100, pressure / init * 100)}%` : '0%';
-    fill.style.background = pressure <= SCBA.dangerPressure ? 'var(--red)' : (pressure <= SCBA.warnPressure ? 'var(--amber)' : 'var(--blue)');
-    bar.appendChild(fill);
-    card.appendChild(bar);
-
-    if (writableStation) {
-      const actionsRow = el('div', 'actions');
-      if (person.liveStatus === 'pending') {
-        const enter = el('button', 'btn-card btn-update', '入场');
-        enter.type = 'button';
-        enter.addEventListener('click', () => {
-          state.openEnterId = state.openEnterId === person.id ? '' : person.id;
-          state.openUpdateId = '';
-          renderCards();
-        });
-        const del = el('button', 'btn-card btn-del', '删除');
-        del.type = 'button';
-        del.addEventListener('click', () => submit({
-          eventId: newEventId(),
-          type: 'delete',
-          personId: person.id,
-          clientUpdatedAt: person.gmtModified || null
-        }, '已删除'));
-        actionsRow.appendChild(enter);
-        actionsRow.appendChild(del);
-      } else if (person.liveStatus !== 'out') {
-        const update = el('button', 'btn-card btn-update', '复测压力');
-        update.type = 'button';
-        update.addEventListener('click', () => {
-          state.openUpdateId = state.openUpdateId === person.id ? '' : person.id;
-          state.openEnterId = '';
-          renderCards();
-        });
-        const out = el('button', 'btn-card btn-out', '撤出');
-        out.type = 'button';
-        out.addEventListener('click', () => submit({
-          eventId: newEventId(),
-          type: 'withdraw',
-          personId: person.id,
-          clientUpdatedAt: person.gmtModified || null
-        }, `${person.displayName} 已撤出`));
-        actionsRow.appendChild(update);
-        actionsRow.appendChild(out);
-      }
-      card.appendChild(actionsRow);
-      if (state.openEnterId === person.id) {
-        card.appendChild(enterPanel(person));
-      }
-      if (state.openUpdateId === person.id) {
-        card.appendChild(updatePanel(person));
-      }
+    if (state.openUpdateId === person.id) {
+      card.appendChild(updatePanel(person));
     }
     return card;
-  }
-
-  function metric(label, value, unit, cls) {
-    const box = el('div', 'metric');
-    const val = el('div', `val ${cls}`, unit ? `${value} ${unit}` : value);
-    box.appendChild(val);
-    box.appendChild(el('div', 'lbl', label));
-    return box;
   }
 
   function pressureControl(id, value) {
@@ -880,18 +734,12 @@ export function renderAttackPage(root, options) {
       }
     }
     state.attack = next;
-    if (!commandReadonly) {
-      saveAttackCache(state.stationId, next);
-    }
+    saveAttackCache(state.stationId, next);
     if (next && next.stationName) {
       title.textContent = next.stationName;
-      sub.textContent = commandReadonly
-        ? (next.brigadeName ? `${next.brigadeName} · 只读` : '只读')
-        : headSub(me, next);
+      sub.textContent = headSub(me, next);
     }
-    if (!commandReadonly) {
-      renderSyncHint().catch(() => undefined);
-    }
+    renderSyncHint().catch(ignoreBackground);
   }
 
   async function renderSyncHint() {
@@ -957,7 +805,7 @@ export function renderAttackPage(root, options) {
       peoplePage.textContent = '没有可见单位';
       return;
     }
-    const cached = commandReadonly ? null : readAttackCache(state.stationId);
+    const cached = readAttackCache(state.stationId);
     if (cached) {
       applyAttack(cached);
       renderStats();
@@ -966,20 +814,16 @@ export function renderAttackPage(root, options) {
     try {
       const data = await fetchStationAttack(state.stationId);
       state.online = true;
-      applyAttack(data, { merge: Boolean(cached) && !commandReadonly });
+      applyAttack(data, { merge: Boolean(cached) });
       if (writableStation) {
         state.roster = await fetchRoster(state.stationId);
       }
-      if (!commandReadonly) {
-        await flushQueue();
-      }
+      await flushQueue();
       renderStats();
       renderCards();
     } catch (err) {
       state.online = err.code === 'NETWORK' ? false : state.online;
-      if (!commandReadonly) {
-        await renderSyncHint();
-      }
+      await renderSyncHint();
       if (!cached) {
         peoplePage.textContent = err.message || '加载失败';
       } else {
@@ -988,7 +832,6 @@ export function renderAttackPage(root, options) {
     }
   }
 
-  if (!commandReadonly) {
   quickBtn.addEventListener('click', () => {
     if (!writableStation) {
       showToast('指挥端只读');
@@ -1088,30 +931,23 @@ export function renderAttackPage(root, options) {
       cylType
     }, `${matched.name} 已预录入`);
   });
-  }
 
-  if (!writableStation && !commandReadonly) {
+  if (!writableStation) {
     quickBtn.style.display = 'none';
     nfcBar.style.display = 'none';
   }
 
   const onOnline = () => {
     state.online = true;
-    if (commandReadonly) {
-      load();
-      return;
-    }
-    renderSyncHint();
+    renderSyncHint().catch(ignoreBackground);
     flushQueue().then(() => {
       renderStats();
       renderCards();
-    }).catch(() => undefined);
+    }).catch(ignoreBackground);
   };
   const onOffline = () => {
     state.online = false;
-    if (!commandReadonly) {
-      renderSyncHint().catch(() => undefined);
-    }
+    renderSyncHint().catch(ignoreBackground);
   };
   window.addEventListener('online', onOnline);
   window.addEventListener('offline', onOffline);
@@ -1122,58 +958,23 @@ export function renderAttackPage(root, options) {
     }
     renderStats();
     renderCards();
-    if (commandReadonly) {
-      return;
-    }
     peekAttackQueue().then((queue) => {
       const head = queue[0];
       if (head && Number(head.nextAt || 0) <= Date.now()) {
-        flushQueue().catch(() => undefined);
+        flushQueue().catch(ignoreBackground);
       }
-    }).catch(() => undefined);
+    }).catch(ignoreBackground);
   }, 1000);
-  if (!commandReadonly) {
-    renderSyncHint();
-  }
+  renderSyncHint().catch(ignoreBackground);
 
   load();
   if (window.location.hash.indexOf('/attack/quick-add') >= 0 && writableStation) {
     window.setTimeout(() => setQuick(true), 0);
   }
 
-  let disconnectCommand = null;
-  if (commandReadonly) {
-    disconnectCommand = connectCommandSocket({
-      async token() {
-        let access = getAccessToken();
-        if (!access) {
-          const refreshed = await refreshSession();
-          access = refreshed && refreshed.accessToken ? refreshed.accessToken : getAccessToken();
-        }
-        return access;
-      },
-      onOpen() {
-        load();
-      },
-      onMessage(payload) {
-        const snapshot = payload && payload.snapshot;
-        if (!snapshot || String(snapshot.stationId) !== String(state.stationId)) {
-          return;
-        }
-        load();
-      },
-      onPoll() {
-        load();
-      }
-    });
-  }
-
   return () => {
     window.clearInterval(timer);
     window.removeEventListener('online', onOnline);
     window.removeEventListener('offline', onOffline);
-    if (typeof disconnectCommand === 'function') {
-      disconnectCommand();
-    }
   };
 }
