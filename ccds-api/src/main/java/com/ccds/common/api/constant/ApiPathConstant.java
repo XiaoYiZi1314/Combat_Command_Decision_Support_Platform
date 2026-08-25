@@ -103,6 +103,46 @@ public final class ApiPathConstant {
      */
     public static final String WS_COMMAND = "/ws/command";
 
+    /**
+     * 站级水源档案列表与新建。
+     */
+    public static final String STATION_WATERS = "/stations/{stationId}/waters";
+
+    /**
+     * 单条水源档案。
+     */
+    public static final String STATION_WATER = "/stations/{stationId}/waters/{waterId}";
+
+    /**
+     * 水源表格导入。
+     */
+    public static final String STATION_WATER_IMPORT = "/stations/{stationId}/waters/import";
+
+    /**
+     * 水源表格导出。
+     */
+    public static final String STATION_WATER_EXPORT = "/stations/{stationId}/waters/export";
+
+    /**
+     * 水源导入模板。
+     */
+    public static final String STATION_WATER_TEMPLATE = "/stations/{stationId}/waters/template";
+
+    /**
+     * 附近水源（全市在用，半径与条数有默认）。
+     */
+    public static final String WATER_NEARBY = "/waters/nearby";
+
+    /**
+     * 全市水源（登录可读，站级「全市」浏览用）。
+     */
+    public static final String WATERS_CITY = "/waters/city";
+
+    /**
+     * 百度地图浏览器端凭证。
+     */
+    public static final String MAPS_BAIDU_TOKEN = "/maps/baidu-token";
+
     private ApiPathConstant() {
     }
 }

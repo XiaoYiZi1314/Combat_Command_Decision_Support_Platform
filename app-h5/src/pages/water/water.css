@@ -1,0 +1,335 @@
+.water-page {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.water-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.water-head h2 {
+  font-size: 18px;
+}
+
+.water-back {
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.water-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.water-station,
+.water-scope,
+.water-filters,
+.water-modes,
+.water-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.water-station label {
+  font-size: 13px;
+  color: var(--dim);
+}
+
+.water-station select,
+.water-filters select,
+.water-filters input,
+.water-scope button,
+.water-modes button,
+.water-actions button {
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.water-filters input {
+  flex: 1;
+  min-width: 140px;
+}
+
+.water-scope button.active,
+.water-modes button.active {
+  border-color: var(--blue);
+  background: var(--blue-bg);
+  color: var(--blue);
+}
+
+.water-nearby-btn {
+  border-color: var(--amber) !important;
+  color: var(--amber) !important;
+}
+
+.water-locate-btn {
+  align-self: flex-start;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--blue);
+  background: var(--blue-bg);
+  color: var(--blue);
+  font-size: 14px;
+}
+
+.water-msg {
+  font-size: 13px;
+  color: var(--dim);
+  min-height: 18px;
+}
+
+.water-msg.error {
+  color: var(--red);
+}
+
+.water-summary {
+  font-size: 13px;
+  color: var(--dim);
+}
+
+.water-empty {
+  padding: 20px 0;
+  text-align: center;
+  color: var(--dim);
+  font-size: 14px;
+}
+
+.water-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.water-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+}
+
+.water-card.repair {
+  border-color: rgba(248, 81, 73, 0.4);
+}
+
+.wc-name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.wc-name b {
+  font-size: 15px;
+}
+
+.wc-status {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+}
+
+.wc-status.active {
+  color: var(--green);
+  border-color: rgba(63, 185, 80, 0.4);
+}
+
+.wc-status.repair {
+  color: var(--red);
+  border-color: rgba(248, 81, 73, 0.4);
+}
+
+.wc-dist {
+  font-size: 12px;
+  color: var(--blue);
+}
+
+.wc-info {
+  font-size: 13px;
+  color: var(--dim);
+}
+
+.wc-addr {
+  font-size: 13px;
+  color: var(--text);
+  opacity: 0.85;
+}
+
+.wc-nav {
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--blue);
+  background: var(--blue-bg);
+  color: var(--blue);
+  font-size: 13px;
+}
+
+.wc-btns {
+  display: flex;
+  gap: 8px;
+}
+
+.wc-edit,
+.wc-del {
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.wc-del {
+  color: var(--red);
+  border-color: rgba(248, 81, 73, 0.4);
+}
+
+.water-new {
+  padding: 10px;
+  border-radius: var(--radius);
+  border: 1px dashed var(--glass-border);
+  background: transparent;
+  color: var(--blue);
+  font-size: 14px;
+}
+
+.water-form {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.water-form h3 {
+  font-size: 15px;
+}
+
+.wf-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wf-row label {
+  font-size: 13px;
+  color: var(--dim);
+}
+
+.wf-row input,
+.wf-row select,
+.wf-row textarea {
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.wf-row.fire-point {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.wf-row.fire-point label {
+  flex-shrink: 0;
+}
+
+.fire-info {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text);
+  min-width: 120px;
+}
+
+.wf-row.fire-point button {
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--blue);
+  background: var(--blue-bg);
+  color: var(--blue);
+  font-size: 13px;
+}
+
+.wf-save,
+.wf-cancel {
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  border: none;
+  font-size: 15px;
+}
+
+.wf-save {
+  background: var(--blue);
+  color: #fff;
+}
+
+.wf-cancel {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  color: var(--text);
+}
+
+.hidden-file {
+  display: none;
+}
+
+.supply-hint {
+  font-size: 12px;
+  color: var(--amber);
+  background: var(--amber-bg);
+  border: 1px solid rgba(229, 169, 34, 0.3);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+
+.supply-calc-btn {
+  align-self: stretch;
+}
+
+.supply-result {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+
+.supply-line {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.supply-source {
+  font-size: 13px;
+  color: var(--dim);
+}

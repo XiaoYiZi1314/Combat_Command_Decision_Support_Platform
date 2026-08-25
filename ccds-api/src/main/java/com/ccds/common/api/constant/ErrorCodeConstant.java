@@ -123,6 +123,41 @@ public final class ErrorCodeConstant {
      */
     public static final String ATTACK_NFC_NOT_FOUND = "ATTACK_NFC_NOT_FOUND";
 
+    /**
+     * 无权查看该站水源。
+     */
+    public static final String WATER_STATION_FORBIDDEN = "WATER_STATION_FORBIDDEN";
+
+    /**
+     * 仅本站账号可改水源。
+     */
+    public static final String WATER_WRITE_FORBIDDEN = "WATER_WRITE_FORBIDDEN";
+
+    /**
+     * 水源档案不存在。
+     */
+    public static final String WATER_NOT_FOUND = "WATER_NOT_FOUND";
+
+    /**
+     * 水源名称重复。
+     */
+    public static final String WATER_NAME_DUPLICATE = "WATER_NAME_DUPLICATE";
+
+    /**
+     * 水源表格无法解析。
+     */
+    public static final String WATER_IMPORT_INVALID = "WATER_IMPORT_INVALID";
+
+    /**
+     * 附近水源坐标不合法。
+     */
+    public static final String WATER_COORD_INVALID = "WATER_COORD_INVALID";
+
+    /**
+     * 百度地图 AK 未配置。
+     */
+    public static final String MAP_AK_MISSING = "MAP_AK_MISSING";
+
     private ErrorCodeConstant() {
     }
 }

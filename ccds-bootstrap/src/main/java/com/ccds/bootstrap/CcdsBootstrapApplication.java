@@ -15,7 +15,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
         "com.ccds.iam.identity.mapper",
         "com.ccds.org.org.mapper",
         "com.ccds.roster.roster.mapper",
-        "com.ccds.attack.attack.mapper"
+        "com.ccds.attack.attack.mapper",
+        "com.ccds.water.water.mapper"
 })
 public class CcdsBootstrapApplication {
 

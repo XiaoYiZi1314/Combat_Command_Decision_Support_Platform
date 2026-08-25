@@ -9,6 +9,10 @@ import { renderAttackPage } from './pages/attack/index.js';
 import { renderHqPage } from './pages/hq/index.js';
 import { renderHqStationPage } from './pages/hq/station.js';
 import { renderSettingsPage } from './pages/settings/index.js';
+import { renderWaterPage } from './pages/water/index.js';
+import { renderWaterMapPage } from './pages/water/map.js';
+import { renderSupplyPage } from './pages/supply/index.js';
+import { renderSupplyMapPage } from './pages/supply/map.js';
 import { fetchMe, fetchOrgStations, refreshSession } from './api/auth.js';
 import {
   getAccessToken,
@@ -188,6 +192,26 @@ async function render() {
   if (route.path === '/settings') {
     app.innerHTML = '';
     renderSettingsPage(app);
+    return;
+  }
+  if (route.path === '/water') {
+    app.innerHTML = '';
+    renderWaterPage(app);
+    return;
+  }
+  if (route.path === '/water/map') {
+    app.innerHTML = '';
+    renderWaterMapPage(app, params, hash);
+    return;
+  }
+  if (route.path === '/supply') {
+    app.innerHTML = '';
+    renderSupplyPage(app, params, hash);
+    return;
+  }
+  if (route.path === '/supply/map') {
+    app.innerHTML = '';
+    renderSupplyMapPage(app, params);
     return;
   }
 

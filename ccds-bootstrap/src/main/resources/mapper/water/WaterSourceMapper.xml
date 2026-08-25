@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ccds.water.water.mapper.WaterSourceMapper">
+
+    <resultMap id="WaterResultMap" type="com.ccds.water.water.entity.WaterSourceDO">
+        <id column="id" property="id"/>
+        <result column="station_id" property="stationId"/>
+        <result column="name" property="name"/>
+        <result column="type" property="type"/>
+        <result column="status" property="status"/>
+        <result column="address" property="address"/>
+        <result column="lng" property="lng"/>
+        <result column="lat" property="lat"/>
+        <result column="extra_json" property="extraJson"/>
+        <result column="deleted_at" property="deletedAt"/>
+        <result column="gmt_create" property="gmtCreate"/>
+        <result column="gmt_modified" property="gmtModified"/>
+    </resultMap>
+
+    <sql id="WaterColumns">
+        w.id, w.station_id, w.name, w.type, w.status, w.address, w.lng, w.lat,
+        w.extra_json, w.deleted_at, w.gmt_create, w.gmt_modified
+    </sql>
+
+    <select id="selectAliveByStationId" resultMap="WaterResultMap">
+        SELECT
+        <include refid="WaterColumns"/>
+        FROM ccds_water_source w
+        WHERE w.station_id = #{stationId}
+          AND w.deleted_at IS NULL
+        ORDER BY w.id ASC
+    </select>
+
+    <select id="selectAliveById" resultMap="WaterResultMap">
+        SELECT
+        <include refid="WaterColumns"/>
+        FROM ccds_water_source w
+        WHERE w.id = #{id}
+          AND w.deleted_at IS NULL
+    </select>
+
+    <select id="selectAliveByStationAndName" resultMap="WaterResultMap">
+        SELECT
+        <include refid="WaterColumns"/>
+        FROM ccds_water_source w
+        WHERE w.station_id = #{stationId}
+          AND w.name = #{name}
+          AND w.deleted_at IS NULL
+        LIMIT 1
+    </select>
+
+    <select id="selectActiveAll" resultMap="WaterResultMap">
+        SELECT
+        <include refid="WaterColumns"/>
+        FROM ccds_water_source w
+        WHERE w.deleted_at IS NULL
+          AND w.status = 'active'
+          AND w.lng IS NOT NULL
+          AND w.lat IS NOT NULL
+        ORDER BY w.id ASC
+        LIMIT #{maxRows}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ccds_water_source
+            (station_id, name, type, status, address, lng, lat, extra_json, gmt_create, gmt_modified)
+        VALUES
+            (#{stationId}, #{name}, #{type}, #{status}, #{address}, #{lng}, #{lat}, #{extraJson},
+             #{gmtCreate}, #{gmtModified})
+    </insert>
+
+    <update id="update">
+        UPDATE ccds_water_source
+        SET name = #{name},
+            type = #{type},
+            status = #{status},
+            address = #{address},
+            lng = #{lng},
+            lat = #{lat},
+            extra_json = #{extraJson},
+            gmt_modified = #{gmtModified}
+        WHERE id = #{id}
+          AND deleted_at IS NULL
+    </update>
+
+    <update id="softDelete">
+        UPDATE ccds_water_source
+        SET deleted_at = #{deletedAt},
+            gmt_modified = #{gmtModified}
+        WHERE id = #{id}
+          AND deleted_at IS NULL
+    </update>
+</mapper>
