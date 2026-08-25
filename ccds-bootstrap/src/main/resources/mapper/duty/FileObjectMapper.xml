@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ccds.duty.mapper.FileObjectMapper">
+
+    <resultMap id="BaseResultMap" type="com.ccds.duty.entity.FileObjectDO">
+        <id column="id" property="id"/>
+        <result column="biz_type" property="bizType"/>
+        <result column="biz_id" property="bizId"/>
+        <result column="cos_key" property="cosKey"/>
+        <result column="content_type" property="contentType"/>
+        <result column="size_bytes" property="sizeBytes"/>
+        <result column="created_by" property="createdBy"/>
+        <result column="gmt_create" property="gmtCreate"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ccds_file_object (biz_type, biz_id, cos_key, content_type,
+                                       size_bytes, created_by)
+        VALUES (#{bizType}, #{bizId}, #{cosKey}, #{contentType},
+                #{sizeBytes}, #{createdBy})
+    </insert>
+
+    <delete id="deleteById">
+        DELETE FROM ccds_file_object WHERE id = #{id}
+    </delete>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT id, biz_type, biz_id, cos_key, content_type,
+               size_bytes, created_by, gmt_create
+        FROM ccds_file_object
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectByBiz" resultMap="BaseResultMap">
+        SELECT id, biz_type, biz_id, cos_key, content_type,
+               size_bytes, created_by, gmt_create
+        FROM ccds_file_object
+        WHERE biz_type = #{bizType}
+          AND biz_id = #{bizId}
+        ORDER BY gmt_create ASC
+    </select>
+
+    <delete id="deleteByBiz">
+        DELETE FROM ccds_file_object
+        WHERE biz_type = #{bizType}
+          AND biz_id = #{bizId}
+    </delete>
+
+</mapper>
