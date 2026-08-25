@@ -24,10 +24,9 @@ public class WaterViewTranslator {
      *
      * @param water       水源
      * @param stationName 站名
-     * @param writable    是否可写
      * @return VO
      */
-    public WaterVO toVo(WaterSourceDO water, String stationName, boolean writable) {
+    public WaterVO toVo(WaterSourceDO water, String stationName) {
         WaterTypeEnum type = WaterTypeEnum.fromCode(water.getType());
         WaterStatusEnum status = WaterStatusEnum.fromCode(water.getStatus());
         return WaterVO.builder()
@@ -52,16 +51,15 @@ public class WaterViewTranslator {
      *
      * @param waters      水源列表
      * @param stationName 站名
-     * @param writable    是否可写
      * @return VO 列表，不会为 null
      */
-    public List<WaterVO> toVos(List<WaterSourceDO> waters, String stationName, boolean writable) {
+    public List<WaterVO> toVos(List<WaterSourceDO> waters, String stationName) {
         List<WaterVO> out = new ArrayList<WaterVO>();
         if (waters == null) {
             return out;
         }
         for (WaterSourceDO water : waters) {
-            out.add(toVo(water, stationName, writable));
+            out.add(toVo(water, stationName));
         }
         return out;
     }

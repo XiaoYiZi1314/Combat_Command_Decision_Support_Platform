@@ -54,7 +54,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequestMapping(ApiPathConstant.API_V1)
 public class WaterController {
 
-    private static final String MSG_IMPORT_EMPTY = "请选择要导入的表格";
+    private static final String MSG_IMPORT_READ_FAILED = "导入文件读取失败，请重试";
 
     private static final DateTimeFormatter FILE_DATE = DateTimeFormatter.BASIC_ISO_DATE;
 
@@ -159,14 +159,14 @@ public class WaterController {
                                                          @PathVariable Long stationId,
                                                          @RequestPart("file") MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            throw new BizException(ErrorCodeConstant.WATER_IMPORT_INVALID, MSG_IMPORT_EMPTY);
+            throw new BizException(ErrorCodeConstant.WATER_IMPORT_INVALID, "请选择要导入的表格");
         }
         try {
             return ApiResultVO.ok(waterService.importWaters(
                     current(request), stationId, file.getOriginalFilename(), file.getBytes()));
         } catch (IOException ex) {
             log.warn("water import read failed stationId={}", stationId, ex);
-            throw new BizException(ErrorCodeConstant.WATER_IMPORT_INVALID, MSG_IMPORT_EMPTY);
+            throw new BizException(ErrorCodeConstant.WATER_IMPORT_INVALID, MSG_IMPORT_READ_FAILED);
         }
     }
 
@@ -187,12 +187,13 @@ public class WaterController {
      * 导出空模板。
      *
      * @param request   HTTP 请求
-     * @param stationId 站主键
+     * @param stationId 站主键（用于权限校验）
      * @return xlsx
      */
     @GetMapping(ApiPathConstant.STATION_WATER_TEMPLATE)
     public ResponseEntity<byte[]> exportTemplate(HttpServletRequest request, @PathVariable Long stationId) {
-        waterService.getWaters(current(request), stationId);
+        // 轻量级权限校验：确认用户可见该站即可（模板无数据）
+        waterService.getWater(current(request), stationId, 0L);
         return xlsx(WaterRuleConstant.EXPORT_TEMPLATE_PREFIX, waterService.exportTemplate());
     }
 

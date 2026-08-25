@@ -62,12 +62,30 @@
         LIMIT #{maxRows}
     </select>
 
+    <select id="selectAliveAll" resultMap="WaterResultMap">
+        SELECT
+        <include refid="WaterColumns"/>
+        FROM ccds_water_source w
+        WHERE w.deleted_at IS NULL
+        ORDER BY w.station_id ASC, w.id ASC
+    </select>
+
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO ccds_water_source
             (station_id, name, type, status, address, lng, lat, extra_json, gmt_create, gmt_modified)
         VALUES
             (#{stationId}, #{name}, #{type}, #{status}, #{address}, #{lng}, #{lat}, #{extraJson},
              #{gmtCreate}, #{gmtModified})
+    </insert>
+
+    <insert id="insertBatch">
+        INSERT INTO ccds_water_source
+            (station_id, name, type, status, address, lng, lat, extra_json, gmt_create, gmt_modified)
+        VALUES
+        <foreach collection="waters" item="w" separator=",">
+            (#{w.stationId}, #{w.name}, #{w.type}, #{w.status}, #{w.address}, #{w.lng}, #{w.lat},
+             #{w.extraJson}, #{w.gmtCreate}, #{w.gmtModified})
+        </foreach>
     </insert>
 
     <update id="update">
@@ -87,6 +105,7 @@
     <update id="softDelete">
         UPDATE ccds_water_source
         SET deleted_at = #{deletedAt},
+            name = CONCAT(LEFT(name, 59 - CHAR_LENGTH(id)), '#DEL#', id),
             gmt_modified = #{gmtModified}
         WHERE id = #{id}
           AND deleted_at IS NULL

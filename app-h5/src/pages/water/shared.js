@@ -10,15 +10,6 @@ export const STATUS_OPTIONS = [
 ];
 
 /**
- * 供水量估算：无档案流量时的保守默认值（L/s）。
- */
-export const ESTIMATE_FLOW = {
-  crane: 45,
-  ground: 15,
-  underground: 15
-};
-
-/**
  * 火灾类型供水强度 L/(s·m²)，沿现网。
  */
 export const FIRE_INTENSITY = [
@@ -84,4 +75,34 @@ export function defaultVehicleFlow(vehicleName) {
     return 40;
   }
   return 0;
+}
+
+/**
+ * 创建 DOM 元素工具函数。
+ */
+export function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) {
+    node.className = className;
+  }
+  if (text) {
+    node.textContent = text;
+  }
+  return node;
+}
+
+/**
+ * 根据类型码获取中文标签。
+ */
+export function typeLabel(code) {
+  const hit = TYPE_OPTIONS.find((item) => item.value === code);
+  return hit ? hit.label : code;
+}
+
+/**
+ * 根据状态码获取中文标签。
+ */
+export function statusLabel(code) {
+  const hit = STATUS_OPTIONS.find((item) => item.value === code);
+  return hit ? hit.label : code;
 }

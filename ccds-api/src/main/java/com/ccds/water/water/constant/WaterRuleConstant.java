@@ -24,11 +24,6 @@ public final class WaterRuleConstant {
     public static final int NOTES_MAX_LENGTH = 500;
 
     /**
-     * extra_json 最大长度。
-     */
-    public static final int EXTRA_MAX_LENGTH = 2000;
-
-    /**
      * 附近水源默认半径米。
      */
     public static final int NEARBY_DEFAULT_RADIUS_M = 3000;
@@ -98,11 +93,6 @@ public final class WaterRuleConstant {
      * 水源估算流量：消火栓 L/s。
      */
     public static final double ESTIMATE_FLOW_HYDRANT = 15.0;
-
-    /**
-     * 水源估算流量：天然/取水 L/s。
-     */
-    public static final double ESTIMATE_FLOW_NATURAL = 30.0;
 
     /**
      * 水源估算流量：其他 L/s。

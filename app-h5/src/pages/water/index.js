@@ -1,5 +1,6 @@
 import './water.css';
 import { getMe, homeHashOf } from '../../stores/session.js';
+import { bridge } from '../../bridge/index.js';
 import {
   createWater,
   deleteWater,
@@ -9,28 +10,17 @@ import {
   importWaters,
   updateWater
 } from '../../api/water.js';
-import { TYPE_OPTIONS, STATUS_OPTIONS, buildBaiduNavUrl } from './shared.js';
+import { TYPE_OPTIONS, STATUS_OPTIONS, buildBaiduNavUrl, el, typeLabel, statusLabel } from './shared.js';
 
 const STATION_KEY = 'ccds_water_station';
 const SCOPE_KEY = 'ccds_water_scope';
-
-function el(tag, className, text) {
-  const node = document.createElement(tag);
-  if (className) {
-    node.className = className;
-  }
-  if (text) {
-    node.textContent = text;
-  }
-  return node;
-}
 
 function visibleStations() {
   const me = getMe() || {};
   return Array.isArray(me.visibleStations) ? me.visibleStations : [];
 }
 
-export function currentWaterStationId() {
+function currentWaterStationId() {
   const me = getMe() || {};
   if (me.role === 'station' && me.stationId) {
     return String(me.stationId);
@@ -43,18 +33,14 @@ export function currentWaterStationId() {
   return first ? String(first.id) : '';
 }
 
+export function currentWaterStationId() {
+  return getCurrentWaterStationId();
+}
+
+function getCurrentWaterStationId() {
+
 function setWaterStationId(id) {
   localStorage.setItem(STATION_KEY, String(id));
-}
-
-function typeLabel(code) {
-  const hit = TYPE_OPTIONS.find((item) => item.value === code);
-  return hit ? hit.label : code;
-}
-
-function statusLabel(code) {
-  const hit = STATUS_OPTIONS.find((item) => item.value === code);
-  return hit ? hit.label : code;
 }
 
 export function renderWaterPage(root) {
@@ -95,7 +81,7 @@ export function renderWaterPage(root) {
       opt.textContent = station.name;
       select.appendChild(opt);
     });
-    select.value = currentWaterStationId();
+    select.value = getCurrentWaterStationId();
     select.addEventListener('change', () => {
       setWaterStationId(select.value);
       load();
@@ -233,7 +219,13 @@ export function renderWaterPage(root) {
     }
     try {
       const result = await importWaters(currentWaterStationId(), file);
-      setMsg(`导入完成：新增${result.addedCount || 0}条，跳过${result.skippedCount || 0}条`);
+      const details = [];
+      if (result.skipExampleCount) details.push(`示例${result.skipExampleCount}条`);
+      if (result.skipTypeInvalidCount) details.push(`类型无法识别${result.skipTypeInvalidCount}条`);
+      if (result.skipCoordMissingCount) details.push(`缺经纬度${result.skipCoordMissingCount}条`);
+      if (result.skipDuplicateCount) details.push(`重名${result.skipDuplicateCount}条`);
+      const skipDetail = details.length > 0 ? `（${details.join('、')}）` : '';
+      setMsg(`导入完成：新增${result.addedCount || 0}条，跳过${result.skippedCount || 0}条${skipDetail}`);
       await load();
     } catch (err) {
       setMsg(err.message || '导入失败', true);
@@ -260,7 +252,7 @@ export function renderWaterPage(root) {
   }
 
   async function load() {
-    const stationId = currentWaterStationId();
+    const stationId = getCurrentWaterStationId();
     if (!stationId) {
       list.textContent = '没有可见单位';
       return;
@@ -335,7 +327,7 @@ export function renderWaterPage(root) {
       nav.type = 'button';
       nav.addEventListener('click', (event) => {
         event.stopPropagation();
-        window.open(buildBaiduNavUrl(water.lat, water.lng, water.name), '_blank', 'noopener');
+        bridge.openUrl(buildBaiduNavUrl(water.lat, water.lng, water.name));
       });
       card.appendChild(nav);
     }
@@ -356,7 +348,7 @@ export function renderWaterPage(root) {
           return;
         }
         try {
-          await deleteWater(currentWaterStationId(), water.id);
+          await deleteWater(getCurrentWaterStationId(), water.id);
           await load();
         } catch (err) {
           setMsg(err.message || '删除失败', true);
@@ -453,9 +445,9 @@ export function renderWaterPage(root) {
       }
       try {
         if (editing.isNew) {
-          await createWater(currentWaterStationId(), payload);
+          await createWater(getCurrentWaterStationId(), payload);
         } else {
-          await updateWater(currentWaterStationId(), editing.water.id, payload);
+          await updateWater(getCurrentWaterStationId(), editing.water.id, payload);
         }
         state.editing = null;
         await load();

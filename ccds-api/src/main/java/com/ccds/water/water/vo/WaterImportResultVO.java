@@ -23,7 +23,27 @@ public class WaterImportResultVO {
     private Integer addedCount;
 
     /**
-     * 更新条数。
+     * 跳过总数。
      */
     private Integer skippedCount;
+
+    /**
+     * 跳过：示例行。
+     */
+    private Integer skipExampleCount;
+
+    /**
+     * 跳过：类型无法识别。
+     */
+    private Integer skipTypeInvalidCount;
+
+    /**
+     * 跳过：缺少经纬度。
+     */
+    private Integer skipCoordMissingCount;
+
+    /**
+     * 跳过：重名。
+     */
+    private Integer skipDuplicateCount;
 }

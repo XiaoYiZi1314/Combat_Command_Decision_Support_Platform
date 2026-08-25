@@ -51,12 +51,27 @@ public interface WaterSourceMapper {
     List<WaterSourceDO> selectActiveAll(@Param("maxRows") int maxRows);
 
     /**
+     * 全市在册水源（listCityWaters 用，无 status/coord 限制）。
+     *
+     * @return 水源列表，不会为 null
+     */
+    List<WaterSourceDO> selectAliveAll();
+
+    /**
      * 插入水源。
      *
      * @param water 水源
      * @return 影响行数
      */
     int insert(WaterSourceDO water);
+
+    /**
+     * 批量插入水源（导入用）。
+     *
+     * @param waters 水源列表
+     * @return 影响行数
+     */
+    int insertBatch(@Param("waters") List<WaterSourceDO> waters);
 
     /**
      * 更新可变字段。

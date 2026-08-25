@@ -7,19 +7,9 @@ import {
   HOSE_FACTOR,
   defaultVehicleFlow,
   distanceMeters,
-  formatDistance
+  formatDistance,
+  el
 } from '../water/shared.js';
-
-function el(tag, className, text) {
-  const node = document.createElement(tag);
-  if (className) {
-    node.className = className;
-  }
-  if (text) {
-    node.textContent = text;
-  }
-  return node;
-}
 
 export function renderSupplyPage(root, params, hash) {
   root.innerHTML = '';

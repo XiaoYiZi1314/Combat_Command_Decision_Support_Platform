@@ -84,7 +84,7 @@ public class WaterServiceImpl implements WaterService {
         StationDO station = waterAccessService.requireVisibleStation(account, stationId);
         boolean writable = waterAccessService.isWritable(account, stationId);
         List<WaterVO> waters = waterViewTranslator.toVos(
-                waterSourceMapper.selectAliveByStationId(stationId), station.getName(), writable);
+                waterSourceMapper.selectAliveByStationId(stationId), station.getName());
         return StationWaterVO.builder()
                 .stationId(station.getId())
                 .stationName(station.getName())
@@ -99,10 +99,25 @@ public class WaterServiceImpl implements WaterService {
     @Override
     public List<WaterVO> listCityWaters(AuthPrincipal principal) {
         requireAccount(principal);
+        // 批量查询所有在册水源，避免 N+1
+        List<WaterSourceDO> allWaters = waterSourceMapper.selectAliveAll();
+        // 构建站名映射
+        List<StationDO> stations = stationMapper.selectAll();
+        java.util.Map<Long, String> stationNames = new java.util.HashMap<Long, String>();
+        for (StationDO station : stations) {
+            stationNames.put(station.getId(), station.getName());
+        }
+        // 按站分组并转换
+        java.util.Map<Long, List<WaterSourceDO>> byStation = new java.util.LinkedHashMap<Long, List<WaterSourceDO>>();
+        for (WaterSourceDO water : allWaters) {
+            byStation.computeIfAbsent(water.getStationId(), k -> new ArrayList<WaterSourceDO>()).add(water);
+        }
         List<WaterVO> out = new ArrayList<WaterVO>();
-        for (StationDO station : stationMapper.selectAll()) {
-            out.addAll(waterViewTranslator.toVos(
-                    waterSourceMapper.selectAliveByStationId(station.getId()), station.getName(), false));
+        for (StationDO station : stations) {
+            List<WaterSourceDO> stationWaters = byStation.get(station.getId());
+            if (stationWaters != null) {
+                out.addAll(waterViewTranslator.toVos(stationWaters, station.getName()));
+            }
         }
         return out;
     }
@@ -114,9 +129,8 @@ public class WaterServiceImpl implements WaterService {
     public WaterVO getWater(AuthPrincipal principal, Long stationId, Long waterId) {
         AccountDO account = requireAccount(principal);
         StationDO station = waterAccessService.requireVisibleStation(account, stationId);
-        boolean writable = waterAccessService.isWritable(account, stationId);
         WaterSourceDO water = requireWater(stationId, waterId);
-        return waterViewTranslator.toVo(water, station.getName(), writable);
+        return waterViewTranslator.toVo(water, station.getName());
     }
 
     /**
@@ -144,7 +158,7 @@ public class WaterServiceImpl implements WaterService {
                 .gmtModified(now)
                 .build();
         waterSourceMapper.insert(water);
-        return waterViewTranslator.toVo(water, station.getName(), true);
+        return waterViewTranslator.toVo(water, station.getName());
     }
 
     /**
@@ -172,7 +186,7 @@ public class WaterServiceImpl implements WaterService {
         water.setExtraJson(trimToNull(command.getNotes()));
         water.setGmtModified(LocalDateTime.now());
         waterSourceMapper.update(water);
-        return waterViewTranslator.toVo(water, station.getName(), true);
+        return waterViewTranslator.toVo(water, station.getName());
     }
 
     /**
@@ -259,6 +273,12 @@ public class WaterServiceImpl implements WaterService {
                 WaterRuleConstant.NEARBY_MAX_RADIUS_M);
         int max = clamp(limit, WaterRuleConstant.NEARBY_DEFAULT_LIMIT, WaterRuleConstant.NEARBY_MAX_LIMIT);
         List<WaterSourceDO> actives = waterSourceMapper.selectActiveAll(WaterRuleConstant.NEARBY_SCAN_MAX);
+        // 构建站名映射
+        List<StationDO> stations = stationMapper.selectAll();
+        java.util.Map<Long, String> stationNames = new java.util.HashMap<Long, String>();
+        for (StationDO station : stations) {
+            stationNames.put(station.getId(), station.getName());
+        }
         List<WaterNearbyVO> hits = new ArrayList<WaterNearbyVO>();
         for (WaterSourceDO water : actives) {
             if (water.getLng() == null || water.getLat() == null) {
@@ -272,7 +292,7 @@ public class WaterServiceImpl implements WaterService {
             WaterTypeEnum type = WaterTypeEnum.fromCode(water.getType());
             hits.add(WaterNearbyVO.builder()
                     .id(water.getId())
-                    .stationName(null)
+                    .stationName(stationNames.get(water.getStationId()))
                     .name(water.getName())
                     .type(water.getType())
                     .typeLabel(type == null ? water.getType() : type.getLabel())
@@ -303,22 +323,35 @@ public class WaterServiceImpl implements WaterService {
         int notesIdx = WaterSpreadsheetSupport.findColumn(header, WaterSpreadsheetSupport.HEADER_NOTES, 14);
         int lngIdx = WaterSpreadsheetSupport.findColumn(header, WaterSpreadsheetSupport.HEADER_LNG, 15);
         int latIdx = WaterSpreadsheetSupport.findColumn(header, WaterSpreadsheetSupport.HEADER_LAT, 16);
+
+        // 预加载本站在册名称，避免 N+1
+        List<WaterSourceDO> existing = waterSourceMapper.selectAliveByStationId(stationId);
+        java.util.Set<String> existingNames = new java.util.HashSet<String>();
+        for (WaterSourceDO water : existing) {
+            existingNames.add(water.getName());
+        }
+
         int added = 0;
-        int skipped = 0;
+        int skipExample = 0;
+        int skipTypeInvalid = 0;
+        int skipCoordMissing = 0;
+        int skipDuplicate = 0;
         LocalDateTime now = LocalDateTime.now();
+        List<WaterSourceDO> toInsert = new ArrayList<WaterSourceDO>();
+
         for (int r = 1; r < rows.size(); r++) {
             List<String> cols = rows.get(r);
             if (joinBlank(cols)) {
                 continue;
             }
             if (WaterSpreadsheetSupport.isExampleRow(cols, typeIdx, 2, addressIdx)) {
-                skipped++;
+                skipExample++;
                 continue;
             }
             String typeRaw = WaterSpreadsheetSupport.cell(cols, typeIdx);
             WaterTypeEnum type = resolveType(typeRaw, WaterSpreadsheetSupport.cell(cols, setupIdx));
             if (type == null) {
-                skipped++;
+                skipTypeInvalid++;
                 continue;
             }
             String address = WaterSpreadsheetSupport.cell(cols, addressIdx);
@@ -326,33 +359,45 @@ public class WaterServiceImpl implements WaterService {
             BigDecimal lng = parseDecimal(WaterSpreadsheetSupport.cell(cols, lngIdx));
             BigDecimal lat = parseDecimal(WaterSpreadsheetSupport.cell(cols, latIdx));
             if (lng == null || lat == null) {
-                skipped++;
+                skipCoordMissing++;
                 continue;
             }
             String status = resolveStatus(WaterSpreadsheetSupport.cell(cols, usableIdx),
                     WaterSpreadsheetSupport.cell(cols, repairIdx));
-            if (waterSourceMapper.selectAliveByStationAndName(stationId, name) == null) {
-                WaterSourceDO water = WaterSourceDO.builder()
-                        .stationId(stationId)
-                        .name(name)
-                        .type(type.getCode())
-                        .status(status)
-                        .address(trimToNull(address))
-                        .lng(lng)
-                        .lat(lat)
-                        .extraJson(trimToNull(WaterSpreadsheetSupport.cell(cols, notesIdx)))
-                        .gmtCreate(now)
-                        .gmtModified(now)
-                        .build();
-                waterSourceMapper.insert(water);
-                added++;
-            } else {
-                skipped++;
+            if (existingNames.contains(name)) {
+                skipDuplicate++;
+                continue;
             }
+            existingNames.add(name);
+            WaterSourceDO water = WaterSourceDO.builder()
+                    .stationId(stationId)
+                    .name(name)
+                    .type(type.getCode())
+                    .status(status)
+                    .address(trimToNull(address))
+                    .lng(lng)
+                    .lat(lat)
+                    .extraJson(trimToNull(WaterSpreadsheetSupport.cell(cols, notesIdx)))
+                    .gmtCreate(now)
+                    .gmtModified(now)
+                    .build();
+            toInsert.add(water);
         }
+
+        // 批量插入
+        if (!toInsert.isEmpty()) {
+            waterSourceMapper.insertBatch(toInsert);
+            added = toInsert.size();
+        }
+
+        int totalSkipped = skipExample + skipTypeInvalid + skipCoordMissing + skipDuplicate;
         return WaterImportResultVO.builder()
                 .addedCount(Integer.valueOf(added))
-                .skippedCount(Integer.valueOf(skipped))
+                .skippedCount(Integer.valueOf(totalSkipped))
+                .skipExampleCount(Integer.valueOf(skipExample))
+                .skipTypeInvalidCount(Integer.valueOf(skipTypeInvalid))
+                .skipCoordMissingCount(Integer.valueOf(skipCoordMissing))
+                .skipDuplicateCount(Integer.valueOf(skipDuplicate))
                 .build();
     }
 
@@ -406,7 +451,12 @@ public class WaterServiceImpl implements WaterService {
 
     private static String buildName(WaterTypeEnum type, String seqRaw, int rowNo) {
         String seq = seqRaw == null || seqRaw.isBlank() ? String.valueOf(rowNo) : seqRaw.trim();
-        return (type.getLabel() + " " + seq).trim();
+        String fullName = (type.getLabel() + " " + seq).trim();
+        // 限长防止超 VARCHAR(64)
+        if (fullName.length() > WaterRuleConstant.NAME_MAX_LENGTH) {
+            return fullName.substring(0, WaterRuleConstant.NAME_MAX_LENGTH);
+        }
+        return fullName;
     }
 
     private static long distanceMeters(double lng1, double lat1, double lng2, double lat2) {
