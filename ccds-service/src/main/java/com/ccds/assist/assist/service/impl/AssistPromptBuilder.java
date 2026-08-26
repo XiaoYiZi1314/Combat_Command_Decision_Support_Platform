@@ -22,12 +22,15 @@ public final class AssistPromptBuilder {
 
     private static final String SYSTEM_HAZMAT = "你是消防危化品辅助查询助手。"
             + "只根据名称、俗称、UN、CAS 或标签图片给出危险性与处置要点。"
-            + "不要编造未给出的标识。必须声明不替代现场指挥。";
+            + "不要编造未给出的标识。必须声明不替代现场指挥。"
+            + "只输出 JSON："
+            + "{\"possibleName\":\"\",\"hazardSummary\":\"\",\"advice\":\"\"}。";
 
     private static final String SYSTEM_ATTACK = "你是内攻安全辅助研判助手。"
             + "只根据未撤出人员的姓名、状态、压力、剩余时间、编组以及天气/现场摘要"
             + "给出轮换、撤离和风险提示。禁止索要或推断电话、住址、证件。"
-            + "必须声明不替代现场指挥。";
+            + "必须声明不替代现场指挥。只输出 JSON："
+            + "{\"rotationAdvice\":\"\",\"withdrawAdvice\":\"\",\"riskHint\":\"\"}。";
 
     private static final String SYSTEM_SUPPLY = "你是供水辅助研判助手。"
             + "在已有本地计算结果上给出简短增强建议，不得推翻本地需求流量数字。"
@@ -174,11 +177,39 @@ public final class AssistPromptBuilder {
                     ? null
                     : person.getCurrentPressure().doubleValue();
             result.add(AttackAdvicePersonDTO.builder()
-                    .displayName(trim(person.getDisplayName(), 10))
+                    .displayName(trim(person.getDisplayName(), AssistRuleConstant.DISPLAY_NAME_MAX_LENGTH))
                     .status(status.getCode())
                     .pressure(pressure)
                     .remainSec(person.getRemainSec())
-                    .groupName(trim(person.getGroupName(), 32))
+                    .groupName(trim(person.getGroupName(), AssistRuleConstant.GROUP_NAME_MAX_LENGTH))
+                    .build());
+        }
+        return result;
+    }
+
+    /**
+     * 前端可改人员摘要：只保留白名单字段，截断长度。
+     *
+     * @param persons 前端摘要
+     * @return 白名单列表，不会为 null
+     */
+    public static List<AttackAdvicePersonDTO> sanitizePersons(List<AttackAdvicePersonDTO> persons) {
+        List<AttackAdvicePersonDTO> result = new ArrayList<>();
+        if (persons == null || persons.isEmpty()) {
+            return result;
+        }
+        int limit = Math.min(persons.size(), AssistRuleConstant.ATTACK_PERSON_MAX);
+        for (int i = 0; i < limit; i++) {
+            AttackAdvicePersonDTO person = persons.get(i);
+            if (person == null) {
+                continue;
+            }
+            result.add(AttackAdvicePersonDTO.builder()
+                    .displayName(trim(person.getDisplayName(), AssistRuleConstant.DISPLAY_NAME_MAX_LENGTH))
+                    .status(trim(person.getStatus(), AssistRuleConstant.STATUS_CODE_MAX_LENGTH))
+                    .pressure(person.getPressure())
+                    .remainSec(person.getRemainSec())
+                    .groupName(trim(person.getGroupName(), AssistRuleConstant.GROUP_NAME_MAX_LENGTH))
                     .build());
         }
         return result;

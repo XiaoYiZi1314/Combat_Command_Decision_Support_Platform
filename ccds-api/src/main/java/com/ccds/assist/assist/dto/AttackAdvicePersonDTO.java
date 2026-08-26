@@ -24,13 +24,13 @@ public class AttackAdvicePersonDTO {
     /**
      * 展示姓名。
      */
-    @Size(max = 10)
+    @Size(max = AssistRuleConstant.DISPLAY_NAME_MAX_LENGTH)
     private String displayName;
 
     /**
      * 状态：pending / in / warn / danger。
      */
-    @Size(max = 16)
+    @Size(max = AssistRuleConstant.STATUS_CODE_MAX_LENGTH)
     private String status;
 
     /**
@@ -46,6 +46,6 @@ public class AttackAdvicePersonDTO {
     /**
      * 编组名。
      */
-    @Size(max = AssistRuleConstant.SCENE_DESC_MAX_LENGTH)
+    @Size(max = AssistRuleConstant.GROUP_NAME_MAX_LENGTH)
     private String groupName;
 }

@@ -99,6 +99,16 @@ public final class TencentCloudEnvConstant {
     public static final String MODEL_BASE_URL = "CCDS_MODEL_BASE_URL";
 
     /**
+     * 模型名。
+     */
+    public static final String MODEL_NAME = "CCDS_MODEL_NAME";
+
+    /**
+     * 危化品检索上游地址。
+     */
+    public static final String HAZMAT_SEARCH_URL = "CCDS_HAZMAT_SEARCH_URL";
+
+    /**
      * 种子账号一次性口令，仅初始化时使用。
      */
     public static final String SEED_PASSWORD = "CCDS_SEED_PASSWORD";

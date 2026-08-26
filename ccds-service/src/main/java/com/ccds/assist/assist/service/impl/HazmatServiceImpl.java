@@ -51,9 +51,9 @@ public class HazmatServiceImpl implements HazmatService {
         try {
             return hazmatSearchClient.search(keyword, AssistRuleConstant.SEARCH_DEFAULT_LIMIT);
         } catch (IllegalStateException ex) {
-            log.warn("危化品检索未配置");
+            log.error("危化品检索失败", ex);
             throw new BizException(ErrorCodeConstant.HAZMAT_SEARCH_UNAVAILABLE,
-                    AssistRuleConstant.MSG_SEARCH_UNAVAILABLE);
+                    AssistRuleConstant.MSG_SEARCH_UNAVAILABLE, ex);
         }
     }
 
@@ -78,10 +78,11 @@ public class HazmatServiceImpl implements HazmatService {
                     AssistPromptBuilder.hazmatUser(safe.getText()),
                     hasImage ? stripDataUrl(safe.getImageBase64()) : null,
                     hasImage ? safe.getImageContentType() : null);
-            return parseVision(raw);
+            return AssistModelReplyParser.parseVision(raw);
         } catch (IllegalStateException ex) {
-            log.warn("危化品研判模型不可用");
-            throw new BizException(ErrorCodeConstant.ASSIST_MODEL_UNAVAILABLE, AssistRuleConstant.MSG_MODEL_UNAVAILABLE);
+            log.error("危化品研判模型不可用", ex);
+            throw new BizException(ErrorCodeConstant.ASSIST_MODEL_UNAVAILABLE,
+                    AssistRuleConstant.MSG_MODEL_UNAVAILABLE, ex);
         }
     }
 
@@ -115,16 +116,6 @@ public class HazmatServiceImpl implements HazmatService {
             return raw.substring(comma + 1);
         }
         return raw;
-    }
-
-    private HazmatVisionResultDTO parseVision(String raw) {
-        String text = raw == null ? "" : raw.trim();
-        return HazmatVisionResultDTO.builder()
-                .possibleName("")
-                .hazardSummary(text)
-                .advice("")
-                .disclaimer(AssistRuleConstant.AUXILIARY_DISCLAIMER)
-                .build();
     }
 
     private boolean hasText(String value) {

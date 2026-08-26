@@ -26,4 +26,16 @@ public class BizException extends RuntimeException {
         super(message);
         this.code = code;
     }
+
+    /**
+     * 构造带原因的业务异常。
+     *
+     * @param code    错误码
+     * @param message 给现场看的摘要
+     * @param cause   原因
+     */
+    public BizException(String code, String message, Throwable cause) {
+        super(message, cause);
+        this.code = code;
+    }
 }

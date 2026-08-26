@@ -22,7 +22,12 @@ public class ModelProperties {
     private String apiKey;
 
     /**
-     * 模型接口地址，空则走占位实现。
+     * 模型接口地址，空则拒绝调用。
      */
     private String baseUrl;
+
+    /**
+     * 模型名，空则用规则常量默认值。
+     */
+    private String modelName;
 }

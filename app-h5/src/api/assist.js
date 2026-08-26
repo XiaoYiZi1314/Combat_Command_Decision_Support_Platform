@@ -43,6 +43,11 @@ export async function fetchAttackAdvice(body) {
   }));
 }
 
+export async function fetchWeather(lng, lat) {
+  const params = new URLSearchParams({ lng: String(lng), lat: String(lat) });
+  return withRefresh(() => apiRequest(`/weather?${params.toString()}`, { headers: authHeader() }));
+}
+
 export async function fetchSupplyAdvice(body) {
   return withRefresh(() => apiRequest('/assist/supply-calc', {
     method: 'POST',

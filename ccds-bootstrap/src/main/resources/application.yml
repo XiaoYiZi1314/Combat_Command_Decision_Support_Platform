@@ -48,5 +48,8 @@ ccds:
   model:
     api-key: ${CCDS_MODEL_API_KEY:}
     base-url: ${CCDS_MODEL_BASE_URL:}
+    model-name: ${CCDS_MODEL_NAME:qwen-plus}
+  hazmat:
+    search-url: ${CCDS_HAZMAT_SEARCH_URL:}
   seed:
     password: ${CCDS_SEED_PASSWORD:}

@@ -58,12 +58,22 @@ export function renderHazmatPage(root) {
   fileInput.type = 'file';
   fileInput.accept = 'image/jpeg,image/png';
   fileInput.className = 'hidden-file';
-  const pickBtn = el('button', 'wf-cancel', '选择图片');
+  const cameraInput = document.createElement('input');
+  cameraInput.type = 'file';
+  cameraInput.accept = 'image/jpeg,image/png';
+  cameraInput.capture = 'environment';
+  cameraInput.className = 'hidden-file';
+  const pickBtn = el('button', 'wf-cancel', '图库');
   pickBtn.type = 'button';
   pickBtn.addEventListener('click', () => fileInput.click());
+  const cameraBtn = el('button', 'wf-cancel', '拍照');
+  cameraBtn.type = 'button';
+  cameraBtn.addEventListener('click', () => cameraInput.click());
   const fileHint = el('div', 'water-msg', '未选择图片');
   aiForm.appendChild(pickBtn);
+  aiForm.appendChild(cameraBtn);
   aiForm.appendChild(fileInput);
+  aiForm.appendChild(cameraInput);
   aiForm.appendChild(fileHint);
   const visionBtn = el('button', 'wf-save', 'AI 研判');
   visionBtn.type = 'button';
@@ -98,15 +108,29 @@ export function renderHazmatPage(root) {
     visionBtn.disabled = off;
     textInput.disabled = off;
     pickBtn.disabled = off;
+    cameraBtn.disabled = off;
     if (off) {
       setMsg('无网：已禁用 AI。检索若无本地缓存则失败。', true);
     }
   }
 
-  fileInput.addEventListener('change', () => {
-    const file = fileInput.files && fileInput.files[0];
-    fileHint.textContent = file ? file.name : '未选择图片';
-  });
+  function bindFile(input) {
+    input.addEventListener('change', () => {
+      const file = input.files && input.files[0];
+      if (!file) {
+        return;
+      }
+      if (input !== fileInput) {
+        fileInput.value = '';
+      } else {
+        cameraInput.value = '';
+      }
+      fileHint.textContent = file.name;
+    });
+  }
+
+  bindFile(fileInput);
+  bindFile(cameraInput);
 
   searchBtn.addEventListener('click', async () => {
     const query = queryInput.value.trim();
@@ -153,7 +177,7 @@ export function renderHazmatPage(root) {
       return;
     }
     const text = textInput.value.trim();
-    const file = fileInput.files && fileInput.files[0];
+    const file = (fileInput.files && fileInput.files[0]) || (cameraInput.files && cameraInput.files[0]);
     if (!text && !file) {
       setMsg('请提供图片或文字描述', true);
       return;

@@ -23,7 +23,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * 内攻研判：丢弃前端人员列表，改用本站未撤出白名单字段。
+ * 内攻研判：前端可改白名单人员；空则改用本站未撤出卡片。
  *
  * @author ccds
  * @since 0.1.0
@@ -49,8 +49,11 @@ public class AttackAdviceServiceImpl implements AttackAdviceService {
             throw new BizException(ErrorCodeConstant.ASSIST_ATTACK_INVALID, AssistRuleConstant.MSG_ATTACK_INVALID);
         }
         StationDO station = assistAccessService.requireVisibleStation(account, command.getStationId());
-        List<AttackPersonDO> cards = attackPersonMapper.selectByStationId(station.getId());
-        List<AttackAdvicePersonDTO> whitelist = AssistPromptBuilder.whitelistPersons(cards);
+        List<AttackAdvicePersonDTO> whitelist = AssistPromptBuilder.sanitizePersons(command.getPersons());
+        if (whitelist.isEmpty()) {
+            List<AttackPersonDO> cards = attackPersonMapper.selectByStationId(station.getId());
+            whitelist = AssistPromptBuilder.whitelistPersons(cards);
+        }
         String userPrompt = AssistPromptBuilder.attackUser(
                 station.getName(),
                 command.getWeatherSummary(),
@@ -59,20 +62,11 @@ public class AttackAdviceServiceImpl implements AttackAdviceService {
         log.info("内攻研判：stationId={}, personCount={}", station.getId(), whitelist.size());
         try {
             String raw = modelGateway.completeText(AssistPromptBuilder.attackSystem(), userPrompt);
-            return parse(raw);
+            return AssistModelReplyParser.parseAttack(raw);
         } catch (IllegalStateException ex) {
-            log.warn("内攻研判模型不可用 stationId={}", station.getId());
-            throw new BizException(ErrorCodeConstant.ASSIST_MODEL_UNAVAILABLE, AssistRuleConstant.MSG_MODEL_UNAVAILABLE);
+            log.error("内攻研判模型不可用 stationId={}", station.getId(), ex);
+            throw new BizException(ErrorCodeConstant.ASSIST_MODEL_UNAVAILABLE,
+                    AssistRuleConstant.MSG_MODEL_UNAVAILABLE, ex);
         }
-    }
-
-    private AttackAdviceResultDTO parse(String raw) {
-        String text = raw == null ? "" : raw.trim();
-        return AttackAdviceResultDTO.builder()
-                .rotationAdvice(text)
-                .withdrawAdvice("")
-                .riskHint("")
-                .disclaimer(AssistRuleConstant.AUXILIARY_DISCLAIMER)
-                .build();
     }
 }

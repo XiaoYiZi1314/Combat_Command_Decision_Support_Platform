@@ -44,7 +44,7 @@ public class AttackAdviceCommand {
     private String sceneDesc;
 
     /**
-     * 前端附带的人员摘要。后端会丢弃并改用本站未撤出白名单字段。
+     * 前端可改的人员摘要。后端只保留白名单字段；空则改用本站未撤出卡片。
      */
     @Valid
     @Size(max = AssistRuleConstant.ATTACK_PERSON_MAX)

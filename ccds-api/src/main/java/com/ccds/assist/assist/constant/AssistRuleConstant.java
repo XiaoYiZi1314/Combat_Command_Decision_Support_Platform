@@ -44,6 +44,21 @@ public final class AssistRuleConstant {
     public static final int WEATHER_SUMMARY_MAX_LENGTH = 200;
 
     /**
+     * 内攻研判展示姓名最长。
+     */
+    public static final int DISPLAY_NAME_MAX_LENGTH = 10;
+
+    /**
+     * 内攻研判编组名最长。
+     */
+    public static final int GROUP_NAME_MAX_LENGTH = 32;
+
+    /**
+     * 状态码最长。
+     */
+    public static final int STATUS_CODE_MAX_LENGTH = 16;
+
+    /**
      * 内攻研判最多带入的未撤出人员。
      */
     public static final int ATTACK_PERSON_MAX = 40;
@@ -77,6 +92,41 @@ public final class AssistRuleConstant {
      * 模型最大重试。
      */
     public static final int MODEL_RETRY_MAX = 3;
+
+    /**
+     * 检索连接超时毫秒。
+     */
+    public static final int SEARCH_CONNECT_TIMEOUT_MS = 5000;
+
+    /**
+     * 检索读取超时毫秒。
+     */
+    public static final int SEARCH_READ_TIMEOUT_MS = 15000;
+
+    /**
+     * 检索最大重试。
+     */
+    public static final int SEARCH_RETRY_MAX = 3;
+
+    /**
+     * 检索内存缓存秒数。
+     */
+    public static final int SEARCH_CACHE_TTL_SECONDS = 300;
+
+    /**
+     * 检索缓存最多条目。
+     */
+    public static final int SEARCH_CACHE_MAX_ENTRIES = 64;
+
+    /**
+     * 默认模型名。
+     */
+    public static final String DEFAULT_MODEL_NAME = "qwen-plus";
+
+    /**
+     * 聊天补全路径。
+     */
+    public static final String MODEL_CHAT_PATH = "/chat/completions";
 
     /**
      * 界面必须保留的辅助声明。

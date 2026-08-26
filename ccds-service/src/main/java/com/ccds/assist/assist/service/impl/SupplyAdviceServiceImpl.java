@@ -50,8 +50,9 @@ public class SupplyAdviceServiceImpl implements SupplyAdviceService {
                     .disclaimer(AssistRuleConstant.AUXILIARY_DISCLAIMER)
                     .build();
         } catch (IllegalStateException ex) {
-            log.warn("供水研判模型不可用");
-            throw new BizException(ErrorCodeConstant.ASSIST_MODEL_UNAVAILABLE, AssistRuleConstant.MSG_MODEL_UNAVAILABLE);
+            log.error("供水研判模型不可用", ex);
+            throw new BizException(ErrorCodeConstant.ASSIST_MODEL_UNAVAILABLE,
+                    AssistRuleConstant.MSG_MODEL_UNAVAILABLE, ex);
         }
     }
 }

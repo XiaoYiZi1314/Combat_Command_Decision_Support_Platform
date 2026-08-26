@@ -32,6 +32,10 @@
     </resource>
     <resource name="ModelGateway" note="危化品/研判，Key 只在服务端">
         <env key="CCDS_MODEL_API_KEY" required="true"/>
-        <env key="CCDS_MODEL_BASE_URL" required="false"/>
+        <env key="CCDS_MODEL_BASE_URL" required="true"/>
+        <env key="CCDS_MODEL_NAME" required="false" default="qwen-plus"/>
+    </resource>
+    <resource name="HazmatSearch" note="应急管理部库或兼容检索，后端转发">
+        <env key="CCDS_HAZMAT_SEARCH_URL" required="false"/>
     </resource>
 </tencent-cloud-env>

@@ -37,6 +37,9 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(BizException.class)
     public ResponseEntity<ApiResultVO<Void>> handleBiz(BizException ex) {
+        if (ex.getCause() != null) {
+            log.error("biz error code={}", ex.getCode(), ex);
+        }
         HttpStatus status = resolveStatus(ex.getCode());
         return ResponseEntity.status(status).body(ApiResultVO.fail(ex.getCode(), ex.getMessage()));
     }
@@ -76,9 +79,9 @@ public class GlobalExceptionHandler {
                 || ErrorCodeConstant.AUTH_MUST_CHANGE_PASSWORD.equals(code)
                 || ErrorCodeConstant.ROSTER_STATION_FORBIDDEN.equals(code)
                 || ErrorCodeConstant.ROSTER_WRITE_FORBIDDEN.equals(code)
-                 || ErrorCodeConstant.ATTACK_STATION_FORBIDDEN.equals(code)
-                 || ErrorCodeConstant.ATTACK_WRITE_FORBIDDEN.equals(code)
-                 || ErrorCodeConstant.ASSIST_STATION_FORBIDDEN.equals(code)) {
+                || ErrorCodeConstant.ATTACK_STATION_FORBIDDEN.equals(code)
+                || ErrorCodeConstant.ATTACK_WRITE_FORBIDDEN.equals(code)
+                || ErrorCodeConstant.ASSIST_STATION_FORBIDDEN.equals(code)) {
             return HttpStatus.FORBIDDEN;
         }
         if (ErrorCodeConstant.PARAM_INVALID.equals(code)
