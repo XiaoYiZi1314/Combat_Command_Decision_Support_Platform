@@ -13,6 +13,8 @@ import { renderWaterPage } from './pages/water/index.js';
 import { renderWaterMapPage } from './pages/water/map.js';
 import { renderSupplyPage } from './pages/supply/index.js';
 import { renderSupplyMapPage } from './pages/supply/map.js';
+import { renderHazmatPage } from './pages/hazmat/index.js';
+import { renderAiPage } from './pages/ai/index.js';
 import { fetchMe, fetchOrgStations, refreshSession } from './api/auth.js';
 import {
   getAccessToken,
@@ -212,6 +214,16 @@ async function render() {
   if (route.path === '/supply/map') {
     app.innerHTML = '';
     renderSupplyMapPage(app, params);
+    return;
+  }
+  if (route.path === '/hazmat') {
+    app.innerHTML = '';
+    renderHazmatPage(app);
+    return;
+  }
+  if (route.path === '/ai') {
+    app.innerHTML = '';
+    renderAiPage(app);
     return;
   }
 

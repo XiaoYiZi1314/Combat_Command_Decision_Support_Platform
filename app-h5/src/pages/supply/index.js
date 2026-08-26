@@ -1,12 +1,12 @@
 import '../water/water.css';
 import { getMe, homeHashOf } from '../../stores/session.js';
 import { fetchNearbyWaters } from '../../api/water.js';
+import { fetchSupplyAdvice } from '../../api/assist.js';
 import {
   EXPERIENCE_OPTIONS,
   FIRE_INTENSITY,
   HOSE_FACTOR,
   defaultVehicleFlow,
-  distanceMeters,
   formatDistance,
   el
 } from '../water/shared.js';
@@ -35,11 +35,12 @@ export function renderSupplyPage(root, params, hash) {
         address: query.get('address') || ''
       }
       : null,
-    nearby: []
+    nearby: [],
+    lastLocal: null
   };
 
   body.appendChild(el('div', 'supply-hint',
-    '一期无车辆档案：车辆供水能力按类型取保守默认泵量（举高/水罐/泡沫类 60 L/s，其他水类 40 L/s）。'));
+    '一期无车辆档案：车辆供水能力按类型取保守默认泵量（举高/水罐/泡沫类 60 L/s，其他水类 40 L/s）。AI 研判失败仍保留本地计算结果。'));
 
   const form = el('div', 'water-form');
 
@@ -109,6 +110,10 @@ export function renderSupplyPage(root, params, hash) {
   const calcBtn = el('button', 'wf-save supply-calc-btn', '计算');
   calcBtn.type = 'button';
   body.appendChild(calcBtn);
+  const aiBtn = el('button', 'wf-cancel supply-calc-btn', 'AI 研判');
+  aiBtn.type = 'button';
+  aiBtn.disabled = true;
+  body.appendChild(aiBtn);
 
   const msg = el('div', 'water-msg');
   body.appendChild(msg);
@@ -210,14 +215,61 @@ export function renderSupplyPage(root, params, hash) {
       }
       const r = calc();
       if (r) {
+        state.lastLocal = r;
+        aiBtn.disabled = false;
         renderResult(r);
       }
     } catch (err) {
       const r = calc();
       if (r) {
+        state.lastLocal = r;
+        aiBtn.disabled = false;
         renderResult(r);
         setMsg(`附近水源查询失败：${err.message || '网络异常'}，结果未计入水源流量`, true);
       }
+    }
+  });
+
+  aiBtn.addEventListener('click', async () => {
+    if (!state.lastLocal) {
+      setMsg('请先完成本地计算', true);
+      return;
+    }
+    const local = state.lastLocal;
+    renderResult(local);
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setMsg('无网：已保留本地计算结果', true);
+      return;
+    }
+    setMsg('AI 研判中…本地结果已保留');
+    try {
+      const data = await fetchSupplyAdvice({
+        fireType: typeSel.value,
+        area: Number(areaInput.value) || 0,
+        experience: Number(expSel.value) || 1.2,
+        requiredFlow: local.required,
+        vehicleFlow: local.vehicleFlow,
+        sourceFlow: local.sourceFlow,
+        gap: local.gap,
+        hoseLoss: local.hoseLoss,
+        vehicles: local.vehicles,
+        sources: state.nearby.slice(0, 8).map((water) => ({
+          name: water.name,
+          distanceM: water.distanceM,
+          estimateFlow: water.estimateFlow
+        }))
+      });
+      renderResult(local);
+      if (data && data.advice) {
+        result.appendChild(el('div', 'section-title', 'AI 研判'));
+        result.appendChild(el('div', 'supply-line', data.advice));
+        result.appendChild(el('div', 'supply-hint', data.disclaimer
+          || '本结果仅作辅助参考，不替代现场指挥。'));
+      }
+      setMsg('本地计算优先，AI 为增强说明');
+    } catch (err) {
+      renderResult(local);
+      setMsg(`AI 不可用：${err.message || '网络异常'}，已保留本地计算结果`, true);
     }
   });
 }

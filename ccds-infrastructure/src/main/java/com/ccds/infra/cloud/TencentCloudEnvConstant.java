@@ -94,6 +94,11 @@ public final class TencentCloudEnvConstant {
     public static final String MODEL_API_KEY = "CCDS_MODEL_API_KEY";
 
     /**
+     * 模型网关地址。
+     */
+    public static final String MODEL_BASE_URL = "CCDS_MODEL_BASE_URL";
+
+    /**
      * 种子账号一次性口令，仅初始化时使用。
      */
     public static final String SEED_PASSWORD = "CCDS_SEED_PASSWORD";

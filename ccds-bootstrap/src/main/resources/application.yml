@@ -47,5 +47,6 @@ ccds:
     baidu-ak: ${CCDS_BAIDU_MAP_AK:}
   model:
     api-key: ${CCDS_MODEL_API_KEY:}
+    base-url: ${CCDS_MODEL_BASE_URL:}
   seed:
     password: ${CCDS_SEED_PASSWORD:}

@@ -76,8 +76,9 @@ public class GlobalExceptionHandler {
                 || ErrorCodeConstant.AUTH_MUST_CHANGE_PASSWORD.equals(code)
                 || ErrorCodeConstant.ROSTER_STATION_FORBIDDEN.equals(code)
                 || ErrorCodeConstant.ROSTER_WRITE_FORBIDDEN.equals(code)
-                || ErrorCodeConstant.ATTACK_STATION_FORBIDDEN.equals(code)
-                || ErrorCodeConstant.ATTACK_WRITE_FORBIDDEN.equals(code)) {
+                 || ErrorCodeConstant.ATTACK_STATION_FORBIDDEN.equals(code)
+                 || ErrorCodeConstant.ATTACK_WRITE_FORBIDDEN.equals(code)
+                 || ErrorCodeConstant.ASSIST_STATION_FORBIDDEN.equals(code)) {
             return HttpStatus.FORBIDDEN;
         }
         if (ErrorCodeConstant.PARAM_INVALID.equals(code)

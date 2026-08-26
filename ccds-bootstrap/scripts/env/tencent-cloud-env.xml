@@ -32,5 +32,6 @@
     </resource>
     <resource name="ModelGateway" note="危化品/研判，Key 只在服务端">
         <env key="CCDS_MODEL_API_KEY" required="true"/>
+        <env key="CCDS_MODEL_BASE_URL" required="false"/>
     </resource>
 </tencent-cloud-env>

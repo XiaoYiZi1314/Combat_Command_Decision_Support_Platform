@@ -243,6 +243,41 @@ public final class ErrorCodeConstant {
      */
     public static final String WEATHER_COORD_INVALID = "WEATHER_COORD_INVALID";
 
+    /**
+     * 模型网关未配置或调用失败。
+     */
+    public static final String ASSIST_MODEL_UNAVAILABLE = "ASSIST_MODEL_UNAVAILABLE";
+
+    /**
+     * 危化品检索词不合法。
+     */
+    public static final String HAZMAT_QUERY_INVALID = "HAZMAT_QUERY_INVALID";
+
+    /**
+     * 危化品检索外部服务不可用。
+     */
+    public static final String HAZMAT_SEARCH_UNAVAILABLE = "HAZMAT_SEARCH_UNAVAILABLE";
+
+    /**
+     * 危化品研判入参不合法。
+     */
+    public static final String HAZMAT_VISION_INVALID = "HAZMAT_VISION_INVALID";
+
+    /**
+     * 内攻研判入参不合法。
+     */
+    public static final String ASSIST_ATTACK_INVALID = "ASSIST_ATTACK_INVALID";
+
+    /**
+     * 供水研判入参不合法。
+     */
+    public static final String ASSIST_SUPPLY_INVALID = "ASSIST_SUPPLY_INVALID";
+
+    /**
+     * 无权使用该站辅助研判。
+     */
+    public static final String ASSIST_STATION_FORBIDDEN = "ASSIST_STATION_FORBIDDEN";
+
     private ErrorCodeConstant() {
     }
 }

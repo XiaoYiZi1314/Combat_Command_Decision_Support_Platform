@@ -198,6 +198,26 @@ public final class ApiPathConstant {
      */
     public static final String WEATHER = "/weather";
 
+    /**
+     * 危化品检索。
+     */
+    public static final String HAZMAT_SEARCH = "/hazmat/search";
+
+    /**
+     * 危化品视觉/文字研判。
+     */
+    public static final String ASSIST_HAZMAT_VISION = "/assist/hazmat-vision";
+
+    /**
+     * 内攻 AI 研判。
+     */
+    public static final String ASSIST_ATTACK_ADVICE = "/assist/attack-advice";
+
+    /**
+     * 供水 AI 研判。
+     */
+    public static final String ASSIST_SUPPLY_CALC = "/assist/supply-calc";
+
     private ApiPathConstant() {
     }
 }
