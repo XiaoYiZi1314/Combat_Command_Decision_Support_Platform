@@ -33,11 +33,6 @@ public class FileObjectDTO {
     private Long bizId;
 
     /**
-     * COS对象键
-     */
-    private String cosKey;
-
-    /**
      * MIME类型
      */
     private String contentType;

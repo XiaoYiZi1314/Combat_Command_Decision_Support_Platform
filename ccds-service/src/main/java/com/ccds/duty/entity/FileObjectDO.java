@@ -58,4 +58,9 @@ public class FileObjectDO {
      * 创建时间
      */
     private LocalDateTime gmtCreate;
+
+    /**
+     * 修改时间
+     */
+    private LocalDateTime gmtModified;
 }

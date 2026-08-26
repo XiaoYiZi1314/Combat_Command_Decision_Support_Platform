@@ -21,9 +21,20 @@ public interface KeyUnitMapper {
     int insert(KeyUnitDO keyUnit);
 
     /**
-     * 根据ID更新
+     * 根据ID更新业务字段。
+     *
+     * @param keyUnit 重点单位
+     * @return 影响行数
      */
     int updateById(KeyUnitDO keyUnit);
+
+    /**
+     * 软删除。
+     *
+     * @param keyUnit 含主键与删除时间
+     * @return 影响行数
+     */
+    int softDeleteById(KeyUnitDO keyUnit);
 
     /**
      * 根据ID查询

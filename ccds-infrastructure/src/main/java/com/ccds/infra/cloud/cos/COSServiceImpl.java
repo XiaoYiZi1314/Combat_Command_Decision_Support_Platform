@@ -1,118 +1,120 @@
 package com.ccds.infra.cloud.cos;
 
-import com.qcloud.cos.COSClient;
-import com.qcloud.cos.http.HttpMethodName;
-import com.qcloud.cos.model.DeleteObjectsRequest;
-import com.qcloud.cos.model.DeleteObjectsResult;
-import com.qcloud.cos.model.GeneratePresignedUrlRequest;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-
-import java.net.URL;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.stereotype.Service;
+
+import com.qcloud.cos.http.HttpMethodName;
+import com.qcloud.cos.model.DeleteObjectsRequest;
+import com.qcloud.cos.model.DeleteObjectsResult;
+import com.qcloud.cos.model.GeneratePresignedUrlRequest;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 /**
- * COS对象存储服务实现
+ * COS 对象存储实现。
  *
- * @author system
- * @since 2024
+ * @author ccds
+ * @since 0.1.0
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class COSServiceImpl implements COSService {
 
-    private final COSClient cosClient;
-    private final String cosBucket;
+    private static final String MSG_NOT_READY = "COS客户端未初始化";
 
+    private static final String MSG_DELETE_FAILED = "删除COS对象失败";
+
+    private final CosClientHolder cosClientHolder;
+
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String generatePresignedUploadUrl(String cosKey, String contentType, int expireSec) {
-        if (cosClient == null) {
-            throw new IllegalStateException("COS客户端未初始化");
-        }
-
-        Date expiration = new Date(System.currentTimeMillis() + expireSec * 1000L);
-        GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(cosBucket, cosKey, HttpMethodName.PUT);
-        request.setExpiration(expiration);
+        requireReady();
+        GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(
+                cosClientHolder.getBucket(), cosKey, HttpMethodName.PUT);
+        request.setExpiration(new Date(System.currentTimeMillis() + expireSec * 1000L));
         if (contentType != null) {
             request.setContentType(contentType);
         }
-
-        URL url = cosClient.generatePresignedUrl(request);
-        return url.toString();
+        return cosClientHolder.getClient().generatePresignedUrl(request).toString();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String generatePresignedDownloadUrl(String cosKey, int expireSec) {
-        if (cosClient == null) {
-            throw new IllegalStateException("COS客户端未初始化");
-        }
-
-        Date expiration = new Date(System.currentTimeMillis() + expireSec * 1000L);
-        GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(cosBucket, cosKey, HttpMethodName.GET);
-        request.setExpiration(expiration);
-
-        URL url = cosClient.generatePresignedUrl(request);
-        return url.toString();
+        requireReady();
+        GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(
+                cosClientHolder.getBucket(), cosKey, HttpMethodName.GET);
+        request.setExpiration(new Date(System.currentTimeMillis() + expireSec * 1000L));
+        return cosClientHolder.getClient().generatePresignedUrl(request).toString();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void deleteObject(String cosKey) {
-        if (cosClient == null) {
-            log.warn("COS客户端未初始化，跳过删除：{}", cosKey);
-            return;
-        }
-
+        requireReady();
         try {
-            cosClient.deleteObject(cosBucket, cosKey);
-            log.info("删除COS对象：{}", cosKey);
-        } catch (Exception e) {
-            log.error("删除COS对象失败：{}", cosKey, e);
+            cosClientHolder.getClient().deleteObject(cosClientHolder.getBucket(), cosKey);
+        } catch (RuntimeException ex) {
+            log.error(MSG_DELETE_FAILED, ex);
+            throw new IllegalStateException(MSG_DELETE_FAILED, ex);
         }
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void deleteObjects(String[] cosKeys) {
-        if (cosClient == null) {
-            log.warn("COS客户端未初始化，跳过批量删除");
-            return;
-        }
-
+        requireReady();
         if (cosKeys == null || cosKeys.length == 0) {
             return;
         }
-
         try {
             List<DeleteObjectsRequest.KeyVersion> keys = Arrays.stream(cosKeys)
                     .map(DeleteObjectsRequest.KeyVersion::new)
                     .collect(Collectors.toList());
-
-            DeleteObjectsRequest request = new DeleteObjectsRequest(cosBucket);
+            DeleteObjectsRequest request = new DeleteObjectsRequest(cosClientHolder.getBucket());
             request.setKeys(keys);
-
-            DeleteObjectsResult result = cosClient.deleteObjects(request);
-            log.info("批量删除COS对象：成功={}, 总数={}", 
-                    result.getDeletedObjects().size(), cosKeys.length);
-        } catch (Exception e) {
-            log.error("批量删除COS对象失败", e);
+            DeleteObjectsResult result = cosClientHolder.getClient().deleteObjects(request);
+            log.info("批量删除COS对象：成功={}, 总数={}", result.getDeletedObjects().size(), cosKeys.length);
+        } catch (RuntimeException ex) {
+            log.error(MSG_DELETE_FAILED, ex);
+            throw new IllegalStateException(MSG_DELETE_FAILED, ex);
         }
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public boolean doesObjectExist(String cosKey) {
-        if (cosClient == null) {
+        if (!cosClientHolder.ready()) {
             return false;
         }
-
         try {
-            return cosClient.doesObjectExist(cosBucket, cosKey);
-        } catch (Exception e) {
-            log.error("检查COS对象存在性失败：{}", cosKey, e);
+            return cosClientHolder.getClient().doesObjectExist(cosClientHolder.getBucket(), cosKey);
+        } catch (RuntimeException ex) {
+            log.error("检查COS对象存在性失败", ex);
             return false;
+        }
+    }
+
+    private void requireReady() {
+        if (!cosClientHolder.ready()) {
+            throw new IllegalStateException(MSG_NOT_READY);
         }
     }
 }

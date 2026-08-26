@@ -1,43 +1,53 @@
 package com.ccds.duty.controller;
 
-import com.ccds.common.api.vo.ApiResultVO;
-import com.ccds.duty.dto.WeatherDTO;
-import com.ccds.duty.service.WeatherService;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.constraints.NotNull;
+
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import jakarta.validation.constraints.NotNull;
+import com.ccds.common.api.constant.ApiPathConstant;
+import com.ccds.common.api.vo.ApiResultVO;
+import com.ccds.common.web.RequestAttributeConstant;
+import com.ccds.duty.dto.WeatherDTO;
+import com.ccds.duty.service.WeatherService;
+import com.ccds.iam.identity.model.AuthPrincipal;
+
+import lombok.RequiredArgsConstructor;
 
 /**
- * 天气Controller
+ * 天气代理接入。
  *
- * @author system
- * @since 2024
+ * @author ccds
+ * @since 0.1.0
  */
-@Slf4j
+@Validated
 @RestController
-@RequestMapping("/api/v1/weather")
 @RequiredArgsConstructor
+@RequestMapping(ApiPathConstant.API_V1)
 public class WeatherController {
 
     private final WeatherService weatherService;
 
     /**
-     * 根据经纬度获取天气信息
+     * 按经纬度查询天气。
      *
-     * @param lng 经度
-     * @param lat 纬度
-     * @return 天气信息
+     * @param request HTTP 请求
+     * @param lng     经度
+     * @param lat     纬度
+     * @return 天气
      */
-    @GetMapping
-    public ApiResultVO<WeatherDTO> getWeather(
-            @RequestParam @NotNull Double lng,
-            @RequestParam @NotNull Double lat) {
-        WeatherDTO weather = weatherService.getWeather(lng, lat);
-        return ApiResultVO.ok(weather);
+    @GetMapping(ApiPathConstant.WEATHER)
+    public ApiResultVO<WeatherDTO> getWeather(HttpServletRequest request,
+                                              @RequestParam @NotNull Double lng,
+                                              @RequestParam @NotNull Double lat) {
+        return ApiResultVO.ok(weatherService.getWeather(current(request), lng, lat));
+    }
+
+    private AuthPrincipal current(HttpServletRequest request) {
+        return (AuthPrincipal) request.getAttribute(RequestAttributeConstant.AUTH_PRINCIPAL);
     }
 }

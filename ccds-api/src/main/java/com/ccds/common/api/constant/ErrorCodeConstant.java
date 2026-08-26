@@ -158,6 +158,91 @@ public final class ErrorCodeConstant {
      */
     public static final String MAP_AK_MISSING = "MAP_AK_MISSING";
 
+    /**
+     * 无权查看该站值班/预案/共享。
+     */
+    public static final String DUTY_STATION_FORBIDDEN = "DUTY_STATION_FORBIDDEN";
+
+    /**
+     * 仅本站账号可改值班/预案/共享。
+     */
+    public static final String DUTY_WRITE_FORBIDDEN = "DUTY_WRITE_FORBIDDEN";
+
+    /**
+     * 主官或副职不在本站花名册。
+     */
+    public static final String DUTY_OFFICER_INVALID = "DUTY_OFFICER_INVALID";
+
+    /**
+     * 重点单位不存在。
+     */
+    public static final String KEY_UNIT_NOT_FOUND = "KEY_UNIT_NOT_FOUND";
+
+    /**
+     * 重点单位类别不合法。
+     */
+    public static final String KEY_UNIT_CATEGORY_INVALID = "KEY_UNIT_CATEGORY_INVALID";
+
+    /**
+     * 文件不存在。
+     */
+    public static final String FILE_NOT_FOUND = "FILE_NOT_FOUND";
+
+    /**
+     * 文件关联业务不存在。
+     */
+    public static final String FILE_BIZ_NOT_FOUND = "FILE_BIZ_NOT_FOUND";
+
+    /**
+     * 文件业务类型不合法。
+     */
+    public static final String FILE_BIZ_TYPE_INVALID = "FILE_BIZ_TYPE_INVALID";
+
+    /**
+     * 文件 MIME 不在白名单。
+     */
+    public static final String FILE_CONTENT_TYPE_INVALID = "FILE_CONTENT_TYPE_INVALID";
+
+    /**
+     * 文件超过大小限制。
+     */
+    public static final String FILE_SIZE_INVALID = "FILE_SIZE_INVALID";
+
+    /**
+     * COS 未配置或调用失败。
+     */
+    public static final String FILE_COS_UNAVAILABLE = "FILE_COS_UNAVAILABLE";
+
+    /**
+     * 共享令牌不存在。
+     */
+    public static final String SHARE_TOKEN_NOT_FOUND = "SHARE_TOKEN_NOT_FOUND";
+
+    /**
+     * 共享链接无效。
+     */
+    public static final String SHARE_TOKEN_INVALID = "SHARE_TOKEN_INVALID";
+
+    /**
+     * 共享链接已作废。
+     */
+    public static final String SHARE_TOKEN_REVOKED = "SHARE_TOKEN_REVOKED";
+
+    /**
+     * 共享链接已过期。
+     */
+    public static final String SHARE_TOKEN_EXPIRED = "SHARE_TOKEN_EXPIRED";
+
+    /**
+     * 天气代理未配置。
+     */
+    public static final String WEATHER_UNAVAILABLE = "WEATHER_UNAVAILABLE";
+
+    /**
+     * 天气查询经纬度不合法。
+     */
+    public static final String WEATHER_COORD_INVALID = "WEATHER_COORD_INVALID";
+
     private ErrorCodeConstant() {
     }
 }

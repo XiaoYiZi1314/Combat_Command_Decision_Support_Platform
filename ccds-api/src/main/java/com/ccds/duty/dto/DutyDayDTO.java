@@ -26,9 +26,8 @@ public class DutyDayDTO {
     private Long id;
 
     /**
-     * 消防站ID
+     * 消防站ID，以路径为准。
      */
-    @NotNull(message = "消防站ID不能为空")
     private Long stationId;
 
     /**

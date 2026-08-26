@@ -10,6 +10,7 @@
         <result column="revoked_at" property="revokedAt"/>
         <result column="created_by" property="createdBy"/>
         <result column="gmt_create" property="gmtCreate"/>
+        <result column="gmt_modified" property="gmtModified"/>
     </resultMap>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
@@ -24,28 +25,29 @@
             <if test="tokenHash != null">token_hash = #{tokenHash},</if>
             <if test="expireAt != null">expire_at = #{expireAt},</if>
             <if test="revokedAt != null">revoked_at = #{revokedAt},</if>
-            <if test="createdBy != null">created_by = #{createdBy}</if>
+            <if test="createdBy != null">created_by = #{createdBy},</if>
+            gmt_modified = CURRENT_TIMESTAMP
         </set>
         WHERE id = #{id}
     </update>
 
     <select id="selectById" resultMap="BaseResultMap">
         SELECT id, station_id, token_hash, expire_at, revoked_at,
-               created_by, gmt_create
+               created_by, gmt_create, gmt_modified
         FROM ccds_share_token
         WHERE id = #{id}
     </select>
 
     <select id="selectByTokenHash" resultMap="BaseResultMap">
         SELECT id, station_id, token_hash, expire_at, revoked_at,
-               created_by, gmt_create
+               created_by, gmt_create, gmt_modified
         FROM ccds_share_token
         WHERE token_hash = #{tokenHash}
     </select>
 
     <select id="selectValidByStation" resultMap="BaseResultMap">
         SELECT id, station_id, token_hash, expire_at, revoked_at,
-               created_by, gmt_create
+               created_by, gmt_create, gmt_modified
         FROM ccds_share_token
         WHERE station_id = #{stationId}
           AND expire_at > #{now}

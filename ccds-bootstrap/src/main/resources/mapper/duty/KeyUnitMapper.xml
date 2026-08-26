@@ -9,7 +9,7 @@
         <result column="address" property="address"/>
         <result column="category" property="category"/>
         <result column="contact" property="contact"/>
-        <result column="phone" property="phone"/>
+        <result column="phone_cipher" property="phoneCipher"/>
         <result column="notes" property="notes"/>
         <result column="plan_text" property="planText"/>
         <result column="gmt_create" property="gmtCreate"/>
@@ -18,9 +18,9 @@
     </resultMap>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO ccds_key_unit (station_id, name, address, category, contact, phone,
+        INSERT INTO ccds_key_unit (station_id, name, address, category, contact, phone_cipher,
                                     notes, plan_text)
-        VALUES (#{stationId}, #{name}, #{address}, #{category}, #{contact}, #{phone},
+        VALUES (#{stationId}, #{name}, #{address}, #{category}, #{contact}, #{phoneCipher},
                 #{notes}, #{planText})
     </insert>
 
@@ -31,22 +31,31 @@
             address = #{address},
             category = #{category},
             contact = #{contact},
-            phone = #{phone},
+            phone_cipher = #{phoneCipher},
             notes = #{notes},
             plan_text = #{planText},
             gmt_modified = CURRENT_TIMESTAMP
         WHERE id = #{id}
+          AND deleted_at IS NULL
+    </update>
+
+    <update id="softDeleteById">
+        UPDATE ccds_key_unit
+        SET deleted_at = #{deletedAt},
+            gmt_modified = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+          AND deleted_at IS NULL
     </update>
 
     <select id="selectById" resultMap="BaseResultMap">
-        SELECT id, station_id, name, address, category, contact, phone,
+        SELECT id, station_id, name, address, category, contact, phone_cipher,
                notes, plan_text, gmt_create, gmt_modified, deleted_at
         FROM ccds_key_unit
         WHERE id = #{id}
     </select>
 
     <select id="selectByStationId" resultMap="BaseResultMap">
-        SELECT id, station_id, name, address, category, contact, phone,
+        SELECT id, station_id, name, address, category, contact, phone_cipher,
                notes, plan_text, gmt_create, gmt_modified, deleted_at
         FROM ccds_key_unit
         WHERE station_id = #{stationId}
@@ -55,7 +64,7 @@
     </select>
 
     <select id="selectByStationAndCategory" resultMap="BaseResultMap">
-        SELECT id, station_id, name, address, category, contact, phone,
+        SELECT id, station_id, name, address, category, contact, phone_cipher,
                notes, plan_text, gmt_create, gmt_modified, deleted_at
         FROM ccds_key_unit
         WHERE station_id = #{stationId}
@@ -65,14 +74,12 @@
     </select>
 
     <select id="searchByKeyword" resultMap="BaseResultMap">
-        SELECT id, station_id, name, address, category, contact, phone,
+        SELECT id, station_id, name, address, category, contact, phone_cipher,
                notes, plan_text, gmt_create, gmt_modified, deleted_at
         FROM ccds_key_unit
         WHERE station_id = #{stationId}
           AND deleted_at IS NULL
-          AND (name LIKE CONCAT('%', #{keyword}, '%')
-               OR address LIKE CONCAT('%', #{keyword}, '%')
-               OR contact LIKE CONCAT('%', #{keyword}, '%'))
+          AND name LIKE CONCAT(#{keyword}, '%') ESCAPE '\\'
         ORDER BY gmt_modified DESC
     </select>
 

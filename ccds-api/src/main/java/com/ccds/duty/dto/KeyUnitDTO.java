@@ -4,9 +4,9 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.util.List;
 
@@ -28,9 +28,8 @@ public class KeyUnitDTO {
     private Long id;
 
     /**
-     * 所属消防站ID
+     * 所属消防站ID，以路径为准。
      */
-    @NotNull(message = "消防站ID不能为空")
     private Long stationId;
 
     /**
@@ -59,10 +58,16 @@ public class KeyUnitDTO {
     private String contact;
 
     /**
-     * 联系电话
+     * 联系电话明文，仅本站可写账号返回。
      */
     @Size(max = 20, message = "联系电话最多20字符")
+    @ToString.Exclude
     private String phone;
+
+    /**
+     * 联系电话脱敏值。
+     */
+    private String phoneMasked;
 
     /**
      * 备注

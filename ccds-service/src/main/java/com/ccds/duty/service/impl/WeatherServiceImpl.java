@@ -1,36 +1,51 @@
 package com.ccds.duty.service.impl;
 
-import com.ccds.duty.dto.WeatherDTO;
-import com.ccds.duty.service.WeatherService;
-import com.ccds.infra.weather.WeatherClient;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import com.ccds.common.api.constant.ErrorCodeConstant;
+import com.ccds.common.api.exception.BizException;
+import com.ccds.duty.dto.WeatherDTO;
+import com.ccds.duty.service.DutyAccessService;
+import com.ccds.duty.service.WeatherService;
+import com.ccds.iam.identity.model.AuthPrincipal;
+import com.ccds.infra.weather.WeatherClient;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 /**
- * 天气服务实现
+ * 天气查询。禁止把精确坐标写入日志。
  *
- * @author system
- * @since 2024
+ * @author ccds
+ * @since 0.1.0
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class WeatherServiceImpl implements WeatherService {
 
+    private static final String MSG_COORD_INVALID = "经纬度不合法";
+
+    private static final String MSG_UNAVAILABLE = "天气服务暂不可用";
+
     private final WeatherClient weatherClient;
 
+    private final DutyAccessService dutyAccessService;
+
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public WeatherDTO getWeather(Double lng, Double lat) {
-        if (lng == null || lat == null) {
-            throw new IllegalArgumentException("经纬度不能为空");
+    public WeatherDTO getWeather(AuthPrincipal principal, Double lng, Double lat) {
+        dutyAccessService.requireAccount(principal);
+        if (lng == null || lat == null || lng < -180 || lng > 180 || lat < -90 || lat > 90) {
+            throw new BizException(ErrorCodeConstant.WEATHER_COORD_INVALID, MSG_COORD_INVALID);
         }
-
-        // 简单校验经纬度范围
-        if (lng < -180 || lng > 180 || lat < -90 || lat > 90) {
-            throw new IllegalArgumentException("经纬度超出有效范围");
+        try {
+            return weatherClient.getWeather(lng, lat);
+        } catch (IllegalStateException ex) {
+            log.warn("天气代理未配置");
+            throw new BizException(ErrorCodeConstant.WEATHER_UNAVAILABLE, MSG_UNAVAILABLE);
         }
-
-        return weatherClient.getWeather(lng, lat);
     }
 }

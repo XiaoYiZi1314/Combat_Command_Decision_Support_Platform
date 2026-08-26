@@ -23,11 +23,6 @@ public class FilePresignResponseDTO {
     private Long fileId;
 
     /**
-     * COS对象键
-     */
-    private String cosKey;
-
-    /**
      * 预签名上传URL
      */
     private String uploadUrl;

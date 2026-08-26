@@ -1,53 +1,51 @@
 package com.ccds.infra.cloud.cos;
 
-import java.net.URL;
-
 /**
- * COS对象存储服务
+ * COS 对象存储。
  *
- * @author system
- * @since 2024
+ * @author ccds
+ * @since 0.1.0
  */
 public interface COSService {
 
     /**
-     * 生成预签名上传URL
+     * 生成预签名上传 URL。
      *
      * @param cosKey      对象键
-     * @param contentType MIME类型
-     * @param expireSec   过期时间(秒)
-     * @return 预签名URL
+     * @param contentType MIME 类型
+     * @param expireSec   过期秒数
+     * @return 预签名 URL
      */
     String generatePresignedUploadUrl(String cosKey, String contentType, int expireSec);
 
     /**
-     * 生成预签名下载URL
+     * 生成预签名下载 URL。
      *
      * @param cosKey    对象键
-     * @param expireSec 过期时间(秒)
-     * @return 预签名URL
+     * @param expireSec 过期秒数
+     * @return 预签名 URL
      */
     String generatePresignedDownloadUrl(String cosKey, int expireSec);
 
     /**
-     * 删除对象
+     * 删除对象。失败抛出非法状态，由业务转为错误码。
      *
      * @param cosKey 对象键
      */
     void deleteObject(String cosKey);
 
     /**
-     * 批量删除对象
+     * 批量删除对象。失败抛出非法状态，由业务转为错误码。
      *
      * @param cosKeys 对象键列表
      */
     void deleteObjects(String[] cosKeys);
 
     /**
-     * 检查对象是否存在
+     * 检查对象是否存在。
      *
      * @param cosKey 对象键
-     * @return 是否存在
+     * @return 存在为 true；未配置或调用失败为 false
      */
     boolean doesObjectExist(String cosKey);
 }

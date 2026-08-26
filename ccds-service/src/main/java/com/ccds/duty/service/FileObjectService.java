@@ -1,57 +1,69 @@
 package com.ccds.duty.service;
 
+import java.util.List;
+
 import com.ccds.duty.dto.FileObjectDTO;
 import com.ccds.duty.dto.FilePresignRequestDTO;
 import com.ccds.duty.dto.FilePresignResponseDTO;
-
-import java.util.List;
+import com.ccds.iam.identity.model.AuthPrincipal;
 
 /**
- * 文件对象服务
+ * 文件对象与 COS 预签名。
  *
- * @author system
- * @since 2024
+ * @author ccds
+ * @since 0.1.0
  */
 public interface FileObjectService {
 
     /**
-     * 生成预签名上传URL
+     * 生成预签名上传 URL，并登记文件元数据。
      *
+     * @param principal 当前身份
      * @param request   预签名请求
-     * @param accountId 账号ID
-     * @return 预签名响应
+     * @return 预签名响应，不含对象键
      */
-    FilePresignResponseDTO generatePresignedUploadUrl(FilePresignRequestDTO request, Long accountId);
+    FilePresignResponseDTO generatePresignedUploadUrl(AuthPrincipal principal, FilePresignRequestDTO request);
 
     /**
-     * 根据业务类型和业务ID查询文件列表
+     * 业务下文件列表，不含预览 URL。
      *
      * @param bizType 业务类型
-     * @param bizId   业务ID
-     * @return 文件列表
+     * @param bizId   业务主键
+     * @return 列表，不会为 null
      */
     List<FileObjectDTO> listByBiz(String bizType, Long bizId);
 
     /**
-     * 生成文件预览URL
-     *
-     * @param fileId 文件ID
-     * @return 文件信息（含预览URL）
-     */
-    FileObjectDTO getWithPreviewUrl(Long fileId);
-
-    /**
-     * 删除业务关联的文件（包括COS对象）
+     * 业务下文件列表，带短时预览 URL。
      *
      * @param bizType 业务类型
-     * @param bizId   业务ID
+     * @param bizId   业务主键
+     * @return 列表，不会为 null
+     */
+    List<FileObjectDTO> listByBizWithPreview(String bizType, Long bizId);
+
+    /**
+     * 单个文件预览。
+     *
+     * @param principal 当前身份
+     * @param fileId    文件主键
+     * @return 含短时 URL 的文件
+     */
+    FileObjectDTO getWithPreviewUrl(AuthPrincipal principal, Long fileId);
+
+    /**
+     * 删除业务下全部文件。调用方须已完成写权限校验。
+     *
+     * @param bizType 业务类型
+     * @param bizId   业务主键
      */
     void deleteByBiz(String bizType, Long bizId);
 
     /**
-     * 删除单个文件（包括COS对象）
+     * 删除单个文件。
      *
-     * @param fileId 文件ID
+     * @param principal 当前身份
+     * @param fileId    文件主键
      */
-    void deleteById(Long fileId);
+    void deleteById(AuthPrincipal principal, Long fileId);
 }

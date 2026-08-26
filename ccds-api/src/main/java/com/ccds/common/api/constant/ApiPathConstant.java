@@ -143,6 +143,61 @@ public final class ApiPathConstant {
      */
     public static final String MAPS_BAIDU_TOKEN = "/maps/baidu-token";
 
+    /**
+     * 指定日期值班。
+     */
+    public static final String STATION_DUTY_DATE = "/stations/{stationId}/duty/{date}";
+
+    /**
+     * 月度值班列表。
+     */
+    public static final String STATION_DUTY_MONTH = "/stations/{stationId}/duty/month";
+
+    /**
+     * 站级重点单位列表与新建。
+     */
+    public static final String STATION_KEY_UNITS = "/stations/{stationId}/key-units";
+
+    /**
+     * 单条重点单位。
+     */
+    public static final String STATION_KEY_UNIT = "/stations/{stationId}/key-units/{id}";
+
+    /**
+     * COS 预签名上传。
+     */
+    public static final String FILES_PRESIGN = "/files/presign";
+
+    /**
+     * 单个文件预览或删除。
+     */
+    public static final String FILE_OBJECT = "/files/{fileId}";
+
+    /**
+     * 创建共享令牌。
+     */
+    public static final String SHARE = "/share";
+
+    /**
+     * 作废共享令牌。
+     */
+    public static final String SHARE_ID = "/share/{tokenId}";
+
+    /**
+     * 匿名共享态势。
+     */
+    public static final String SHARE_ANONYMOUS = "/s/{token}";
+
+    /**
+     * 匿名共享拦截排除模式。
+     */
+    public static final String SHARE_ANONYMOUS_PATTERN = "/s/**";
+
+    /**
+     * 天气代理。
+     */
+    public static final String WEATHER = "/weather";
+
     private ApiPathConstant() {
     }
 }

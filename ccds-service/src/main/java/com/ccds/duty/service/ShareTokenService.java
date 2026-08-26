@@ -3,44 +3,38 @@ package com.ccds.duty.service;
 import com.ccds.duty.dto.CreateShareTokenRequestDTO;
 import com.ccds.duty.dto.CreateShareTokenResponseDTO;
 import com.ccds.duty.vo.ShareAttackVO;
+import com.ccds.iam.identity.model.AuthPrincipal;
 
 /**
- * 共享令牌服务
+ * 共享令牌。
  *
- * @author system
- * @since 2024
+ * @author ccds
+ * @since 0.1.0
  */
 public interface ShareTokenService {
 
     /**
-     * 创建共享令牌
+     * 站级为本站当前内攻开令牌。
      *
+     * @param principal 当前身份
      * @param request   创建请求
-     * @param accountId 账号ID
-     * @return 共享令牌响应
+     * @return 明文令牌与绝对 URL，仅此时返回明文
      */
-    CreateShareTokenResponseDTO createShareToken(CreateShareTokenRequestDTO request, Long accountId);
+    CreateShareTokenResponseDTO createShareToken(AuthPrincipal principal, CreateShareTokenRequestDTO request);
 
     /**
-     * 作废共享令牌
+     * 提前作废。
      *
-     * @param tokenId 令牌ID
+     * @param principal 当前身份
+     * @param tokenId   令牌主键
      */
-    void revokeToken(Long tokenId);
+    void revokeToken(AuthPrincipal principal, Long tokenId);
 
     /**
-     * 根据令牌获取共享态势（匿名访问）
+     * 匿名只读投影。
      *
      * @param token 令牌明文
-     * @return 共享态势VO
+     * @return 脱敏态势
      */
     ShareAttackVO getSharedAttack(String token);
-
-    /**
-     * 验证令牌是否有效
-     *
-     * @param token 令牌明文
-     * @return 是否有效
-     */
-    boolean validateToken(String token);
 }

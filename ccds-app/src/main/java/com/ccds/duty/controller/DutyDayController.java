@@ -1,98 +1,126 @@
 package com.ccds.duty.controller;
 
-import com.ccds.common.api.vo.ApiResultVO;
-import com.ccds.duty.dto.DutyDayDTO;
-import com.ccds.duty.service.DutyDayService;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.*;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+import java.util.List;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
-import java.time.LocalDate;
-import java.util.List;
+
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.ccds.common.api.constant.ApiPathConstant;
+import com.ccds.common.api.constant.ErrorCodeConstant;
+import com.ccds.common.api.exception.BizException;
+import com.ccds.common.api.vo.ApiResultVO;
+import com.ccds.common.web.RequestAttributeConstant;
+import com.ccds.duty.dto.DutyDayDTO;
+import com.ccds.duty.service.DutyDayService;
+import com.ccds.iam.identity.model.AuthPrincipal;
+
+import lombok.RequiredArgsConstructor;
 
 /**
- * 值班日历Controller
+ * 值班日历接入。
  *
- * @author system
- * @since 2024
+ * @author ccds
+ * @since 0.1.0
  */
-@Slf4j
-@RestController
-@RequestMapping("/api/v1/stations/{stationId}/duty")
-@RequiredArgsConstructor
 @Validated
+@RestController
+@RequiredArgsConstructor
+@RequestMapping(ApiPathConstant.API_V1)
 public class DutyDayController {
+
+    private static final String MSG_DATE_INVALID = "日期格式须为 yyyy-MM-dd";
 
     private final DutyDayService dutyDayService;
 
     /**
-     * 查询指定日期的值班记录
+     * 查询指定日期值班。
      *
-     * @param stationId 消防站ID
-     * @param date      日期（yyyy-MM-dd）
+     * @param request   HTTP 请求
+     * @param stationId 站主键
+     * @param date      日期
      * @return 值班记录
      */
-    @GetMapping("/{date}")
-    public ApiResultVO<DutyDayDTO> getByDate(
-            @PathVariable Long stationId,
-            @PathVariable String date) {
-        LocalDate dutyDate = LocalDate.parse(date);
-        DutyDayDTO dutyDay = dutyDayService.getByStationAndDate(stationId, dutyDate);
-        return ApiResultVO.ok(dutyDay);
+    @GetMapping(ApiPathConstant.STATION_DUTY_DATE)
+    public ApiResultVO<DutyDayDTO> getByDate(HttpServletRequest request,
+                                             @PathVariable Long stationId,
+                                             @PathVariable String date) {
+        return ApiResultVO.ok(dutyDayService.getByStationAndDate(current(request), stationId, parseDate(date)));
     }
 
     /**
-     * 查询指定月份的值班记录
+     * 查询月度值班。
      *
-     * @param stationId 消防站ID
-     * @param year      年份
-     * @param month     月份
-     * @return 值班记录列表
+     * @param request   HTTP 请求
+     * @param stationId 站主键
+     * @param year      年
+     * @param month     月
+     * @return 列表
      */
-    @GetMapping("/month")
-    public ApiResultVO<List<DutyDayDTO>> listByMonth(
-            @PathVariable Long stationId,
-            @RequestParam @NotNull @Min(2020) @Max(2100) Integer year,
-            @RequestParam @NotNull @Min(1) @Max(12) Integer month) {
-        List<DutyDayDTO> dutyDays = dutyDayService.listByMonth(stationId, year, month);
-        return ApiResultVO.ok(dutyDays);
+    @GetMapping(ApiPathConstant.STATION_DUTY_MONTH)
+    public ApiResultVO<List<DutyDayDTO>> listByMonth(HttpServletRequest request,
+                                                     @PathVariable Long stationId,
+                                                     @RequestParam @NotNull @Min(2020) @Max(2100) Integer year,
+                                                     @RequestParam @NotNull @Min(1) @Max(12) Integer month) {
+        return ApiResultVO.ok(dutyDayService.listByMonth(current(request), stationId, year, month));
     }
 
     /**
-     * 保存或更新值班记录
+     * 保存或更新指定日期值班。
      *
-     * @param stationId 消防站ID
+     * @param request   HTTP 请求
+     * @param stationId 站主键
+     * @param date      日期
      * @param dto       值班记录
-     * @return 保存后的值班记录
+     * @return 保存结果
      */
-    @PutMapping
-    public ApiResultVO<DutyDayDTO> saveOrUpdate(
-            @PathVariable Long stationId,
-            @Valid @RequestBody DutyDayDTO dto) {
-        // 确保stationId一致
-        dto.setStationId(stationId);
-        DutyDayDTO saved = dutyDayService.saveOrUpdate(dto);
-        return ApiResultVO.ok(saved);
+    @PutMapping(ApiPathConstant.STATION_DUTY_DATE)
+    public ApiResultVO<DutyDayDTO> saveOrUpdate(HttpServletRequest request,
+                                                @PathVariable Long stationId,
+                                                @PathVariable String date,
+                                                @Valid @RequestBody DutyDayDTO dto) {
+        return ApiResultVO.ok(dutyDayService.saveOrUpdate(current(request), stationId, parseDate(date), dto));
     }
 
     /**
-     * 删除值班记录
+     * 删除指定日期值班。
      *
-     * @param stationId 消防站ID
-     * @param date      日期（yyyy-MM-dd）
-     * @return 成功标识
+     * @param request   HTTP 请求
+     * @param stationId 站主键
+     * @param date      日期
+     * @return 空成功
      */
-    @DeleteMapping("/{date}")
-    public ApiResultVO<Void> delete(
-            @PathVariable Long stationId,
-            @PathVariable String date) {
-        LocalDate dutyDate = LocalDate.parse(date);
-        dutyDayService.delete(stationId, dutyDate);
+    @DeleteMapping(ApiPathConstant.STATION_DUTY_DATE)
+    public ApiResultVO<Void> delete(HttpServletRequest request,
+                                    @PathVariable Long stationId,
+                                    @PathVariable String date) {
+        dutyDayService.delete(current(request), stationId, parseDate(date));
         return ApiResultVO.ok(null);
+    }
+
+    private LocalDate parseDate(String date) {
+        try {
+            return LocalDate.parse(date);
+        } catch (DateTimeParseException ex) {
+            throw new BizException(ErrorCodeConstant.PARAM_INVALID, MSG_DATE_INVALID);
+        }
+    }
+
+    private AuthPrincipal current(HttpServletRequest request) {
+        return (AuthPrincipal) request.getAttribute(RequestAttributeConstant.AUTH_PRINCIPAL);
     }
 }

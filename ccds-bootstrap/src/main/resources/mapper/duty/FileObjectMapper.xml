@@ -11,6 +11,7 @@
         <result column="size_bytes" property="sizeBytes"/>
         <result column="created_by" property="createdBy"/>
         <result column="gmt_create" property="gmtCreate"/>
+        <result column="gmt_modified" property="gmtModified"/>
     </resultMap>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
@@ -26,14 +27,14 @@
 
     <select id="selectById" resultMap="BaseResultMap">
         SELECT id, biz_type, biz_id, cos_key, content_type,
-               size_bytes, created_by, gmt_create
+               size_bytes, created_by, gmt_create, gmt_modified
         FROM ccds_file_object
         WHERE id = #{id}
     </select>
 
     <select id="selectByBiz" resultMap="BaseResultMap">
         SELECT id, biz_type, biz_id, cos_key, content_type,
-               size_bytes, created_by, gmt_create
+               size_bytes, created_by, gmt_create, gmt_modified
         FROM ccds_file_object
         WHERE biz_type = #{bizType}
           AND biz_id = #{bizId}

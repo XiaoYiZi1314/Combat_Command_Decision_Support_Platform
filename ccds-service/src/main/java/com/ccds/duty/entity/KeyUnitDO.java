@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import java.time.LocalDateTime;
 
@@ -50,9 +51,10 @@ public class KeyUnitDO {
     private String contact;
 
     /**
-     * 联系电话
+     * 联系电话密文
      */
-    private String phone;
+    @ToString.Exclude
+    private String phoneCipher;
 
     /**
      * 备注

@@ -1,50 +1,57 @@
 package com.ccds.duty.service;
 
-import com.ccds.duty.dto.DutyDayDTO;
-
 import java.time.LocalDate;
 import java.util.List;
 
+import com.ccds.duty.dto.DutyDayDTO;
+import com.ccds.iam.identity.model.AuthPrincipal;
+
 /**
- * 值班日历服务
+ * 值班日历。
  *
- * @author system
- * @since 2024
+ * @author ccds
+ * @since 0.1.0
  */
 public interface DutyDayService {
 
     /**
-     * 根据消防站和日期查询值班记录
+     * 按站与日期查询。
      *
-     * @param stationId 消防站ID
+     * @param principal 当前身份
+     * @param stationId 站主键
      * @param dutyDate  值班日期
-     * @return 值班记录
+     * @return 值班记录，没有则为 null
      */
-    DutyDayDTO getByStationAndDate(Long stationId, LocalDate dutyDate);
+    DutyDayDTO getByStationAndDate(AuthPrincipal principal, Long stationId, LocalDate dutyDate);
 
     /**
-     * 查询消防站某月的值班记录
+     * 按月查询。
      *
-     * @param stationId 消防站ID
-     * @param year      年份
-     * @param month     月份
-     * @return 值班记录列表
+     * @param principal 当前身份
+     * @param stationId 站主键
+     * @param year      年
+     * @param month     月
+     * @return 列表，不会为 null
      */
-    List<DutyDayDTO> listByMonth(Long stationId, Integer year, Integer month);
+    List<DutyDayDTO> listByMonth(AuthPrincipal principal, Long stationId, Integer year, Integer month);
 
     /**
-     * 保存或更新值班记录
+     * 保存或更新。
      *
-     * @param dto 值班记录
-     * @return 保存后的值班记录
+     * @param principal 当前身份
+     * @param stationId 站主键
+     * @param dutyDate  路径中的日期
+     * @param dto       值班记录
+     * @return 保存后的记录
      */
-    DutyDayDTO saveOrUpdate(DutyDayDTO dto);
+    DutyDayDTO saveOrUpdate(AuthPrincipal principal, Long stationId, LocalDate dutyDate, DutyDayDTO dto);
 
     /**
-     * 删除值班记录
+     * 删除指定日期值班。
      *
-     * @param stationId 消防站ID
+     * @param principal 当前身份
+     * @param stationId 站主键
      * @param dutyDate  值班日期
      */
-    void delete(Long stationId, LocalDate dutyDate);
+    void delete(AuthPrincipal principal, Long stationId, LocalDate dutyDate);
 }

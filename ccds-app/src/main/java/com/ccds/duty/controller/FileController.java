@@ -1,66 +1,79 @@
 package com.ccds.duty.controller;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.ccds.common.api.constant.ApiPathConstant;
 import com.ccds.common.api.vo.ApiResultVO;
+import com.ccds.common.web.RequestAttributeConstant;
 import com.ccds.duty.dto.FileObjectDTO;
 import com.ccds.duty.dto.FilePresignRequestDTO;
 import com.ccds.duty.dto.FilePresignResponseDTO;
 import com.ccds.duty.service.FileObjectService;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.web.bind.annotation.*;
+import com.ccds.iam.identity.model.AuthPrincipal;
 
-import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 
 /**
- * 文件上传Controller
+ * 文件预签名与预览接入。
  *
- * @author system
- * @since 2024
+ * @author ccds
+ * @since 0.1.0
  */
-@Slf4j
 @RestController
-@RequestMapping("/api/v1/files")
 @RequiredArgsConstructor
+@RequestMapping(ApiPathConstant.API_V1)
 public class FileController {
 
     private final FileObjectService fileObjectService;
 
     /**
-     * 生成预签名上传URL
+     * 生成预签名上传 URL。
      *
-     * @param request 预签名请求
-     * @return 预签名响应（含上传URL）
+     * @param request HTTP 请求
+     * @param body    预签名入参
+     * @return 上传 URL
      */
-    @PostMapping("/presign")
-    public ApiResultVO<FilePresignResponseDTO> presign(@Valid @RequestBody FilePresignRequestDTO request) {
-        // TODO: 从当前会话获取账号ID
-        Long accountId = 1L; // 临时硬编码，实际应从认证上下文获取
-        
-        FilePresignResponseDTO response = fileObjectService.generatePresignedUploadUrl(request, accountId);
-        return ApiResultVO.ok(response);
+    @PostMapping(ApiPathConstant.FILES_PRESIGN)
+    public ApiResultVO<FilePresignResponseDTO> presign(HttpServletRequest request,
+                                                       @Valid @RequestBody FilePresignRequestDTO body) {
+        return ApiResultVO.ok(fileObjectService.generatePresignedUploadUrl(current(request), body));
     }
 
     /**
-     * 获取文件预览URL
+     * 获取短时预览 URL。
      *
-     * @param fileId 文件ID
-     * @return 文件信息（含预览URL）
+     * @param request HTTP 请求
+     * @param fileId  文件主键
+     * @return 文件
      */
-    @GetMapping("/{fileId}")
-    public ApiResultVO<FileObjectDTO> getFile(@PathVariable Long fileId) {
-        FileObjectDTO file = fileObjectService.getWithPreviewUrl(fileId);
-        return ApiResultVO.ok(file);
+    @GetMapping(ApiPathConstant.FILE_OBJECT)
+    public ApiResultVO<FileObjectDTO> getFile(HttpServletRequest request, @PathVariable Long fileId) {
+        return ApiResultVO.ok(fileObjectService.getWithPreviewUrl(current(request), fileId));
     }
 
     /**
-     * 删除文件
+     * 删除文件。
      *
-     * @param fileId 文件ID
-     * @return 成功标识
+     * @param request HTTP 请求
+     * @param fileId  文件主键
+     * @return 空成功
      */
-    @DeleteMapping("/{fileId}")
-    public ApiResultVO<Void> deleteFile(@PathVariable Long fileId) {
-        fileObjectService.deleteById(fileId);
+    @DeleteMapping(ApiPathConstant.FILE_OBJECT)
+    public ApiResultVO<Void> deleteFile(HttpServletRequest request, @PathVariable Long fileId) {
+        fileObjectService.deleteById(current(request), fileId);
         return ApiResultVO.ok(null);
+    }
+
+    private AuthPrincipal current(HttpServletRequest request) {
+        return (AuthPrincipal) request.getAttribute(RequestAttributeConstant.AUTH_PRINCIPAL);
     }
 }
