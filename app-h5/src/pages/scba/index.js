@@ -134,6 +134,11 @@ export function renderScbaPage(root) {
     const pressure = Number(pressureField.input.value); const minutes = Number(minuteField.input.value || 0); const seconds = Number(secondField.input.value || 0); const total = Math.round(minutes * 60 + seconds);
     if (!(pressure > 0 && pressure <= 30) || total < 60 || total > 14400 || seconds < 0 || seconds > 59) { setMessage('请输入有效压力和1分钟至4小时的实测时间', true); return; }
     const k = personalK(pressure, cylField.input.value, total);
+    if (!Number.isFinite(k) || k <= 0) {
+      state.result = null;
+      setMessage('标定参数无法计算，请检查气瓶规格和实测时间', true);
+      return;
+    }
     const alarmSec = Math.round(total * Math.max(0, pressure - ALARM_PRESSURE) / pressure);
     const evacSec = Math.round(alarmSec * SCBA.evacRatio);
     full.value.textContent = fmtMinSec(total); alarm.value.textContent = fmtMinSec(alarmSec); evac.value.textContent = fmtMinSec(evacSec);

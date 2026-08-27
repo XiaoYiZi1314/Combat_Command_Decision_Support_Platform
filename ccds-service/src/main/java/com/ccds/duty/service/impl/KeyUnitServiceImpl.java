@@ -145,13 +145,20 @@ public class KeyUnitServiceImpl implements KeyUnitService {
     }
 
     private List<KeyUnitDO> loadList(Long stationId, String category, String keyword) {
-        if (keyword != null && !keyword.trim().isEmpty()) {
-            return keyUnitMapper.searchByKeyword(stationId, escapeLikePrefix(keyword.trim()));
+        String normalizedCategory = normalizeFilter(category);
+        String normalizedKeyword = normalizeFilter(keyword);
+        if (normalizedCategory == null && normalizedKeyword == null) {
+            return keyUnitMapper.selectByStationId(stationId);
         }
-        if (category != null && !category.trim().isEmpty()) {
-            return keyUnitMapper.selectByStationAndCategory(stationId, category.trim());
+        String escapedKeyword = normalizedKeyword == null ? null : escapeLikePrefix(normalizedKeyword);
+        return keyUnitMapper.selectByFilters(stationId, normalizedCategory, escapedKeyword);
+    }
+
+    private String normalizeFilter(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return null;
         }
-        return keyUnitMapper.selectByStationId(stationId);
+        return value.trim();
     }
 
     private KeyUnitDO requireInStation(Long stationId, Long id) {

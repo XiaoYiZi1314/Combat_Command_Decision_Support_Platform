@@ -26,6 +26,7 @@ import com.ccds.duty.service.FileObjectService;
 import com.ccds.iam.identity.entity.AccountDO;
 import com.ccds.iam.identity.model.AuthPrincipal;
 import com.ccds.infra.cloud.cos.COSService;
+import com.ccds.infra.cloud.cos.FileContentValidator;
 import com.ccds.infra.cloud.cos.FileTextExtractor;
 import com.ccds.infra.redis.FileUploadConfirmStore;
 import com.ccds.water.water.entity.WaterSourceDO;
@@ -70,6 +71,8 @@ public class FileObjectServiceImpl implements FileObjectService {
     private final WaterSourceMapper waterSourceMapper;
 
     private final COSService cosService;
+
+    private final FileContentValidator fileContentValidator;
 
     private final FileTextExtractor fileTextExtractor;
 
@@ -140,6 +143,8 @@ public class FileObjectServiceImpl implements FileObjectService {
         if (actualSize == null || !actualSize.equals(fileObject.getSizeBytes())) {
             throw new BizException(ErrorCodeConstant.FILE_UPLOAD_CONFIRM_INVALID, MSG_CONFIRM);
         }
+        byte[] content = cosService.getObjectContent(fileObject.getCosKey());
+        validateUploadedContent(fileObject, actualBizType, content);
         boolean confirmed = fileUploadConfirmStore.consume(
                 request.getConfirmTicket(), fileObject.getId(), account.getId());
         if (!confirmed) {
@@ -151,7 +156,7 @@ public class FileObjectServiceImpl implements FileObjectService {
             throw new BizException(ErrorCodeConstant.FILE_UPLOAD_CONFIRM_INVALID, MSG_CONFIRM);
         }
         fileObject.setBizType(actualBizType);
-        extractPlanTextIfSupported(fileObject);
+        extractPlanTextIfSupported(fileObject, content);
         log.info("确认文件上传：fileId={}, bizType={}, bizId={}",
                 fileObject.getId(), fileObject.getBizType(), fileObject.getBizId());
         return convertToDTO(fileObject, false);
@@ -239,11 +244,27 @@ public class FileObjectServiceImpl implements FileObjectService {
         log.info("删除文件：fileId={}", fileId);
     }
 
-    private void extractPlanTextIfSupported(FileObjectDO fileObject) {
+    private void validateUploadedContent(FileObjectDO fileObject, String actualBizType, byte[] content) {
+        try {
+            if (fileContentValidator.matches(fileObject.getContentType(), content)) {
+                return;
+            }
+            log.warn("上传文件内容校验失败 fileId={}, bizType={}",
+                    fileObject.getId(), actualBizType);
+            throw new BizException(ErrorCodeConstant.FILE_CONTENT_TYPE_INVALID, MSG_MIME);
+        } catch (BizException ex) {
+            throw ex;
+        } catch (RuntimeException ex) {
+            log.error("上传文件内容校验异常 fileId={}, bizType={}",
+                    fileObject.getId(), actualBizType, ex);
+            throw new BizException(ErrorCodeConstant.FILE_UPLOAD_CONFIRM_INVALID, MSG_CONFIRM);
+        }
+    }
+
+    private void extractPlanTextIfSupported(FileObjectDO fileObject, byte[] content) {
         if (!FileBizTypeConstant.KEYUNIT_PLAN.equals(fileObject.getBizType())) {
             return;
         }
-        byte[] content = cosService.getObjectContent(fileObject.getCosKey());
         String planText = fileTextExtractor.extract(fileObject.getContentType(), content);
         if (planText == null) {
             log.info("文件正文未自动抽取，保留手工补充入口 fileId={}", fileObject.getId());

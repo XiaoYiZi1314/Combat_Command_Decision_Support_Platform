@@ -59,6 +59,18 @@ public interface KeyUnitMapper {
     List<KeyUnitDO> selectByStationId(@Param("stationId") Long stationId);
 
     /**
+     * 根据类别与名称前缀组合筛选重点单位。
+     *
+     * @param stationId 消防站ID
+     * @param category  类别，可空
+     * @param keyword   已转义的名称前缀，可空
+     * @return 重点单位列表
+     */
+    List<KeyUnitDO> selectByFilters(@Param("stationId") Long stationId,
+                                    @Param("category") String category,
+                                    @Param("keyword") String keyword);
+
+    /**
      * 根据类别查询重点单位列表
      *
      * @param stationId 消防站ID
@@ -66,7 +78,7 @@ public interface KeyUnitMapper {
      * @return 重点单位列表
      */
     List<KeyUnitDO> selectByStationAndCategory(@Param("stationId") Long stationId,
-                                                 @Param("category") String category);
+                                               @Param("category") String category);
 
     /**
      * 根据关键词搜索重点单位
@@ -76,5 +88,5 @@ public interface KeyUnitMapper {
      * @return 重点单位列表
      */
     List<KeyUnitDO> searchByKeyword(@Param("stationId") Long stationId,
-                                     @Param("keyword") String keyword);
+                                    @Param("keyword") String keyword);
 }

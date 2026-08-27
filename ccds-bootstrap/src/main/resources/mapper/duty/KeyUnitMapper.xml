@@ -71,6 +71,21 @@
         ORDER BY gmt_modified DESC
     </select>
 
+    <select id="selectByFilters" resultMap="BaseResultMap">
+        SELECT id, station_id, name, address, category, contact, phone_cipher,
+               notes, plan_text, gmt_create, gmt_modified, deleted_at
+        FROM ccds_key_unit
+        WHERE station_id = #{stationId}
+          AND deleted_at IS NULL
+        <if test="category != null and category != ''">
+          AND category = #{category}
+        </if>
+        <if test="keyword != null and keyword != ''">
+          AND name LIKE CONCAT(#{keyword}, '%') ESCAPE '\\'
+        </if>
+        ORDER BY gmt_modified DESC
+    </select>
+
     <select id="selectByStationAndCategory" resultMap="BaseResultMap">
         SELECT id, station_id, name, address, category, contact, phone_cipher,
                notes, plan_text, gmt_create, gmt_modified, deleted_at

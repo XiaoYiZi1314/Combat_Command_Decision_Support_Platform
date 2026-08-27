@@ -80,7 +80,7 @@ public class WeatherClientImpl implements WeatherClient {
                 return hit.weather;
             }
         }
-        WeatherDTO weather = fetchWithRetry(lng, lat);
+        WeatherDTO weather = fetchOnceAndLog(lng, lat);
         synchronized (cacheLock) {
             cache.put(cacheKey, new CacheEntry(weather,
                     Instant.now().plusSeconds(WeatherRuleConstant.CACHE_TTL_SECONDS)));
@@ -91,21 +91,11 @@ public class WeatherClientImpl implements WeatherClient {
         return weather;
     }
 
-    private WeatherDTO fetchWithRetry(Double lng, Double lat) {
-        IllegalStateException last = null;
-        for (int attempt = 1; attempt <= WeatherRuleConstant.RETRY_MAX; attempt++) {
-            long started = System.currentTimeMillis();
-            try {
-                WeatherDTO weather = fetchOnce(lng, lat);
-                log.info("天气代理调用成功 attempt={} elapsedMs={}",
-                        attempt, System.currentTimeMillis() - started);
-                return weather;
-            } catch (RetryableCallException ex) {
-                last = ex;
-                log.warn("天气代理可重试失败 attempt={}", attempt, ex);
-            }
-        }
-        throw last == null ? new IllegalStateException(MSG_CALL_FAILED) : last;
+    private WeatherDTO fetchOnceAndLog(Double lng, Double lat) {
+        long started = System.currentTimeMillis();
+        WeatherDTO weather = fetchOnce(lng, lat);
+        log.info("天气代理调用成功 elapsedMs={}", System.currentTimeMillis() - started);
+        return weather;
     }
 
     private WeatherDTO fetchOnce(Double lng, Double lat) {
@@ -122,19 +112,15 @@ public class WeatherClientImpl implements WeatherClient {
         try {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             int status = response.statusCode();
-            if (status >= 200 && status < 300) {
-                return parseBody(response.body());
+            if (status < 200 || status >= 300) {
+                throw new IllegalStateException("weather http " + status);
             }
-            if (status == 429 || status >= 500) {
-                throw new RetryableCallException("weather http " + status);
-            }
-            log.error("天气代理调用失败 status={}", status);
-            throw new IllegalStateException(MSG_CALL_FAILED);
+            return parseBody(response.body());
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException(MSG_CALL_FAILED, ex);
         } catch (IOException ex) {
-            throw new RetryableCallException(MSG_CALL_FAILED, ex);
+            throw new IllegalStateException(MSG_CALL_FAILED, ex);
         }
     }
 
@@ -315,17 +301,6 @@ public class WeatherClientImpl implements WeatherClient {
         private CacheEntry(WeatherDTO weather, Instant expireAt) {
             this.weather = weather;
             this.expireAt = expireAt;
-        }
-    }
-
-    private static final class RetryableCallException extends IllegalStateException {
-
-        private RetryableCallException(String message) {
-            super(message);
-        }
-
-        private RetryableCallException(String message, Throwable cause) {
-            super(message, cause);
         }
     }
 }

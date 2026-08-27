@@ -14,9 +14,6 @@ public final class WeatherRuleConstant {
     /** 单次读取超时毫秒数。 */
     public static final int READ_TIMEOUT_MS = 10000;
 
-    /** 最大调用次数。 */
-    public static final int RETRY_MAX = 2;
-
     /** 返回小时预报数量。 */
     public static final int HOURLY_LIMIT = 12;
 
