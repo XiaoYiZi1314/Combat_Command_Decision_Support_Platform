@@ -214,6 +214,11 @@ public final class ErrorCodeConstant {
     public static final String FILE_COS_UNAVAILABLE = "FILE_COS_UNAVAILABLE";
 
     /**
+     * 文件上传尚未确认、确认票据无效或 COS 对象不匹配。
+     */
+    public static final String FILE_UPLOAD_CONFIRM_INVALID = "FILE_UPLOAD_CONFIRM_INVALID";
+
+    /**
      * 共享令牌不存在。
      */
     public static final String SHARE_TOKEN_NOT_FOUND = "SHARE_TOKEN_NOT_FOUND";

@@ -31,6 +31,7 @@ import com.ccds.iam.identity.model.AuthPrincipal;
 import com.ccds.roster.roster.constant.RosterRuleConstant;
 import com.ccds.roster.roster.dto.GroupBatchSaveCommand;
 import com.ccds.roster.roster.dto.ProfileSaveCommand;
+import com.ccds.roster.roster.dto.ScbaCalibrationSaveCommand;
 import com.ccds.roster.roster.service.RosterService;
 import com.ccds.roster.roster.vo.ProfileVO;
 import com.ccds.roster.roster.vo.RosterImportResultVO;
@@ -142,6 +143,24 @@ public class RosterController {
                                            @PathVariable Long profileId) {
         rosterService.deleteProfile(current(request), stationId, profileId);
         return ApiResultVO.ok(null);
+    }
+
+    /**
+     * 保存个人空呼高强度标定。
+     *
+     * @param request   HTTP 请求
+     * @param stationId 站主键
+     * @param profileId 档案主键
+     * @param command   标定入参
+     * @return 更新后的档案详情
+     */
+    @PostMapping(ApiPathConstant.STATION_PROFILE_SCBA_CALIBRATIONS)
+    public ApiResultVO<ProfileVO> saveScbaCalibration(HttpServletRequest request,
+                                                      @PathVariable Long stationId,
+                                                      @PathVariable Long profileId,
+                                                      @Valid @RequestBody ScbaCalibrationSaveCommand command) {
+        return ApiResultVO.ok(rosterService.saveScbaCalibration(
+                current(request), stationId, profileId, command));
     }
 
     /**

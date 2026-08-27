@@ -16,6 +16,10 @@ import { renderSupplyMapPage } from './pages/supply/map.js';
 import { renderHazmatPage } from './pages/hazmat/index.js';
 import { renderAiPage } from './pages/ai/index.js';
 import { renderWeatherPage } from './pages/weather/index.js';
+import { renderDutyPage } from './pages/duty/index.js';
+import { renderKeyUnitEditPage, renderKeyUnitsPage } from './pages/key-units/index.js';
+import { renderSharePage } from './pages/share/index.js';
+import { renderScbaPage } from './pages/scba/index.js';
 import { renderVersionPage } from './pages/version/index.js';
 import { fetchMe, fetchOrgStations, refreshSession } from './api/auth.js';
 import { bridge, probeBridge } from './bridge/index.js';
@@ -235,6 +239,31 @@ async function render() {
   if (route.path === '/weather') {
     app.innerHTML = '';
     unmountCurrent = renderWeatherPage(app) || null;
+    return;
+  }
+  if (route.path === '/duty') {
+    app.innerHTML = '';
+    renderDutyPage(app);
+    return;
+  }
+  if (route.path === '/key-units') {
+    app.innerHTML = '';
+    renderKeyUnitsPage(app);
+    return;
+  }
+  if (route.path === '/key-units/:id') {
+    app.innerHTML = '';
+    renderKeyUnitEditPage(app, params);
+    return;
+  }
+  if (route.path === '/share') {
+    app.innerHTML = '';
+    renderSharePage(app);
+    return;
+  }
+  if (route.path === '/scba') {
+    app.innerHTML = '';
+    renderScbaPage(app);
     return;
   }
   if (route.path === '/version') {

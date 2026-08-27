@@ -17,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.ccds.attack.attack.entity.AttackPersonDO;
 import com.ccds.attack.attack.mapper.AttackPersonMapper;
-import com.ccds.common.api.constant.ApiPathConstant;
 import com.ccds.common.api.constant.ErrorCodeConstant;
 import com.ccds.common.api.exception.BizException;
 import com.ccds.duty.dto.CreateShareTokenRequestDTO;
@@ -153,7 +152,7 @@ public class ShareTokenServiceImpl implements ShareTokenService {
         if (base.endsWith("/")) {
             base = base.substring(0, base.length() - 1);
         }
-        return base + ApiPathConstant.API_V1 + "/s/" + token;
+        return base + "/s/" + token;
     }
 
     private String hashToken(String token) {

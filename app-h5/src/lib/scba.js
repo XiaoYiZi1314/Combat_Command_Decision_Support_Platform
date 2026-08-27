@@ -1,3 +1,5 @@
+import { getScbaSettings } from '../stores/settings.js';
+
 export const SCBA = {
   warnPressure: 10,
   dangerPressure: 4,
@@ -54,12 +56,15 @@ export function resolveStatus(status, pressure, remainSec) {
   if (status === 'pending' || !status) {
     return 'pending';
   }
+  const settings = getScbaSettings();
   const p = Number(pressure) || 0;
   const rem = remainSec == null ? 0 : Number(remainSec);
-  if (p <= SCBA.dangerPressure || rem <= SCBA.dangerTimeSec) {
+  if (p <= settings.dangerPressure
+      || rem <= settings.dangerTimeMin * SCBA.secondsPerMinute) {
     return 'danger';
   }
-  if (p <= SCBA.warnPressure || rem <= SCBA.warnTimeSec) {
+  if (p <= settings.warnPressure
+      || rem <= settings.warnTimeMin * SCBA.secondsPerMinute) {
     return 'warn';
   }
   return 'in';

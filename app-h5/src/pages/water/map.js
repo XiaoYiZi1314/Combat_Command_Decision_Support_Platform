@@ -89,43 +89,79 @@ export function renderWaterMapPage(root, params, hash) {
     }
   }
 
+  function createInfoLine(text, emphasized) {
+    const line = document.createElement('div');
+    line.textContent = text;
+    line.style.color = emphasized ? '#999' : '#666';
+    line.style.fontSize = '12px';
+    line.style.marginBottom = emphasized ? '8px' : '4px';
+    return line;
+  }
+
+  function createWaterInfoContent(water) {
+    const content = document.createElement('div');
+    content.style.padding = '8px';
+
+    const name = document.createElement('div');
+    name.style.fontWeight = 'bold';
+    name.style.marginBottom = '4px';
+    name.textContent = water.name || '未命名';
+    content.appendChild(name);
+    content.appendChild(createInfoLine(typeLabel(water.type), false));
+
+    if (water.stationName) {
+      content.appendChild(createInfoLine(`所属: ${water.stationName}`, false));
+    }
+    if (water.address) {
+      content.appendChild(createInfoLine(water.address, false));
+    }
+    if (water.distanceM != null) {
+      content.appendChild(createInfoLine(`距离: ${formatDistance(water.distanceM)}`, false));
+    }
+    if (water.estimateFlow != null) {
+      content.appendChild(createInfoLine(`估算流量: ${water.estimateFlow} L/s`, true));
+    }
+
+    const nav = document.createElement('button');
+    nav.type = 'button';
+    nav.textContent = '百度导航';
+    nav.style.padding = '6px 12px';
+    nav.style.background = '#1a73e8';
+    nav.style.color = 'white';
+    nav.style.border = 'none';
+    nav.style.borderRadius = '4px';
+    nav.style.cursor = 'pointer';
+    nav.addEventListener('click', () => {
+      bridge.openUrl(buildBaiduNavUrl(water.lat, water.lng, water.name));
+    });
+    content.appendChild(nav);
+    return content;
+  }
+
   function addWaterMarkers(waters, BMap) {
     clearMarkers();
     const bounds = [];
-    
-    waters.forEach(water => {
-      if (!water.lng || !water.lat) return;
-      
+
+    waters.forEach((water) => {
+      if (!water.lng || !water.lat) {
+        return;
+      }
+
       const [bdLng, bdLat] = wgs84ToBd09(water.lng, water.lat);
       const point = new BMap.Point(bdLng, bdLat);
       bounds.push(point);
-      
+
       const marker = new BMap.Marker(point);
       currentMarkers.push(marker);
       mapInstance.addOverlay(marker);
-      
-      const infoContent = `
-        <div style="padding:8px;">
-          <div style="font-weight:bold;margin-bottom:4px;">${water.name || '未命名'}</div>
-          <div style="color:#666;font-size:12px;margin-bottom:4px;">${typeLabel(water.type)}</div>
-          ${water.stationName ? `<div style="color:#666;font-size:12px;margin-bottom:4px;">所属: ${water.stationName}</div>` : ''}
-          ${water.address ? `<div style="color:#666;font-size:12px;margin-bottom:4px;">${water.address}</div>` : ''}
-          ${water.distanceM != null ? `<div style="color:#999;font-size:12px;margin-bottom:4px;">距离: ${formatDistance(water.distanceM)}</div>` : ''}
-          ${water.estimateFlow != null ? `<div style="color:#999;font-size:12px;margin-bottom:8px;">估算流量: ${water.estimateFlow} L/s</div>` : ''}
-          <button onclick="window.navToWater(${water.lat}, ${water.lng}, '${(water.name || '').replace(/'/g, "\\'")}')"
-                  style="padding:6px 12px;background:#1a73e8;color:white;border:none;border-radius:4px;cursor:pointer;">
-            百度导航
-          </button>
-        </div>
-      `;
-      
-      const infoWindow = new BMap.InfoWindow(infoContent, { width: 250 });
-      
+
+      const infoWindow = new BMap.InfoWindow(createWaterInfoContent(water), { width: 250 });
+
       marker.addEventListener('click', () => {
         mapInstance.openInfoWindow(infoWindow, point);
       });
     });
-    
+
     // 设置地图视野
     if (bounds.length === 1) {
       mapInstance.centerAndZoom(bounds[0], 15);
@@ -136,11 +172,6 @@ export function renderWaterMapPage(root, params, hash) {
       mapInstance.centerAndZoom(new BMap.Point(116.404, 39.915), 12);
     }
   }
-
-  // 全局导航函数（供 InfoWindow 按钮调用）
-  window.navToWater = (lat, lng, name) => {
-    bridge.openUrl(buildBaiduNavUrl(lat, lng, name));
-  };
 
   function renderNearby(result, cur, BMap) {
     list.innerHTML = '';

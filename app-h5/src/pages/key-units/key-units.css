@@ -1,0 +1,37 @@
+.key-units-page { min-height: 100vh; background: var(--bg); color: var(--text); }
+.key-units-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; position: sticky; top: 0; z-index: 20; background: linear-gradient(135deg, var(--header-from), var(--header-to)); }
+.key-units-head h2 { flex: 1; font-size: 17px; }
+.ku-btn { border: 1px solid var(--glass-border); border-radius: var(--radius-sm); background: var(--glass); color: var(--text); padding: 9px 12px; font-weight: 700; }
+.ku-btn.primary { background: rgba(74, 158, 255, .28); border-color: rgba(74, 158, 255, .4); }
+.ku-btn.danger { color: var(--red); background: var(--red-bg); border-color: rgba(248, 81, 73, .32); }
+.ku-body { padding: 12px 14px 28px; }
+.ku-toolbar, .ku-section { padding: 12px; margin-bottom: 12px; border: 1px solid var(--glass-border); border-radius: var(--radius); background: var(--glass-fill); box-shadow: 0 14px 36px rgba(5,12,35,.24); }
+.ku-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.ku-toolbar input, .ku-toolbar select, .ku-field input, .ku-field select, .ku-field textarea { width: 100%; border: 1px solid var(--glass-border); border-radius: 8px; background: rgba(255,255,255,.08); color: var(--text); padding: 10px; font-size: 14px; }
+.ku-toolbar option, .ku-field option { color: #111; }
+.ku-filter { display: flex; gap: 8px; grid-column: 1 / -1; }
+.ku-filter select { flex: 1; }
+.ku-msg { min-height: 20px; margin-bottom: 8px; color: var(--green); font-size: 12px; }
+.ku-msg.error { color: var(--red); }
+.ku-list { display: grid; gap: 10px; }
+.ku-card { padding: 14px; border: 1px solid var(--glass-border); border-radius: var(--radius); background: var(--glass-fill); }
+.ku-card-head { display: flex; align-items: flex-start; gap: 8px; }
+.ku-card-head strong { flex: 1; font-size: 16px; }
+.ku-category { color: var(--amber); font-size: 11px; }
+.ku-meta { margin-top: 7px; color: var(--dim); font-size: 12px; line-height: 1.6; }
+.ku-plan-preview { margin-top: 10px; padding: 10px; border-radius: 8px; background: rgba(255,255,255,.05); color: rgba(255,255,255,.82); font-size: 13px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ku-card-actions { display: flex; gap: 8px; margin-top: 10px; }
+.ku-card-actions .ku-btn { flex: 1; }
+.ku-empty { padding: 20px 0; color: var(--dim); text-align: center; font-size: 13px; }
+.ku-form-title { margin-bottom: 10px; font-size: 16px; font-weight: 900; }
+.ku-fields { display: grid; gap: 10px; }
+.ku-field label { display: block; margin-bottom: 6px; color: var(--dim); font-size: 12px; }
+.ku-field textarea { min-height: 180px; resize: vertical; line-height: 1.6; }
+.ku-files { display: grid; gap: 7px; }
+.ku-file { display: flex; align-items: center; gap: 8px; padding: 9px; border-radius: 8px; background: rgba(255,255,255,.05); font-size: 12px; }
+.ku-file a { flex: 1; min-width: 0; color: var(--blue); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ku-file button { border: 0; background: transparent; color: var(--red); }
+.ku-upload { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+.ku-upload input { flex: 1; min-width: 0; color: var(--dim); font-size: 12px; }
+.ku-help { margin-top: 7px; color: var(--dim); font-size: 11px; line-height: 1.5; }
+@media (max-width: 360px) { .ku-body { padding-right: 8px; padding-left: 8px; } .ku-toolbar { grid-template-columns: 1fr; } .ku-filter { grid-column: auto; } }

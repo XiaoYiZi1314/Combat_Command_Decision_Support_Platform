@@ -20,6 +20,7 @@ import com.ccds.iam.identity.service.AuthService;
 import com.ccds.iam.identity.vo.LoginVO;
 import com.ccds.iam.identity.vo.MeVO;
 import com.ccds.iam.identity.vo.OrgTreeVO;
+import com.ccds.iam.identity.vo.WebSocketTicketVO;
 
 import lombok.RequiredArgsConstructor;
 
@@ -103,6 +104,17 @@ public class AuthController {
     @GetMapping(ApiPathConstant.ORG_STATIONS)
     public ApiResultVO<OrgTreeVO> orgStations(HttpServletRequest request) {
         return ApiResultVO.ok(authService.orgStations(current(request)));
+    }
+
+    /**
+     * 签发指挥 WebSocket 短时一次性票据。
+     *
+     * @param request HTTP 请求
+     * @return 一次性票据
+     */
+    @PostMapping(ApiPathConstant.AUTH_WS_TICKET)
+    public ApiResultVO<WebSocketTicketVO> issueWebSocketTicket(HttpServletRequest request) {
+        return ApiResultVO.ok(authService.issueWebSocketTicket(current(request)));
     }
 
     private AuthPrincipal current(HttpServletRequest request) {

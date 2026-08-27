@@ -29,9 +29,9 @@ function wsOrigin() {
   return `${proto}//${window.location.host}`;
 }
 
-export function wsUrl(token) {
-  const encoded = encodeURIComponent(token || '');
-  return `${wsOrigin()}${SYNC.wsPath}?token=${encoded}`;
+export function wsUrl(ticket) {
+  const encoded = encodeURIComponent(ticket || '');
+  return `${wsOrigin()}${SYNC.wsPath}?ticket=${encoded}`;
 }
 
 export function syncStatusText(online, pending) {
@@ -224,16 +224,22 @@ export function connectCommandSocket(handlers) {
     if (state.closed) {
       return;
     }
-    let token = '';
-    if (typeof cbs.token === 'function') {
-      token = await cbs.token();
+    let ticket = '';
+    try {
+      if (typeof cbs.ticket === 'function') {
+        ticket = await cbs.ticket();
+      }
+    } catch (err) {
+      console.warn('hq ws ticket unavailable', err.code || err.name);
+      startPoll();
+      return;
     }
-    if (!token) {
+    if (!ticket) {
       startPoll();
       return;
     }
     closeSocket();
-    const socket = new WebSocket(wsUrl(token));
+    const socket = new WebSocket(wsUrl(ticket));
     state.socket = socket;
     socket.addEventListener('open', () => {
       if (state.fallbackTimer) {

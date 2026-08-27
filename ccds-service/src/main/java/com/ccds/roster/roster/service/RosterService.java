@@ -3,6 +3,7 @@ package com.ccds.roster.roster.service;
 import com.ccds.iam.identity.model.AuthPrincipal;
 import com.ccds.roster.roster.dto.GroupBatchSaveCommand;
 import com.ccds.roster.roster.dto.ProfileSaveCommand;
+import com.ccds.roster.roster.dto.ScbaCalibrationSaveCommand;
 import com.ccds.roster.roster.vo.ProfileVO;
 import com.ccds.roster.roster.vo.RosterImportResultVO;
 import com.ccds.roster.roster.vo.StationRosterVO;
@@ -63,6 +64,18 @@ public interface RosterService {
      * @param profileId 档案主键
      */
     void deleteProfile(AuthPrincipal principal, Long stationId, Long profileId);
+
+    /**
+     * 保存个人空呼高强度标定。
+     *
+     * @param principal 当前身份
+     * @param stationId 站主键
+     * @param profileId 档案主键
+     * @param command   标定数据
+     * @return 更新后的档案详情
+     */
+    ProfileVO saveScbaCalibration(AuthPrincipal principal, Long stationId, Long profileId,
+                                  ScbaCalibrationSaveCommand command);
 
     /**
      * 整存战斗编组。

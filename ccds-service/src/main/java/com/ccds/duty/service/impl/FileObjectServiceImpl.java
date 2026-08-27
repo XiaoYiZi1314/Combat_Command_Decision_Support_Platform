@@ -16,6 +16,7 @@ import com.ccds.duty.constant.FileRuleConstant;
 import com.ccds.duty.dto.FileObjectDTO;
 import com.ccds.duty.dto.FilePresignRequestDTO;
 import com.ccds.duty.dto.FilePresignResponseDTO;
+import com.ccds.duty.dto.FileUploadConfirmDTO;
 import com.ccds.duty.entity.FileObjectDO;
 import com.ccds.duty.entity.KeyUnitDO;
 import com.ccds.duty.mapper.FileObjectMapper;
@@ -25,6 +26,8 @@ import com.ccds.duty.service.FileObjectService;
 import com.ccds.iam.identity.entity.AccountDO;
 import com.ccds.iam.identity.model.AuthPrincipal;
 import com.ccds.infra.cloud.cos.COSService;
+import com.ccds.infra.cloud.cos.FileTextExtractor;
+import com.ccds.infra.redis.FileUploadConfirmStore;
 import com.ccds.water.water.entity.WaterSourceDO;
 import com.ccds.water.water.mapper.WaterSourceMapper;
 
@@ -58,6 +61,8 @@ public class FileObjectServiceImpl implements FileObjectService {
 
     private static final String MSG_COS = "对象存储暂不可用";
 
+    private static final String MSG_CONFIRM = "文件上传确认失败，请重新上传";
+
     private final FileObjectMapper fileObjectMapper;
 
     private final KeyUnitMapper keyUnitMapper;
@@ -66,7 +71,11 @@ public class FileObjectServiceImpl implements FileObjectService {
 
     private final COSService cosService;
 
+    private final FileTextExtractor fileTextExtractor;
+
     private final DutyAccessService dutyAccessService;
+
+    private final FileUploadConfirmStore fileUploadConfirmStore;
 
     /**
      * {@inheritDoc}
@@ -80,9 +89,10 @@ public class FileObjectServiceImpl implements FileObjectService {
         if (stationId != null) {
             dutyAccessService.requireWritableStation(account, stationId);
         }
-        String cosKey = generateCOSKey(request.getBizType(), request.getFileName());
+        String actualBizType = request.getBizType();
+        String cosKey = generateCOSKey(actualBizType, request.getFileName());
         FileObjectDO fileObject = FileObjectDO.builder()
-                .bizType(request.getBizType())
+                .bizType(FileRuleConstant.pendingBizType(actualBizType))
                 .bizId(request.getBizId())
                 .cosKey(cosKey)
                 .contentType(request.getContentType().trim().toLowerCase())
@@ -95,6 +105,8 @@ public class FileObjectServiceImpl implements FileObjectService {
             uploadUrl = cosService.generatePresignedUploadUrl(
                     cosKey, fileObject.getContentType(), FileRuleConstant.PRESIGN_EXPIRE_SECONDS);
         } catch (IllegalStateException ex) {
+            fileObjectMapper.deleteById(fileObject.getId());
+            log.error("生成文件上传URL失败 fileId={}", fileObject.getId(), ex);
             throw new BizException(ErrorCodeConstant.FILE_COS_UNAVAILABLE, MSG_COS);
         }
         log.info("生成文件上传URL：fileId={}, bizType={}, bizId={}",
@@ -102,6 +114,7 @@ public class FileObjectServiceImpl implements FileObjectService {
         return FilePresignResponseDTO.builder()
                 .fileId(fileObject.getId())
                 .uploadUrl(uploadUrl)
+                .confirmTicket(issueConfirmTicket(fileObject.getId(), account.getId()))
                 .expiresIn(FileRuleConstant.PRESIGN_EXPIRE_SECONDS)
                 .build();
     }
@@ -110,8 +123,47 @@ public class FileObjectServiceImpl implements FileObjectService {
      * {@inheritDoc}
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public FileObjectDTO confirmUpload(AuthPrincipal principal, Long fileId, FileUploadConfirmDTO request) {
+        AccountDO account = dutyAccessService.requireAccount(principal);
+        FileObjectDO fileObject = requireFile(fileId);
+        String actualBizType = FileRuleConstant.actualBizType(fileObject.getBizType());
+        Long stationId = requireBizStationId(actualBizType, fileObject.getBizId());
+        if (stationId != null) {
+            dutyAccessService.requireWritableStation(account, stationId);
+        }
+        if (!account.getId().equals(fileObject.getCreatedBy())
+                || !FileRuleConstant.isPendingBizType(fileObject.getBizType())) {
+            throw new BizException(ErrorCodeConstant.FILE_UPLOAD_CONFIRM_INVALID, MSG_CONFIRM);
+        }
+        Long actualSize = cosService.getObjectSize(fileObject.getCosKey());
+        if (actualSize == null || !actualSize.equals(fileObject.getSizeBytes())) {
+            throw new BizException(ErrorCodeConstant.FILE_UPLOAD_CONFIRM_INVALID, MSG_CONFIRM);
+        }
+        boolean confirmed = fileUploadConfirmStore.consume(
+                request.getConfirmTicket(), fileObject.getId(), account.getId());
+        if (!confirmed) {
+            throw new BizException(ErrorCodeConstant.FILE_UPLOAD_CONFIRM_INVALID, MSG_CONFIRM);
+        }
+        int updated = fileObjectMapper.confirmUpload(
+                fileObject.getId(), fileObject.getBizType(), actualBizType);
+        if (updated != 1) {
+            throw new BizException(ErrorCodeConstant.FILE_UPLOAD_CONFIRM_INVALID, MSG_CONFIRM);
+        }
+        fileObject.setBizType(actualBizType);
+        extractPlanTextIfSupported(fileObject);
+        log.info("确认文件上传：fileId={}, bizType={}, bizId={}",
+                fileObject.getId(), fileObject.getBizType(), fileObject.getBizId());
+        return convertToDTO(fileObject, false);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public List<FileObjectDTO> listByBiz(String bizType, Long bizId) {
         return fileObjectMapper.selectByBiz(bizType, bizId).stream()
+                .filter(this::isUploadedObject)
                 .map(item -> convertToDTO(item, false))
                 .collect(Collectors.toList());
     }
@@ -122,6 +174,7 @@ public class FileObjectServiceImpl implements FileObjectService {
     @Override
     public List<FileObjectDTO> listByBizWithPreview(String bizType, Long bizId) {
         return fileObjectMapper.selectByBiz(bizType, bizId).stream()
+                .filter(this::isUploadedObject)
                 .map(item -> convertToDTO(item, true))
                 .collect(Collectors.toList());
     }
@@ -133,9 +186,13 @@ public class FileObjectServiceImpl implements FileObjectService {
     public FileObjectDTO getWithPreviewUrl(AuthPrincipal principal, Long fileId) {
         AccountDO account = dutyAccessService.requireAccount(principal);
         FileObjectDO fileObject = requireFile(fileId);
-        Long stationId = requireBizStationId(fileObject.getBizType(), fileObject.getBizId());
+        String actualBizType = FileRuleConstant.actualBizType(fileObject.getBizType());
+        Long stationId = requireBizStationId(actualBizType, fileObject.getBizId());
         if (stationId != null) {
             dutyAccessService.requireVisibleStation(account, stationId);
+        }
+        if (FileRuleConstant.isPendingBizType(fileObject.getBizType()) || !isUploadedObject(fileObject)) {
+            throw new BizException(ErrorCodeConstant.FILE_UPLOAD_CONFIRM_INVALID, MSG_CONFIRM);
         }
         return convertToDTO(fileObject, true);
     }
@@ -168,7 +225,8 @@ public class FileObjectServiceImpl implements FileObjectService {
     public void deleteById(AuthPrincipal principal, Long fileId) {
         AccountDO account = dutyAccessService.requireAccount(principal);
         FileObjectDO fileObject = requireFile(fileId);
-        Long stationId = requireBizStationId(fileObject.getBizType(), fileObject.getBizId());
+        String actualBizType = FileRuleConstant.actualBizType(fileObject.getBizType());
+        Long stationId = requireBizStationId(actualBizType, fileObject.getBizId());
         if (stationId != null) {
             dutyAccessService.requireWritableStation(account, stationId);
         }
@@ -179,6 +237,42 @@ public class FileObjectServiceImpl implements FileObjectService {
         }
         fileObjectMapper.deleteById(fileId);
         log.info("删除文件：fileId={}", fileId);
+    }
+
+    private void extractPlanTextIfSupported(FileObjectDO fileObject) {
+        if (!FileBizTypeConstant.KEYUNIT_PLAN.equals(fileObject.getBizType())) {
+            return;
+        }
+        byte[] content = cosService.getObjectContent(fileObject.getCosKey());
+        String planText = fileTextExtractor.extract(fileObject.getContentType(), content);
+        if (planText == null) {
+            log.info("文件正文未自动抽取，保留手工补充入口 fileId={}", fileObject.getId());
+            return;
+        }
+        int updated = keyUnitMapper.updatePlanText(fileObject.getBizId(), planText);
+        if (updated != 1) {
+            log.warn("文件正文回写未更新重点单位 fileId={}, bizId={}",
+                    fileObject.getId(), fileObject.getBizId());
+        }
+    }
+
+    private boolean isUploadedObject(FileObjectDO fileObject) {
+        if (FileRuleConstant.isPendingBizType(fileObject.getBizType())) {
+            return false;
+        }
+        Long actualSize = cosService.getObjectSize(fileObject.getCosKey());
+        return actualSize != null && actualSize.equals(fileObject.getSizeBytes());
+    }
+
+    private String issueConfirmTicket(Long fileId, Long accountId) {
+        try {
+            return fileUploadConfirmStore.issue(
+                    fileId, accountId, FileRuleConstant.PRESIGN_EXPIRE_SECONDS);
+        } catch (RuntimeException ex) {
+            fileObjectMapper.deleteById(fileId);
+            log.error("签发文件上传确认票据失败 fileId={}", fileId, ex);
+            throw new BizException(ErrorCodeConstant.FILE_COS_UNAVAILABLE, MSG_COS);
+        }
     }
 
     private void validateUpload(FilePresignRequestDTO request) {

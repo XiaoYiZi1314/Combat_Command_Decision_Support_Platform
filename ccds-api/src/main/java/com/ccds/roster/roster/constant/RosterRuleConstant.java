@@ -89,6 +89,26 @@ public final class RosterRuleConstant {
     public static final String CYL_TYPE_9 = "9";
 
     /**
+     * 空呼标定最短有效时间秒。
+     */
+    public static final int SCBA_CALIBRATION_TIME_MIN_SEC = 60;
+
+    /**
+     * 空呼标定最长有效时间秒。
+     */
+    public static final int SCBA_CALIBRATION_TIME_MAX_SEC = 14_400;
+
+    /**
+     * 空呼标定来源最大长度。
+     */
+    public static final int SCBA_CALIBRATION_SOURCE_MAX_LENGTH = 32;
+
+    /**
+     * 空呼计算器标定来源。
+     */
+    public static final String SCBA_CALIBRATION_SOURCE_CALCULATOR = "空呼时间计算器";
+
+    /**
      * 指挥组名。
      */
     public static final String COMMAND_GROUP_NAME = "指挥组";

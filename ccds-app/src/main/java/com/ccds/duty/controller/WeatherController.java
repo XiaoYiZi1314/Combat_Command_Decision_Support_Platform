@@ -1,6 +1,8 @@
 package com.ccds.duty.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 
 import org.springframework.validation.annotation.Validated;
@@ -42,8 +44,10 @@ public class WeatherController {
      */
     @GetMapping(ApiPathConstant.WEATHER)
     public ApiResultVO<WeatherDTO> getWeather(HttpServletRequest request,
-                                              @RequestParam @NotNull Double lng,
-                                              @RequestParam @NotNull Double lat) {
+                                              @RequestParam @NotNull
+                                              @DecimalMin("-180.0") @DecimalMax("180.0") Double lng,
+                                              @RequestParam @NotNull
+                                              @DecimalMin("-90.0") @DecimalMax("90.0") Double lat) {
         return ApiResultVO.ok(weatherService.getWeather(current(request), lng, lat));
     }
 

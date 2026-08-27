@@ -61,6 +61,14 @@ export async function saveGroups(stationId, groups) {
   }));
 }
 
+export async function saveScbaCalibration(stationId, profileId, body) {
+  return withRefresh(() => apiRequest(`/stations/${stationId}/profiles/${profileId}/scba-calibrations`, {
+    method: 'POST',
+    headers: authHeader(),
+    body
+  }));
+}
+
 export async function importRoster(stationId, file) {
   return withRefresh(async () => {
     const form = new FormData();

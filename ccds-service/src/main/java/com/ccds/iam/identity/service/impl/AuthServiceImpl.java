@@ -23,10 +23,12 @@ import com.ccds.iam.identity.service.AuthService;
 import com.ccds.iam.identity.vo.LoginVO;
 import com.ccds.iam.identity.vo.MeVO;
 import com.ccds.iam.identity.vo.OrgTreeVO;
+import com.ccds.iam.identity.vo.WebSocketTicketVO;
 import com.ccds.infra.crypto.PasswordHashUtil;
 import com.ccds.infra.crypto.TokenHashUtil;
 import com.ccds.infra.jwt.JwtPayload;
 import com.ccds.infra.jwt.JwtTokenUtil;
+import com.ccds.infra.redis.WebSocketTicketStore;
 import com.ccds.org.org.service.OrgQueryService;
 
 import lombok.RequiredArgsConstructor;
@@ -58,6 +60,8 @@ public class AuthServiceImpl implements AuthService {
     private final JwtTokenUtil jwtTokenUtil;
 
     private final OrgQueryService orgQueryService;
+
+    private final WebSocketTicketStore webSocketTicketStore;
 
     /**
      * {@inheritDoc}
@@ -169,6 +173,21 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public OrgTreeVO orgStations(AuthPrincipal principal) {
         return orgQueryService.buildOrgTree(requireAccount(principal.getAccountId()));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public WebSocketTicketVO issueWebSocketTicket(AuthPrincipal principal) {
+        requireAccount(principal.getAccountId());
+        if (principal.getRole() == null || !principal.getRole().isCommandRole()) {
+            throw new BizException(ErrorCodeConstant.AUTH_UNAUTHORIZED, AuthRuleConstant.MSG_UNAUTHORIZED);
+        }
+        return WebSocketTicketVO.builder()
+                .ticket(webSocketTicketStore.issue(principal))
+                .expiresInSeconds(AuthRuleConstant.WS_TICKET_TTL_SECONDS)
+                .build();
     }
 
     private LoginVO issueTokens(AccountDO account, String deviceHint) {

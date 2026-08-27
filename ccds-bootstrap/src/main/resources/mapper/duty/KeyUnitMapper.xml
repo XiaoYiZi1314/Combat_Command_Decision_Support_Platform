@@ -24,6 +24,14 @@
                 #{notes}, #{planText})
     </insert>
 
+    <update id="updatePlanText">
+        UPDATE ccds_key_unit
+        SET plan_text = #{planText},
+            gmt_modified = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+          AND deleted_at IS NULL
+    </update>
+
     <update id="updateById">
         UPDATE ccds_key_unit
         SET station_id = #{stationId},

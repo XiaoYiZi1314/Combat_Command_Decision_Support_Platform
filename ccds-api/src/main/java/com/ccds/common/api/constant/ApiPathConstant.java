@@ -64,6 +64,12 @@ public final class ApiPathConstant {
     public static final String STATION_PROFILE = "/stations/{stationId}/profiles/{profileId}";
 
     /**
+     * 保存个人空呼标定。
+     */
+    public static final String STATION_PROFILE_SCBA_CALIBRATIONS =
+            "/stations/{stationId}/profiles/{profileId}/scba-calibrations";
+
+    /**
      * 站级战斗编组整存。
      */
     public static final String STATION_GROUPS = "/stations/{stationId}/groups";
@@ -99,7 +105,12 @@ public final class ApiPathConstant {
     public static final String ATTACK_SNAPSHOTS = "/attack/snapshots";
 
     /**
-     * 指挥端 WebSocket。查询参数 token=访问令牌。
+     * 指挥端 WebSocket 一次性票据。
+     */
+    public static final String AUTH_WS_TICKET = "/auth/ws-ticket";
+
+    /**
+     * 指挥端 WebSocket。查询参数只接受短时一次性 ticket。
      */
     public static final String WS_COMMAND = "/ws/command";
 
@@ -169,6 +180,11 @@ public final class ApiPathConstant {
     public static final String FILES_PRESIGN = "/files/presign";
 
     /**
+     * 确认预签名文件已上传。
+     */
+    public static final String FILE_UPLOAD_CONFIRM = "/files/{fileId}/confirm";
+
+    /**
      * 单个文件预览或删除。
      */
     public static final String FILE_OBJECT = "/files/{fileId}";
@@ -192,6 +208,11 @@ public final class ApiPathConstant {
      * 匿名共享拦截排除模式。
      */
     public static final String SHARE_ANONYMOUS_PATTERN = "/s/**";
+
+    /**
+     * 微信共享只读页面。
+     */
+    public static final String SHARE_PUBLIC_PAGE = "/s/{token}";
 
     /**
      * 天气代理。

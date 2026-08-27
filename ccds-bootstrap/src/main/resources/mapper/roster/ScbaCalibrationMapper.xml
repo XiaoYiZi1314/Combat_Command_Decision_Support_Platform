@@ -15,6 +15,15 @@
         <result column="gmt_modified" property="gmtModified"/>
     </resultMap>
 
+    <insert id="insert" parameterType="com.ccds.roster.roster.entity.ScbaCalibrationDO"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ccds_scba_calibration
+            (profile_id, pressure, full_time_sec, cyl_type, source, measured_at, gmt_create, gmt_modified)
+        VALUES
+            (#{profileId}, #{pressure}, #{fullTimeSec}, #{cylType}, #{source}, #{measuredAt},
+             #{gmtCreate}, #{gmtModified})
+    </insert>
+
     <select id="selectByProfileId" resultMap="ScbaCalibrationResultMap">
         SELECT id, profile_id, pressure, full_time_sec, cyl_type, source, measured_at, gmt_create, gmt_modified
         FROM ccds_scba_calibration

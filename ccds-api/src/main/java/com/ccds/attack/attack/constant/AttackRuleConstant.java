@@ -161,9 +161,9 @@ public final class AttackRuleConstant {
     public static final int OFFLINE_RETRY_MAX_MS = 30000;
 
     /**
-     * 指挥 WS 握手查询参数名。
+     * 指挥 WS 握手查询参数名，只允许短时一次性票据。
      */
-    public static final String WS_TOKEN_QUERY = "token";
+    public static final String WS_TICKET_QUERY = "ticket";
 
     /**
      * 指挥端未更新变琥珀的秒数。

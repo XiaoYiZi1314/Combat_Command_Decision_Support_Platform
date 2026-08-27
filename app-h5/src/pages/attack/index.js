@@ -1,5 +1,6 @@
 import './attack.css';
 import { getMe } from '../../stores/session.js';
+import { getScbaSettings } from '../../stores/settings.js';
 import { fetchRoster } from '../../api/roster.js';
 import { fetchStationAttack, submitAttackEvent } from '../../api/attack.js';
 import { bridge } from '../../bridge/index.js';
@@ -585,7 +586,7 @@ export function renderAttackPage(root) {
         currentPressure: body.pressure,
         enteredAt: null,
         withdrawnAt: null,
-        workLevel: body.workLevel || 'moderate',
+        workLevel: body.workLevel || getScbaSettings().defaultWorkLevel,
         scene: body.scene || 'flat',
         status: 'pending',
         remainSec: null,

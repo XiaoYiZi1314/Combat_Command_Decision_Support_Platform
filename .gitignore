@@ -4,9 +4,16 @@
 
 !.gitignore
 
-# 文档默认不追踪，仅放行 README
+# 项目说明、开发规范、架构决策与交付规划属于项目必要资产
 !README.md
 !**/README.md
+!AGENTS.md
+!CLAUDE.md
+!CONTEXT.md
+!harness/**
+!docs/adr/**
+!docs/agents/**
+!docs/planning/**
 
 # 后端
 !*.java
@@ -51,6 +58,7 @@
 # 工具链与构建产物即使带代码扩展名也不追踪
 .cursor/
 .opencode/
+.pi/
 .github/
 .idea/
 .vscode/

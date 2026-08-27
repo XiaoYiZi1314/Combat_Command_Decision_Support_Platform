@@ -44,7 +44,7 @@ public class WeatherServiceImpl implements WeatherService {
         try {
             return weatherClient.getWeather(lng, lat);
         } catch (IllegalStateException ex) {
-            log.warn("天气代理未配置");
+            log.error("天气代理调用失败", ex);
             throw new BizException(ErrorCodeConstant.WEATHER_UNAVAILABLE, MSG_UNAVAILABLE);
         }
     }

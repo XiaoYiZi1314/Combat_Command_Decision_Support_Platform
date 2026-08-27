@@ -34,6 +34,21 @@ public final class AuthRuleConstant {
     public static final long DEFAULT_REFRESH_TTL_SECONDS = 1_209_600L;
 
     /**
+     * 指挥 WebSocket 一次性票据有效秒数。
+     */
+    public static final long WS_TICKET_TTL_SECONDS = 30L;
+
+    /**
+     * WebSocket 票据随机字节数。
+     */
+    public static final int WS_TICKET_RANDOM_BYTES = 32;
+
+    /**
+     * WebSocket 票据身份字段分隔符。
+     */
+    public static final String WS_TICKET_VALUE_SEPARATOR = ":";
+
+    /**
      * 刷新令牌哈希算法。
      */
     public static final String TOKEN_HASH_ALGORITHM = "SHA-256";

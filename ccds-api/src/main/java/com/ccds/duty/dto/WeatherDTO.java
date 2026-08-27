@@ -41,6 +41,11 @@ public class WeatherDTO {
     private String windDirection;
 
     /**
+     * 风向角度。
+     */
+    private Double windDeg;
+
+    /**
      * 风速(m/s)
      */
     private Double windSpeed;

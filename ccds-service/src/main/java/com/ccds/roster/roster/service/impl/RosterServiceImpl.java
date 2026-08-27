@@ -26,9 +26,11 @@ import com.ccds.roster.roster.dto.GroupBatchSaveCommand;
 import com.ccds.roster.roster.dto.GroupMemberSaveCommand;
 import com.ccds.roster.roster.dto.GroupSaveCommand;
 import com.ccds.roster.roster.dto.ProfileSaveCommand;
+import com.ccds.roster.roster.dto.ScbaCalibrationSaveCommand;
 import com.ccds.roster.roster.entity.BattleGroupDO;
 import com.ccds.roster.roster.entity.BattleGroupMemberDO;
 import com.ccds.roster.roster.entity.ProfileDO;
+import com.ccds.roster.roster.entity.ScbaCalibrationDO;
 import com.ccds.roster.roster.enums.CylTypeEnum;
 import com.ccds.roster.roster.mapper.BattleGroupMapper;
 import com.ccds.roster.roster.mapper.BattleGroupMemberMapper;
@@ -167,6 +169,39 @@ public class RosterServiceImpl implements RosterService {
         battleGroupMemberMapper.deleteByProfileId(profileId);
         profileMapper.softDelete(profileId, now, now);
         log.info("profile deleted stationId={} profileId={}", stationId, profileId);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public ProfileVO saveScbaCalibration(AuthPrincipal principal, Long stationId, Long profileId,
+                                         ScbaCalibrationSaveCommand command) {
+        AccountDO account = requireAccount(principal);
+        StationDO station = rosterAccessService.requireWritableStation(account, stationId);
+        ProfileDO profile = requireProfile(stationId, profileId);
+        LocalDateTime now = LocalDateTime.now();
+        ScbaCalibrationDO calibration = ScbaCalibrationDO.builder()
+                .profileId(profileId)
+                .pressure(command.getPressure())
+                .fullTimeSec(command.getFullTimeSec())
+                .cylType(CylTypeEnum.fromCodeOrDefault(command.getCylType()).getCode())
+                .source(command.getSource() == null || command.getSource().isBlank()
+                        ? RosterRuleConstant.SCBA_CALIBRATION_SOURCE_CALCULATOR
+                        : command.getSource().trim())
+                .measuredAt(now)
+                .gmtCreate(now)
+                .gmtModified(now)
+                .build();
+        scbaCalibrationMapper.insert(calibration);
+        log.info("scba calibration saved stationId={} profileId={} calibrationId={}",
+                stationId, profileId, calibration.getId());
+        ProfileVO vo = rosterViewTranslator.toProfileVo(
+                profileMapper.selectAliveById(profileId), station.getName(), true);
+        vo.setCalibrations(rosterViewTranslator.toCalibrationVos(
+                scbaCalibrationMapper.selectByProfileId(profileId)));
+        return vo;
     }
 
     /**

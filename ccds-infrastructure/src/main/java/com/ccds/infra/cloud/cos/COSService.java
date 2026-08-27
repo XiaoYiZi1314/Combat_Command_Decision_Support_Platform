@@ -48,4 +48,20 @@ public interface COSService {
      * @return 存在为 true；未配置或调用失败为 false
      */
     boolean doesObjectExist(String cosKey);
+
+    /**
+     * 获取对象实际大小。
+     *
+     * @param cosKey 对象键
+     * @return 对象字节数；对象不存在、未配置或调用失败返回 null
+     */
+    Long getObjectSize(String cosKey);
+
+    /**
+     * 读取对象内容，限制由实现统一控制。
+     *
+     * @param cosKey 对象键
+     * @return 对象内容；对象不存在、未配置或读取失败返回 null
+     */
+    byte[] getObjectContent(String cosKey);
 }

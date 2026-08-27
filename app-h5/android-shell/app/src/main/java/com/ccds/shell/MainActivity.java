@@ -138,9 +138,18 @@ public class MainActivity extends AppCompatActivity {
         if (requestCode != REQ_LOCATION) {
             return;
         }
-        if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+        if (hasLocationPermission(grantResults)) {
             locationStore.start();
         }
+    }
+
+    private boolean hasLocationPermission(int[] grantResults) {
+        for (int grantResult : grantResults) {
+            if (grantResult == PackageManager.PERMISSION_GRANTED) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override

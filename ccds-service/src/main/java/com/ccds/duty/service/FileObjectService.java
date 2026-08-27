@@ -5,6 +5,7 @@ import java.util.List;
 import com.ccds.duty.dto.FileObjectDTO;
 import com.ccds.duty.dto.FilePresignRequestDTO;
 import com.ccds.duty.dto.FilePresignResponseDTO;
+import com.ccds.duty.dto.FileUploadConfirmDTO;
 import com.ccds.iam.identity.model.AuthPrincipal;
 
 /**
@@ -23,6 +24,16 @@ public interface FileObjectService {
      * @return 预签名响应，不含对象键
      */
     FilePresignResponseDTO generatePresignedUploadUrl(AuthPrincipal principal, FilePresignRequestDTO request);
+
+    /**
+     * 确认文件已上传到 COS。确认前文件不会进入业务列表和预览链路。
+     *
+     * @param principal 当前身份
+     * @param fileId    文件主键
+     * @param request   确认票据
+     * @return 已确认文件
+     */
+    FileObjectDTO confirmUpload(AuthPrincipal principal, Long fileId, FileUploadConfirmDTO request);
 
     /**
      * 业务下文件列表，不含预览 URL。

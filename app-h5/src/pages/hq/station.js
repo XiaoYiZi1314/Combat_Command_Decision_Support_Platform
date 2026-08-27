@@ -1,7 +1,7 @@
 import '../attack/attack.css';
-import { getMe, getAccessToken } from '../../stores/session.js';
+import { getMe } from '../../stores/session.js';
 import { fetchStationAttack } from '../../api/attack.js';
-import { refreshSession } from '../../api/auth.js';
+import { issueWebSocketTicket } from '../../api/auth.js';
 import { shouldDeferBackgroundPaint } from '../../lib/device-compat.js';
 import { connectCommandSocket } from '../../lib/sync.js';
 import {
@@ -116,17 +116,13 @@ export function renderHqStationPage(root, params) {
     }
   }
 
-  async function token() {
-    let access = getAccessToken();
-    if (!access) {
-      const refreshed = await refreshSession();
-      access = refreshed && refreshed.accessToken ? refreshed.accessToken : getAccessToken();
-    }
-    return access;
+  async function ticket() {
+    const issued = await issueWebSocketTicket();
+    return issued && issued.ticket ? issued.ticket : '';
   }
 
   const disconnect = connectCommandSocket({
-    token,
+    ticket,
     onOpen() {
       setMode('ws', '实时推送已连接');
       load();

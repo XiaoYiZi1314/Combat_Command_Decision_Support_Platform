@@ -81,6 +81,19 @@
   margin: 4px 0;
 }
 
+.weather-hour small {
+  display: block;
+  min-height: 16px;
+  margin-top: 3px;
+  color: var(--blue);
+  font-size: 10px;
+}
+
+.weather-page button:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
 html.huawei-compat .weather-hours,
 html.harmony-compat .weather-hours {
   overflow-x: scroll;

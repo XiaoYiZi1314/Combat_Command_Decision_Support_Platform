@@ -7,6 +7,7 @@ import {
   statusLabel,
   worstStatus
 } from '../../lib/scba.js';
+import { getScbaSettings } from '../../stores/settings.js';
 
 export function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -109,8 +110,12 @@ export function paintPersonCard(person, focusId) {
   const metrics = el('div', 'metrics');
   const pressure = Number(person.currentPressure || 0);
   const remain = person.liveRemain;
-  const pCls = pressure <= SCBA.dangerPressure ? 'c-danger' : (pressure <= SCBA.warnPressure ? 'c-warn' : 'c-ok');
-  const rCls = remain != null && remain <= SCBA.dangerTimeSec ? 'c-danger' : (remain != null && remain <= SCBA.warnTimeSec ? 'c-warn' : 'c-ok');
+  const settings = getScbaSettings();
+  const pCls = pressure <= settings.dangerPressure
+    ? 'c-danger' : (pressure <= settings.warnPressure ? 'c-warn' : 'c-ok');
+  const rCls = remain != null && remain <= settings.dangerTimeMin * SCBA.secondsPerMinute
+    ? 'c-danger'
+    : (remain != null && remain <= settings.warnTimeMin * SCBA.secondsPerMinute ? 'c-warn' : 'c-ok');
   metrics.appendChild(metric('当前压力', pressure.toFixed(1), 'MPa', pCls));
   metrics.appendChild(metric('剩余时间', person.liveStatus === 'pending' || person.liveStatus === 'out' ? '--' : fmtMinSec(remain), '', rCls));
   metrics.appendChild(metric('已作业', person.liveStatus === 'pending' ? '--' : fmtElapsed(person.liveElapsed), '', 'c-ok'));
@@ -120,7 +125,8 @@ export function paintPersonCard(person, focusId) {
   const fill = el('div', 'bar-fill');
   const init = Number(person.initPressure || 0);
   fill.style.width = init > 0 ? `${Math.min(100, pressure / init * 100)}%` : '0%';
-  fill.style.background = pressure <= SCBA.dangerPressure ? 'var(--red)' : (pressure <= SCBA.warnPressure ? 'var(--amber)' : 'var(--blue)');
+  fill.style.background = pressure <= settings.dangerPressure
+    ? 'var(--red)' : (pressure <= settings.warnPressure ? 'var(--amber)' : 'var(--blue)');
   bar.appendChild(fill);
   card.appendChild(bar);
   return card;

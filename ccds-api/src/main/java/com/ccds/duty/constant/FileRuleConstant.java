@@ -18,6 +18,16 @@ public final class FileRuleConstant {
     public static final int PRESIGN_EXPIRE_SECONDS = 3600;
 
     /**
+     * 上传确认票据随机字节数。
+     */
+    public static final int CONFIRM_TICKET_RANDOM_BYTES = 32;
+
+    /**
+     * 待确认文件内部业务类型前缀，不对外返回。
+     */
+    public static final String PENDING_BIZ_TYPE_PREFIX = "P_";
+
+    /**
      * 单文件最大字节数。
      */
     public static final long MAX_SIZE_BYTES = 20L * 1024 * 1024;
@@ -51,6 +61,39 @@ public final class FileRuleConstant {
      */
     public static boolean isAllowedBizType(String bizType) {
         return bizType != null && BIZ_TYPES.contains(bizType);
+    }
+
+    /**
+     * 构造待确认的内部业务类型。
+     *
+     * @param bizType 正式业务类型
+     * @return 待确认业务类型
+     */
+    public static String pendingBizType(String bizType) {
+        return PENDING_BIZ_TYPE_PREFIX + bizType;
+    }
+
+    /**
+     * 解析文件实际业务类型。
+     *
+     * @param storedBizType 库内业务类型
+     * @return 正式业务类型
+     */
+    public static String actualBizType(String storedBizType) {
+        if (storedBizType != null && storedBizType.startsWith(PENDING_BIZ_TYPE_PREFIX)) {
+            return storedBizType.substring(PENDING_BIZ_TYPE_PREFIX.length());
+        }
+        return storedBizType;
+    }
+
+    /**
+     * 是否待上传确认。
+     *
+     * @param storedBizType 库内业务类型
+     * @return 待确认为 true
+     */
+    public static boolean isPendingBizType(String storedBizType) {
+        return storedBizType != null && storedBizType.startsWith(PENDING_BIZ_TYPE_PREFIX);
     }
 
     /**

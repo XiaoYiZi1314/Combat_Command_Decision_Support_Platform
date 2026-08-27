@@ -205,22 +205,39 @@ export function renderWeatherPage(root) {
   root.appendChild(page);
 
   let headingTimer = 0;
+  let headingBusy = false;
+  let weatherBusy = false;
   let closed = false;
   drawCompass(canvas, 0);
 
   async function tickHeading() {
-    if (closed) {
+    if (closed || headingBusy) {
       return;
     }
-    const result = await bridge.heading();
-    if (!result || !result.ok || !result.data || result.data.degrees == null) {
-      dirText.textContent = '无传感器，请用手选方位';
-      return;
+    headingBusy = true;
+    try {
+      const result = await bridge.heading();
+      if (closed) {
+        return;
+      }
+      if (!result || !result.ok || !result.data || result.data.degrees == null) {
+        dirText.textContent = '本机无罗盘传感器';
+        window.clearInterval(headingTimer);
+        headingTimer = 0;
+        return;
+      }
+      const numeric = Number(result.data.degrees);
+      if (!Number.isFinite(numeric)) {
+        dirText.textContent = '罗盘数据不可用';
+        return;
+      }
+      const deg = Math.round(((numeric % 360) + 360) % 360);
+      headingText.textContent = `${deg}°`;
+      dirText.textContent = `朝向${dirOf(deg)}`;
+      drawCompass(canvas, deg);
+    } finally {
+      headingBusy = false;
     }
-    const deg = Math.round((((Number(result.data.degrees) % 360) + 360) % 360));
-    headingText.textContent = `${deg}°`;
-    dirText.textContent = `朝向${dirOf(deg)}`;
-    drawCompass(canvas, deg);
   }
 
   function startCompass() {
@@ -231,41 +248,63 @@ export function renderWeatherPage(root) {
   }
 
   async function loadWeather() {
+    if (weatherBusy) {
+      return;
+    }
+    weatherBusy = true;
+    refresh.disabled = true;
     desc.textContent = '定位中…';
-    const located = await bridge.locate();
-    if (!located || !located.ok || !located.data) {
-      desc.textContent = '无法定位，天气不可用';
-      return;
-    }
-    const lng = Number(located.data.lng);
-    const lat = Number(located.data.lat);
-    if (!Number.isFinite(lng) || !Number.isFinite(lat) || (!lng && !lat)) {
-      desc.textContent = '无法定位，天气不可用';
-      return;
-    }
-    loc.textContent = '已定位，坐标仅发给本后端查询天气';
-    desc.textContent = '加载中…';
     try {
-      const data = await fetchWeather(lng, lat);
-      temp.textContent = data && data.temperature != null ? `${data.temperature}°C` : '--°C';
-      desc.textContent = (data && data.description) || '暂无天气数据';
-      windSpeedVal.textContent = data && data.windSpeed != null ? `${data.windSpeed} m/s` : '--';
-      windScaleVal.textContent = windScale(data && data.windSpeed);
-      windDirVal.textContent = data && data.windDirection ? data.windDirection : dirOf(data && data.windDeg);
-      humid.textContent = data && data.humidity != null ? `${data.humidity}%` : '--';
-      pressure.textContent = data && data.pressure != null ? `${data.pressure} hPa` : '--';
-      sunrise.textContent = fmtClock(data && data.sunrise);
-      sunset.textContent = fmtClock(data && data.sunset);
-      hours.innerHTML = '';
-      ((data && data.hourlyForecast) || []).slice(0, 12).forEach((item) => {
-        const card = el('div', 'weather-hour');
-        card.appendChild(el('div', '', fmtClock(item.time)));
-        card.appendChild(el('b', '', item.temperature != null ? `${item.temperature}°` : '--'));
-        card.appendChild(el('div', '', item.description || ''));
-        hours.appendChild(card);
-      });
-    } catch (err) {
-      desc.textContent = err.message || '天气服务暂不可用';
+      const located = await bridge.locate();
+      if (closed) {
+        return;
+      }
+      if (!located || !located.ok || !located.data) {
+        desc.textContent = '本机定位不可用，无法查询定位天气';
+        return;
+      }
+      const lng = Number(located.data.lng);
+      const lat = Number(located.data.lat);
+      if (!Number.isFinite(lng) || !Number.isFinite(lat)
+          || lng < -180 || lng > 180 || lat < -90 || lat > 90
+          || (!lng && !lat)) {
+        desc.textContent = '定位数据无效，天气不可用';
+        return;
+      }
+      loc.textContent = '已定位，坐标仅发给本后端查询天气';
+      desc.textContent = '加载中…';
+      try {
+        const data = await fetchWeather(lng, lat);
+        if (closed) {
+          return;
+        }
+        temp.textContent = data && data.temperature != null ? `${data.temperature}°C` : '--°C';
+        desc.textContent = (data && data.description) || '暂无天气数据';
+        windSpeedVal.textContent = data && data.windSpeed != null ? `${data.windSpeed} m/s` : '--';
+        windScaleVal.textContent = windScale(data && data.windSpeed);
+        windDirVal.textContent = data && data.windDirection
+          ? `${data.windDirection}${data.windDeg != null ? ` ${Math.round(data.windDeg)}°` : ''}`
+          : dirOf(data && data.windDeg);
+        humid.textContent = data && data.humidity != null ? `${data.humidity}%` : '--';
+        pressure.textContent = data && data.pressure != null ? `${data.pressure} hPa` : '--';
+        sunrise.textContent = fmtClock(data && data.sunrise);
+        sunset.textContent = fmtClock(data && data.sunset);
+        hours.replaceChildren();
+        ((data && data.hourlyForecast) || []).slice(0, 12).forEach((item) => {
+          const card = el('div', 'weather-hour');
+          card.appendChild(el('div', '', fmtClock(item.time)));
+          card.appendChild(el('b', '', item.temperature != null ? `${item.temperature}°` : '--'));
+          card.appendChild(el('div', '', item.description || ''));
+          card.appendChild(el('small', '', item.precipProbability != null
+            ? `降水 ${item.precipProbability}%` : ''));
+          hours.appendChild(card);
+        });
+      } catch (err) {
+        desc.textContent = err.message || '天气服务暂不可用';
+      }
+    } finally {
+      weatherBusy = false;
+      refresh.disabled = false;
     }
   }
 

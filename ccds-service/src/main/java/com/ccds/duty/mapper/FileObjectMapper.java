@@ -26,6 +26,18 @@ public interface FileObjectMapper {
     int deleteById(Long id);
 
     /**
+     * 将待确认记录切换为正式业务类型。
+     *
+     * @param id             文件主键
+     * @param pendingBizType 待确认业务类型
+     * @param bizType        正式业务类型
+     * @return 更新数量
+     */
+    int confirmUpload(@Param("id") Long id,
+                      @Param("pendingBizType") String pendingBizType,
+                      @Param("bizType") String bizType);
+
+    /**
      * 根据ID查询
      */
     FileObjectDO selectById(Long id);

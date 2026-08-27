@@ -38,9 +38,45 @@ function removeKey(key) {
   }
 }
 
+function readSessionText(key) {
+  try {
+    return sessionStorage.getItem(key) || '';
+  } catch (err) {
+    console.warn('session token read failed', key, err.name);
+    return '';
+  }
+}
+
+function writeSessionText(key, value) {
+  try {
+    if (value) {
+      sessionStorage.setItem(key, value);
+      return;
+    }
+    sessionStorage.removeItem(key);
+  } catch (err) {
+    console.warn('session token write failed', key, err.name);
+  }
+}
+
+function removeSessionKey(key) {
+  try {
+    sessionStorage.removeItem(key);
+  } catch (err) {
+    console.warn('session token remove failed', key, err.name);
+  }
+}
+
+function purgeLegacyTokens() {
+  removeKey(ACCESS_KEY);
+  removeKey(REFRESH_KEY);
+}
+
+purgeLegacyTokens();
+
 let memory = {
-  accessToken: localStorage.getItem(ACCESS_KEY) || '',
-  refreshToken: localStorage.getItem(REFRESH_KEY) || '',
+  accessToken: readSessionText(ACCESS_KEY),
+  refreshToken: readSessionText(REFRESH_KEY),
   me: readJson(ME_KEY),
   orgTree: readJson(ORG_KEY)
 };
@@ -74,8 +110,8 @@ export function saveSession(login) {
   memory.accessToken = login.accessToken || '';
   memory.refreshToken = login.refreshToken || '';
   memory.me = login.me || null;
-  writeText(ACCESS_KEY, memory.accessToken);
-  writeText(REFRESH_KEY, memory.refreshToken);
+  writeSessionText(ACCESS_KEY, memory.accessToken);
+  writeSessionText(REFRESH_KEY, memory.refreshToken);
   if (memory.me) {
     writeJson(ME_KEY, memory.me);
   }
@@ -83,14 +119,15 @@ export function saveSession(login) {
 
 export function clearSession() {
   memory = { accessToken: '', refreshToken: '', me: null, orgTree: null };
-  removeKey(ACCESS_KEY);
-  removeKey(REFRESH_KEY);
+  removeSessionKey(ACCESS_KEY);
+  removeSessionKey(REFRESH_KEY);
+  purgeLegacyTokens();
   removeKey(ME_KEY);
   removeKey(ORG_KEY);
 }
 
 export function hasSession() {
-  return Boolean(memory.accessToken);
+  return Boolean(memory.accessToken || memory.refreshToken);
 }
 
 export function isLegalAgreed() {

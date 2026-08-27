@@ -48,6 +48,13 @@ export async function fetchOrgStations() {
   return withRefresh(() => apiRequest('/org/stations', { headers: authHeader() }));
 }
 
+export async function issueWebSocketTicket() {
+  return withRefresh(() => apiRequest('/auth/ws-ticket', {
+    method: 'POST',
+    headers: authHeader()
+  }));
+}
+
 export async function logout() {
   try {
     await apiRequest('/auth/logout', {

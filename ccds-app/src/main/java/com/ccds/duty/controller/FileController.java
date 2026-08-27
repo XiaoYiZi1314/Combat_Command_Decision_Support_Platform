@@ -17,6 +17,7 @@ import com.ccds.common.web.RequestAttributeConstant;
 import com.ccds.duty.dto.FileObjectDTO;
 import com.ccds.duty.dto.FilePresignRequestDTO;
 import com.ccds.duty.dto.FilePresignResponseDTO;
+import com.ccds.duty.dto.FileUploadConfirmDTO;
 import com.ccds.duty.service.FileObjectService;
 import com.ccds.iam.identity.model.AuthPrincipal;
 
@@ -46,6 +47,21 @@ public class FileController {
     public ApiResultVO<FilePresignResponseDTO> presign(HttpServletRequest request,
                                                        @Valid @RequestBody FilePresignRequestDTO body) {
         return ApiResultVO.ok(fileObjectService.generatePresignedUploadUrl(current(request), body));
+    }
+
+    /**
+     * 确认文件已上传。
+     *
+     * @param request HTTP 请求
+     * @param fileId  文件主键
+     * @param body    上传确认票据
+     * @return 已确认文件
+     */
+    @PostMapping(ApiPathConstant.FILE_UPLOAD_CONFIRM)
+    public ApiResultVO<FileObjectDTO> confirmUpload(HttpServletRequest request,
+                                                    @PathVariable Long fileId,
+                                                    @Valid @RequestBody FileUploadConfirmDTO body) {
+        return ApiResultVO.ok(fileObjectService.confirmUpload(current(request), fileId, body));
     }
 
     /**

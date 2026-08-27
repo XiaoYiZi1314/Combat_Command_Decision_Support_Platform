@@ -23,6 +23,16 @@ public final class RedisKeyConstant {
      */
     public static final long ATTACK_EVENT_DEDUP_TTL_SECONDS = 7L * 24L * 3600L;
 
+    /**
+     * 指挥 WebSocket 一次性票据键前缀。完整键只包含票据哈希。
+     */
+    public static final String COMMAND_WS_TICKET_PREFIX = "ccds:command:ws-ticket:";
+
+    /**
+     * 文件上传确认票据键前缀。完整键只包含确认票据哈希。
+     */
+    public static final String FILE_UPLOAD_CONFIRM_PREFIX = "ccds:file:upload-confirm:";
+
     private RedisKeyConstant() {
     }
 }

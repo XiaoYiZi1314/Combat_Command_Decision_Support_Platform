@@ -1,5 +1,7 @@
 package com.ccds.infra.cloud.cos;
 
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
@@ -10,7 +12,9 @@ import org.springframework.stereotype.Service;
 import com.qcloud.cos.http.HttpMethodName;
 import com.qcloud.cos.model.DeleteObjectsRequest;
 import com.qcloud.cos.model.DeleteObjectsResult;
+import com.qcloud.cos.model.GetObjectRequest;
 import com.qcloud.cos.model.GeneratePresignedUrlRequest;
+import com.qcloud.cos.model.ObjectMetadata;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +33,8 @@ public class COSServiceImpl implements COSService {
     private static final String MSG_NOT_READY = "COS客户端未初始化";
 
     private static final String MSG_DELETE_FAILED = "删除COS对象失败";
+
+    private static final int MAX_READ_BYTES = 20 * 1024 * 1024;
 
     private final CosClientHolder cosClientHolder;
 
@@ -109,6 +115,53 @@ public class COSServiceImpl implements COSService {
         } catch (RuntimeException ex) {
             log.error("检查COS对象存在性失败", ex);
             return false;
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Long getObjectSize(String cosKey) {
+        if (!cosClientHolder.ready()) {
+            return null;
+        }
+        try {
+            ObjectMetadata metadata = cosClientHolder.getClient()
+                    .getObjectMetadata(cosClientHolder.getBucket(), cosKey);
+            return metadata == null ? null : metadata.getContentLength();
+        } catch (RuntimeException ex) {
+            log.error("读取COS对象元数据失败", ex);
+            return null;
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public byte[] getObjectContent(String cosKey) {
+        if (!cosClientHolder.ready()) {
+            return null;
+        }
+        try (InputStream input = cosClientHolder.getClient().getObject(
+                new GetObjectRequest(cosClientHolder.getBucket(), cosKey)).getObjectContent();
+             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[8192];
+            int total = 0;
+            int read;
+            while ((read = input.read(buffer)) >= 0) {
+                total += read;
+                if (total > MAX_READ_BYTES) {
+                    log.warn("COS对象超过内容读取上限 cosKey={}", cosKey);
+                    return null;
+                }
+                output.write(buffer, 0, read);
+            }
+            return output.toByteArray();
+        } catch (Exception ex) {
+            log.error("读取COS对象内容失败 cosKey={}", cosKey, ex);
+            return null;
         }
     }
 

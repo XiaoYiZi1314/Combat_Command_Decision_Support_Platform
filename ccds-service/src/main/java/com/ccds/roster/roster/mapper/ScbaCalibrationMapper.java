@@ -31,4 +31,12 @@ public interface ScbaCalibrationMapper {
      * @return 标定列表，不会为 null
      */
     List<ScbaCalibrationDO> selectByStationId(@Param("stationId") Long stationId);
+
+    /**
+     * 新增空呼标定。
+     *
+     * @param calibration 标定记录
+     * @return 影响行数
+     */
+    int insert(ScbaCalibrationDO calibration);
 }

@@ -25,6 +25,14 @@
         DELETE FROM ccds_file_object WHERE id = #{id}
     </delete>
 
+    <update id="confirmUpload">
+        UPDATE ccds_file_object
+        SET biz_type = #{bizType},
+            gmt_modified = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+          AND biz_type = #{pendingBizType}
+    </update>
+
     <select id="selectById" resultMap="BaseResultMap">
         SELECT id, biz_type, biz_id, cos_key, content_type,
                size_bytes, created_by, gmt_create, gmt_modified
@@ -43,7 +51,7 @@
 
     <delete id="deleteByBiz">
         DELETE FROM ccds_file_object
-        WHERE biz_type = #{bizType}
+        WHERE biz_type IN (#{bizType}, CONCAT('P_', #{bizType}))
           AND biz_id = #{bizId}
     </delete>
 

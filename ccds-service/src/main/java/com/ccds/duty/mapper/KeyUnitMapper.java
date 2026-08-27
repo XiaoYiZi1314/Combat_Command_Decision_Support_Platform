@@ -29,6 +29,15 @@ public interface KeyUnitMapper {
     int updateById(KeyUnitDO keyUnit);
 
     /**
+     * 更新重点单位预案正文。
+     *
+     * @param id       重点单位主键
+     * @param planText 预案正文
+     * @return 影响行数
+     */
+    int updatePlanText(@Param("id") Long id, @Param("planText") String planText);
+
+    /**
      * 软删除。
      *
      * @param keyUnit 含主键与删除时间

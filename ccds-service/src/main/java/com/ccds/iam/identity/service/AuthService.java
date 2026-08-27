@@ -7,6 +7,7 @@ import com.ccds.iam.identity.model.AuthPrincipal;
 import com.ccds.iam.identity.vo.LoginVO;
 import com.ccds.iam.identity.vo.MeVO;
 import com.ccds.iam.identity.vo.OrgTreeVO;
+import com.ccds.iam.identity.vo.WebSocketTicketVO;
 
 /**
  * 登录、改密、会话与当前账号。
@@ -63,4 +64,12 @@ public interface AuthService {
      * @return 编制树
      */
     OrgTreeVO orgStations(AuthPrincipal principal);
+
+    /**
+     * 为指挥角色签发短时一次性 WebSocket 票据。
+     *
+     * @param principal 当前身份
+     * @return 一次性票据
+     */
+    WebSocketTicketVO issueWebSocketTicket(AuthPrincipal principal);
 }
