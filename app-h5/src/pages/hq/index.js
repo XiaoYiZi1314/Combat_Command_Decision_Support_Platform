@@ -2,6 +2,8 @@ import './hq.css';
 import { getMe, getAccessToken } from '../../stores/session.js';
 import { fetchAttackSnapshots } from '../../api/attack.js';
 import { refreshSession } from '../../api/auth.js';
+import { shouldDeferBackgroundPaint } from '../../lib/device-compat.js';
+import { confirmLeaveMain, setPageBackHandler } from '../../lib/host.js';
 import {
   connectCommandSocket,
   snapshotActiveCount,
@@ -178,9 +180,17 @@ export function renderHqPage(root) {
     }
   });
 
-  const tick = window.setInterval(renderList, 1000);
+  const tick = window.setInterval(() => {
+    if (shouldDeferBackgroundPaint()) {
+      return;
+    }
+    renderList();
+  }, 1000);
+
+  setPageBackHandler(() => !confirmLeaveMain());
 
   return () => {
+    setPageBackHandler(null);
     state.closed = true;
     window.clearInterval(tick);
     disconnect();

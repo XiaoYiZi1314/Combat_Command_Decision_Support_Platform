@@ -581,6 +581,50 @@
   overflow-y: auto;
 }
 
+html.huawei-compat,
+html.harmony-compat {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+html.huawei-compat .drawer,
+html.harmony-compat .drawer {
+  height: 100dvh;
+  max-height: 100vh;
+  top: 0;
+  bottom: auto;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+html.huawei-compat .drawer-body,
+html.harmony-compat .drawer-body {
+  overflow-y: scroll;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  padding-bottom: max(54px, calc(22px + env(safe-area-inset-bottom)));
+  transform: translateZ(0);
+}
+
+html.huawei-compat .drawer-item,
+html.harmony-compat .drawer-item {
+  display: flex;
+  visibility: visible;
+  opacity: 1;
+  min-height: 54px;
+}
+
+html.huawei-compat input,
+html.harmony-compat input,
+html.huawei-compat select,
+html.harmony-compat select,
+html.huawei-compat textarea,
+html.harmony-compat textarea {
+  font-size: 16px;
+}
+
 .drawer-item {
   display: flex;
   align-items: center;

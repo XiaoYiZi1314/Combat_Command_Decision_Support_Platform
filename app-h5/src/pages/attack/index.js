@@ -3,6 +3,8 @@ import { getMe } from '../../stores/session.js';
 import { fetchRoster } from '../../api/roster.js';
 import { fetchStationAttack, submitAttackEvent } from '../../api/attack.js';
 import { bridge } from '../../bridge/index.js';
+import { shouldDeferBackgroundPaint } from '../../lib/device-compat.js';
+import { confirmLeaveMain, setPageBackHandler } from '../../lib/host.js';
 import {
   attackQueueLength,
   dropQueueHead,
@@ -869,7 +871,13 @@ export function renderAttackPage(root) {
     }
     const result = await bridge.nfcRead();
     if (!result || !result.ok || !result.data || !result.data.tag) {
-      showToast('本机无 NFC，请用快速录入');
+      const code = result && result.errorCode ? result.errorCode : '';
+      if (code === 'NO_NFC' || code === 'UNSUPPORTED') {
+        showToast('本机无 NFC，请用快速录入');
+        setQuick(true);
+        return;
+      }
+      showToast('未读到标签，请重试或用手选');
       return;
     }
     const tag = String(result.data.tag || '').replace(/[\s:：\-_]/g, '').toUpperCase();
@@ -956,6 +964,9 @@ export function renderAttackPage(root) {
     if (!state.attack) {
       return;
     }
+    if (shouldDeferBackgroundPaint()) {
+      return;
+    }
     renderStats();
     renderCards();
     peekAttackQueue().then((queue) => {
@@ -972,7 +983,20 @@ export function renderAttackPage(root) {
     window.setTimeout(() => setQuick(true), 0);
   }
 
+  setPageBackHandler(() => {
+    if (quick.classList.contains('show')) {
+      setQuick(false);
+      return true;
+    }
+    if (drawer.classList.contains('show')) {
+      setDrawer(false);
+      return true;
+    }
+    return !confirmLeaveMain();
+  });
+
   return () => {
+    setPageBackHandler(null);
     window.clearInterval(timer);
     window.removeEventListener('online', onOnline);
     window.removeEventListener('offline', onOffline);

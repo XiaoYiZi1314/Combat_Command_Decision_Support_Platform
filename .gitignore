@@ -33,6 +33,12 @@
 !*.yml
 !*.yaml
 !*.json
+!*.json5
+!*.gradle
+!*.properties
+!*.pro
+!*.ets
+!*.svg
 !*.md
 
 # 工具链与构建产物即使带代码扩展名也不追踪
@@ -46,3 +52,10 @@ target/
 dist/
 build/
 out/
+app-h5/android-shell/local.properties
+app-h5/android-shell/.gradle/
+app-h5/android-shell/app/build/
+app-h5/android-shell/app/src/main/assets/www/
+app-h5/harmony-shell/entry/build/
+app-h5/harmony-shell/oh_modules/
+app-h5/harmony-shell/entry/src/main/resources/rawfile/www/

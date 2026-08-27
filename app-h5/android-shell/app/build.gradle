@@ -1,0 +1,52 @@
+plugins {
+    id 'com.android.application'
+}
+
+def localProps = new Properties()
+def localFile = rootProject.file('local.properties')
+if (localFile.exists()) {
+    localFile.withInputStream { localProps.load(it) }
+}
+
+android {
+    namespace 'com.ccds.shell'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.ccds.shell'
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName '0.1.0'
+        def apiBase = localProps.getProperty('ccds.apiBase', '')
+        buildConfigField 'String', 'API_BASE', "\"${apiBase}\""
+        buildConfigField 'boolean', 'DEBUG_NFC', 'false'
+    }
+
+    buildTypes {
+        debug {
+            minifyEnabled false
+            buildConfigField 'boolean', 'DEBUG_NFC', localProps.getProperty('ccds.debugNfc', 'true')
+        }
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            buildConfigField 'boolean', 'DEBUG_NFC', 'false'
+        }
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'androidx.webkit:webkit:1.12.1'
+}

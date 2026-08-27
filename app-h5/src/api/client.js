@@ -1,3 +1,5 @@
+import { apiBase } from '../bridge/index.js';
+
 const API_PREFIX = '/api/v1';
 
 const CODE_OK = '0';
@@ -24,7 +26,7 @@ export async function apiRequest(path, options) {
   }
   let response;
   try {
-    response = await fetch(`${API_PREFIX}${path}`, {
+    response = await fetch(`${apiBase()}${API_PREFIX}${path}`, {
       method: opts.method || 'GET',
       headers,
       body: opts.body ? JSON.stringify(opts.body) : undefined

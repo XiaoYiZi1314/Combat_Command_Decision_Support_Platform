@@ -20,7 +20,7 @@ function visibleStations() {
   return Array.isArray(me.visibleStations) ? me.visibleStations : [];
 }
 
-function currentWaterStationId() {
+export function currentWaterStationId() {
   const me = getMe() || {};
   if (me.role === 'station' && me.stationId) {
     return String(me.stationId);
@@ -32,12 +32,6 @@ function currentWaterStationId() {
   const first = visibleStations()[0];
   return first ? String(first.id) : '';
 }
-
-export function currentWaterStationId() {
-  return getCurrentWaterStationId();
-}
-
-function getCurrentWaterStationId() {
 
 function setWaterStationId(id) {
   localStorage.setItem(STATION_KEY, String(id));
@@ -81,7 +75,7 @@ export function renderWaterPage(root) {
       opt.textContent = station.name;
       select.appendChild(opt);
     });
-    select.value = getCurrentWaterStationId();
+    select.value = currentWaterStationId();
     select.addEventListener('change', () => {
       setWaterStationId(select.value);
       load();
@@ -252,7 +246,7 @@ export function renderWaterPage(root) {
   }
 
   async function load() {
-    const stationId = getCurrentWaterStationId();
+    const stationId = currentWaterStationId();
     if (!stationId) {
       list.textContent = '没有可见单位';
       return;
@@ -348,7 +342,7 @@ export function renderWaterPage(root) {
           return;
         }
         try {
-          await deleteWater(getCurrentWaterStationId(), water.id);
+          await deleteWater(currentWaterStationId(), water.id);
           await load();
         } catch (err) {
           setMsg(err.message || '删除失败', true);
@@ -445,9 +439,9 @@ export function renderWaterPage(root) {
       }
       try {
         if (editing.isNew) {
-          await createWater(getCurrentWaterStationId(), payload);
+          await createWater(currentWaterStationId(), payload);
         } else {
-          await updateWater(getCurrentWaterStationId(), editing.water.id, payload);
+          await updateWater(currentWaterStationId(), editing.water.id, payload);
         }
         state.editing = null;
         await load();

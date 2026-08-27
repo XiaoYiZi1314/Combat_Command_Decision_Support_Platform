@@ -15,7 +15,12 @@ import { renderSupplyPage } from './pages/supply/index.js';
 import { renderSupplyMapPage } from './pages/supply/map.js';
 import { renderHazmatPage } from './pages/hazmat/index.js';
 import { renderAiPage } from './pages/ai/index.js';
+import { renderWeatherPage } from './pages/weather/index.js';
+import { renderVersionPage } from './pages/version/index.js';
 import { fetchMe, fetchOrgStations, refreshSession } from './api/auth.js';
+import { bridge, probeBridge } from './bridge/index.js';
+import { initDeviceCompat } from './lib/device-compat.js';
+import { consumePageBack, setPageBackHandler } from './lib/host.js';
 import {
   getAccessToken,
   getMe,
@@ -108,6 +113,7 @@ function unmountPage() {
 }
 
 async function render() {
+  setPageBackHandler(null);
   unmountPage();
   const hash = currentHash();
   const pathOnly = hash.split('?')[0];
@@ -226,6 +232,16 @@ async function render() {
     renderAiPage(app);
     return;
   }
+  if (route.path === '/weather') {
+    app.innerHTML = '';
+    unmountCurrent = renderWeatherPage(app) || null;
+    return;
+  }
+  if (route.path === '/version') {
+    app.innerHTML = '';
+    renderVersionPage(app);
+    return;
+  }
 
   renderShell(route, params, hash);
 }
@@ -233,6 +249,22 @@ async function render() {
 window.addEventListener('hashchange', () => {
   render();
 });
+
+window.CcdsHost = {
+  onBack() {
+    if (consumePageBack()) {
+      return true;
+    }
+    const hash = currentHash().split('?')[0];
+    if (hash === '#/attack' || hash === '#/hq' || hash === '#/login' || hash === '#/legal') {
+      return false;
+    }
+    window.history.back();
+    return true;
+  }
+};
+
+probeBridge().then(() => initDeviceCompat(bridge)).catch(() => initDeviceCompat(bridge));
 
 if (!window.location.hash) {
   window.location.hash = '#/login';

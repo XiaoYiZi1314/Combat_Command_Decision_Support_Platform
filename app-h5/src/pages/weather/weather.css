@@ -1,0 +1,87 @@
+.weather-page {
+  padding-bottom: 28px;
+}
+
+.weather-compass {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0 18px;
+}
+
+.weather-canvas {
+  width: 200px;
+  height: 200px;
+}
+
+.weather-heading {
+  font-size: 32px;
+  font-weight: 700;
+}
+
+.weather-dir,
+.weather-loc,
+.weather-desc {
+  font-size: 13px;
+  color: var(--dim);
+}
+
+.weather-temp {
+  font-size: 28px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.weather-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+
+.weather-cell {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--dim);
+}
+
+.weather-cell b {
+  display: block;
+  margin-top: 4px;
+  color: var(--text);
+  font-size: 16px;
+}
+
+.weather-hours {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 6px;
+}
+
+.weather-hour {
+  min-width: 72px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  padding: 8px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--dim);
+}
+
+.weather-hour b {
+  display: block;
+  color: var(--text);
+  font-size: 16px;
+  margin: 4px 0;
+}
+
+html.huawei-compat .weather-hours,
+html.harmony-compat .weather-hours {
+  overflow-x: scroll;
+}

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.CcdsShell" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">#0a0e14</item>
+        <item name="android:statusBarColor">#8b1a1a</item>
+        <item name="android:navigationBarColor">#0a0e14</item>
+        <item name="android:windowFullscreen">false</item>
+    </style>
+</resources>

@@ -1,3 +1,5 @@
+import { apiBase } from '../bridge/index.js';
+
 export const SYNC = {
   pollAfterDisconnectMs: 3000,
   pollIntervalMs: 5000,
@@ -18,10 +20,18 @@ export function retryDelayMs(attempt) {
   return Math.min(SYNC.retryMaxMs, delay);
 }
 
-export function wsUrl(token) {
+function wsOrigin() {
+  const base = apiBase();
+  if (base) {
+    return base.replace(/^http/i, (m) => (m.toLowerCase() === 'https' ? 'wss' : 'ws'));
+  }
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${proto}//${window.location.host}`;
+}
+
+export function wsUrl(token) {
   const encoded = encodeURIComponent(token || '');
-  return `${proto}//${window.location.host}${SYNC.wsPath}?token=${encoded}`;
+  return `${wsOrigin()}${SYNC.wsPath}?token=${encoded}`;
 }
 
 export function syncStatusText(online, pending) {

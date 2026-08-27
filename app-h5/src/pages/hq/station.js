@@ -2,6 +2,7 @@ import '../attack/attack.css';
 import { getMe, getAccessToken } from '../../stores/session.js';
 import { fetchStationAttack } from '../../api/attack.js';
 import { refreshSession } from '../../api/auth.js';
+import { shouldDeferBackgroundPaint } from '../../lib/device-compat.js';
 import { connectCommandSocket } from '../../lib/sync.js';
 import {
   el,
@@ -144,9 +145,10 @@ export function renderHqStationPage(root, params) {
   });
 
   const tick = window.setInterval(() => {
-    if (state.attack) {
-      paint();
+    if (!state.attack || shouldDeferBackgroundPaint()) {
+      return;
     }
+    paint();
   }, 1000);
 
   return () => {

@@ -1,0 +1,7 @@
+{
+  "string": [
+    { "name": "module_desc", "value": "鸿蒙薄壳，先降级再补 NFC" },
+    { "name": "app_name", "value": "作战指挥辅助决策平台" },
+    { "name": "loc_reason", "value": "用于天气与最近水源定位" }
+  ]
+}
