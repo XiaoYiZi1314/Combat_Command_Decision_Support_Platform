@@ -4,6 +4,10 @@
 
 !.gitignore
 
+# 文档默认不追踪，仅放行 README
+!README.md
+!**/README.md
+
 # 后端
 !*.java
 !*.kt
@@ -39,7 +43,6 @@
 !*.pro
 !*.ets
 !*.svg
-!*.md
 !*.example
 !*.bat
 !gradlew

@@ -14,5 +14,10 @@
 | [04-architecture.md](04-architecture.md) | APP / 壳 / Java 后端 / 腾讯云 |
 | [05-data-and-api.md](05-data-and-api.md) | 表草案与 API 草案 |
 | [06-dev-breakdown.md](06-dev-breakdown.md) | 开发顺序与任务拆分 |
+| [p10-completion.md](p10-completion.md) | 阶段 10 收口总览 |
+| [p10-migration-report.md](p10-migration-report.md) | P10-1 迁移报告 |
+| [p10-abandon-list.md](p10-abandon-list.md) | P10-2 放弃清单 |
+| [p10-ux-walkthrough.md](p10-ux-walkthrough.md) | P10-3 十八图走查 |
+| [p10-security-walkthrough.md](p10-security-walkthrough.md) | P10-4 安全走查 |
 
-规划已确认（grilling Q1–Q31）。Issues：地图 [#1](https://github.com/XiaoYiZi1314/Combat_Command_Decision_Support_Platform/issues/1)，任务 #2–#50。未说「可以开工」之前，不写业务代码。
+规划已确认（grilling Q1–Q31）。Issues：地图 [#1](https://github.com/XiaoYiZi1314/Combat_Command_Decision_Support_Platform/issues/1)，任务 #2–#50。阶段 0–10 开发拆分已收口；未迁数据与 H5 缺口见阶段 10 文档。
