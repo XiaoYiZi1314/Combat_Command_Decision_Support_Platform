@@ -243,7 +243,7 @@ export function renderWeatherPage(root) {
       desc.textContent = '无法定位，天气不可用';
       return;
     }
-    loc.textContent = '已定位（坐标已脱敏展示）';
+    loc.textContent = '已定位，坐标仅发给本后端查询天气';
     desc.textContent = '加载中…';
     try {
       const data = await fetchWeather(lng, lat);

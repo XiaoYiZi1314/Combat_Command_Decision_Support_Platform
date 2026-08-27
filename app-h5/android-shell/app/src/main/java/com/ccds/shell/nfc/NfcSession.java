@@ -25,19 +25,31 @@ public final class NfcSession {
 
     private final ArrayBlockingQueue<String> queue = new ArrayBlockingQueue<>(1);
 
+    /**
+     * @param activity 宿主 Activity
+     */
     public NfcSession(Activity activity) {
         this.activity = activity;
         adapter = NfcAdapter.getDefaultAdapter(activity);
     }
 
+    /**
+     * @return 是否有 NFC 硬件，或 debug 模拟开启
+     */
     public boolean hardwarePresent() {
         return adapter != null || BuildConfig.DEBUG_NFC;
     }
 
+    /**
+     * @return 适配器已开启
+     */
     public boolean enabled() {
         return adapter != null && adapter.isEnabled();
     }
 
+    /**
+     * 进入前台调度。
+     */
     public void enableForeground() {
         if (adapter == null) {
             return;
@@ -51,6 +63,9 @@ public final class NfcSession {
         adapter.enableForegroundDispatch(activity, pending, null, null);
     }
 
+    /**
+     * 退出前台调度。
+     */
     public void disableForeground() {
         if (adapter == null) {
             return;
@@ -58,6 +73,11 @@ public final class NfcSession {
         adapter.disableForegroundDispatch(activity);
     }
 
+    /**
+     * 从 Intent 解析标签并入队。
+     *
+     * @param intent 系统 NFC Intent
+     */
     public void onNewIntent(Intent intent) {
         if (intent == null) {
             return;
@@ -69,6 +89,12 @@ public final class NfcSession {
         }
     }
 
+    /**
+     * 阻塞等待一次读卡。
+     *
+     * @param timeoutMs 超时毫秒
+     * @return 编号，超时返回空串
+     */
     public String awaitTag(long timeoutMs) {
         queue.clear();
         if (BuildConfig.DEBUG_NFC && adapter == null) {

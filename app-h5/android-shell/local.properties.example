@@ -1,0 +1,4 @@
+# Copy to local.properties. Do not commit secrets.
+# sdk.dir=C\:\\Users\\you\\AppData\\Local\\Android\\Sdk
+# ccds.apiBase=https://your-api.example
+# ccds.debugNfc=false

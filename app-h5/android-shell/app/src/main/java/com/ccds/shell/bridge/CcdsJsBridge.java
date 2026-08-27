@@ -14,6 +14,7 @@ import com.ccds.shell.nfc.NfcSession;
 import com.ccds.shell.sensor.HeadingStore;
 import com.ccds.shell.sensor.LocationStore;
 
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.Locale;
@@ -40,6 +41,8 @@ public final class CcdsJsBridge {
 
     private static final String INVALID_URL = "INVALID_URL";
 
+    private static final long NFC_WAIT_MS = 15000L;
+
     private final MainActivity activity;
 
     private final NfcSession nfcSession;
@@ -50,6 +53,14 @@ public final class CcdsJsBridge {
 
     private TextToSpeech tts;
 
+    /**
+     * 绑定宿主 Activity 与设备能力。
+     *
+     * @param activity      宿主
+     * @param nfcSession    NFC 会话
+     * @param headingStore  罗盘
+     * @param locationStore 定位
+     */
     public CcdsJsBridge(MainActivity activity, NfcSession nfcSession, HeadingStore headingStore,
                         LocationStore locationStore) {
         this.activity = activity;
@@ -58,11 +69,23 @@ public final class CcdsJsBridge {
         this.locationStore = locationStore;
     }
 
+    /**
+     * 同步能力清单，供 H5 探测。
+     *
+     * @return 能力 JSON
+     */
     @JavascriptInterface
     public String capabilities() {
         return capabilityJson().toString();
     }
 
+    /**
+     * 按方法名调用设备能力。
+     *
+     * @param method      方法名
+     * @param payloadJson JSON 入参
+     * @return 统一 `{ok,data,errorCode}` JSON
+     */
     @JavascriptInterface
     public String invoke(String method, String payloadJson) {
         String name = method == null ? "" : method;
@@ -103,7 +126,7 @@ public final class CcdsJsBridge {
         if (!nfcSession.hardwarePresent()) {
             return BridgeJson.fail(NO_NFC);
         }
-        String tag = nfcSession.awaitTag(15000L);
+        String tag = nfcSession.awaitTag(NFC_WAIT_MS);
         if (tag == null || tag.isEmpty()) {
             return BridgeJson.fail(NFC_TIMEOUT);
         }
@@ -217,6 +240,9 @@ public final class CcdsJsBridge {
         return BridgeJson.ok(data);
     }
 
+    /**
+     * 释放 TTS。
+     */
     public void shutdown() {
         if (tts != null) {
             tts.stop();
@@ -232,7 +258,7 @@ public final class CcdsJsBridge {
         try {
             JSONObject obj = new JSONObject(payloadJson);
             return obj.optString(key, "");
-        } catch (Exception ex) {
+        } catch (JSONException ex) {
             return "";
         }
     }
@@ -240,7 +266,7 @@ public final class CcdsJsBridge {
     private static void put(JSONObject obj, String key, Object value) {
         try {
             obj.put(key, value);
-        } catch (Exception ex) {
+        } catch (JSONException ex) {
             return;
         }
     }

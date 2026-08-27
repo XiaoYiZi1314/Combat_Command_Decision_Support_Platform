@@ -14,6 +14,12 @@ final class BridgeJson {
     private BridgeJson() {
     }
 
+    /**
+     * 成功响应。
+     *
+     * @param data 业务数据，可为 null
+     * @return JSON 字符串
+     */
     static String ok(JSONObject data) {
         JSONObject root = new JSONObject();
         try {
@@ -26,6 +32,12 @@ final class BridgeJson {
         return root.toString();
     }
 
+    /**
+     * 失败响应。
+     *
+     * @param errorCode 错误码
+     * @return JSON 字符串
+     */
     static String fail(String errorCode) {
         JSONObject root = new JSONObject();
         try {

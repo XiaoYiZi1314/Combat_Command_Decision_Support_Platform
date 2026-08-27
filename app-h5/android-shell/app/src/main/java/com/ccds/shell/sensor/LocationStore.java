@@ -23,19 +23,36 @@ public final class LocationStore implements LocationListener {
 
     private final LocationManager manager;
 
+    private static final long GPS_MIN_MS = 4000L;
+
+    private static final float GPS_MIN_M = 8f;
+
+    private static final long NET_MIN_MS = 8000L;
+
+    private static final float NET_MIN_M = 20f;
+
     private volatile Location last;
 
+    /**
+     * @param context 应用上下文
+     */
     public LocationStore(Context context) {
         this.context = context.getApplicationContext();
         manager = (LocationManager) this.context.getSystemService(Context.LOCATION_SERVICE);
     }
 
+    /**
+     * @return 已有粗/精定位权限
+     */
     public boolean permitted() {
         int fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION);
         int coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION);
         return fine == PackageManager.PERMISSION_GRANTED || coarse == PackageManager.PERMISSION_GRANTED;
     }
 
+    /**
+     * 订阅定位更新。
+     */
     public void start() {
         if (manager == null || !permitted()) {
             return;
@@ -45,16 +62,19 @@ public final class LocationStore implements LocationListener {
             Location net = manager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
             last = newer(gps, net);
             if (manager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-                manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 4000L, 8f, this, Looper.getMainLooper());
+                manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, GPS_MIN_MS, GPS_MIN_M, this, Looper.getMainLooper());
             }
             if (manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
-                manager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 8000L, 20f, this, Looper.getMainLooper());
+                manager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, NET_MIN_MS, NET_MIN_M, this, Looper.getMainLooper());
             }
         } catch (SecurityException ex) {
             last = null;
         }
     }
 
+    /**
+     * 停止定位更新。
+     */
     public void stop() {
         if (manager == null) {
             return;
@@ -62,6 +82,9 @@ public final class LocationStore implements LocationListener {
         manager.removeUpdates(this);
     }
 
+    /**
+     * @return 最近一次定位，可能为空
+     */
     public Location last() {
         return last;
     }

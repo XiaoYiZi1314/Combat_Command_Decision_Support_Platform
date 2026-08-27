@@ -4,6 +4,7 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Bundle;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -14,10 +15,13 @@ import android.webkit.WebViewClient;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+
 import com.ccds.shell.bridge.CcdsJsBridge;
 import com.ccds.shell.nfc.NfcSession;
 import com.ccds.shell.sensor.HeadingStore;
 import com.ccds.shell.sensor.LocationStore;
+
+import org.json.JSONObject;
 
 /**
  * 安卓薄壳：只承载 H5，并提供 NFC / 定位 / 罗盘。
@@ -30,6 +34,8 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQ_LOCATION = 32;
 
     private static final String ASSET_URL = "file:///android_asset/www/index.html";
+
+    private static final String ASSET_PREFIX = "file:///android_asset/www/";
 
     private WebView webView;
 
@@ -68,30 +74,53 @@ public class MainActivity extends AppCompatActivity {
         settings.setDomStorageEnabled(true);
         settings.setAllowFileAccess(true);
         settings.setAllowContentAccess(false);
+        settings.setAllowFileAccessFromFileURLs(false);
+        settings.setAllowUniversalAccessFromFileURLs(false);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
         webView.setWebChromeClient(new WebChromeClient());
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                return false;
+                if (request == null || request.getUrl() == null) {
+                    return true;
+                }
+                return !isPackedAsset(request.getUrl());
             }
 
             @Override
             public void onPageFinished(WebView view, String url) {
-                injectHost();
+                if (isPackedAsset(url)) {
+                    injectHost();
+                }
             }
         });
         webView.addJavascriptInterface(bridge, CcdsJsBridge.NAME);
     }
 
+    private boolean isPackedAsset(Uri uri) {
+        if (uri == null) {
+            return false;
+        }
+        return isPackedAsset(uri.toString());
+    }
+
+    private boolean isPackedAsset(String url) {
+        if (url == null) {
+            return false;
+        }
+        return url.equals(ASSET_URL) || url.startsWith(ASSET_PREFIX);
+    }
+
     private void injectHost() {
-        String apiBase = BuildConfig.API_BASE == null ? "" : BuildConfig.API_BASE.replace("'", "\\'");
-        String js = "window.CCDS_API_BASE='" + apiBase + "';"
-                + "window.CcdsNativeBridge=window.CcdsNativeBridge||{};";
+        String apiBase = BuildConfig.API_BASE == null ? "" : BuildConfig.API_BASE;
+        String js = "window.CCDS_API_BASE=" + JSONObject.quote(apiBase) + ";";
         webView.evaluateJavascript(js, null);
     }
 
+    /**
+     * 向系统申请定位权限；已授权则直接开定位。
+     */
     public void requestLocationPermission() {
         if (locationStore.permitted()) {
             locationStore.start();

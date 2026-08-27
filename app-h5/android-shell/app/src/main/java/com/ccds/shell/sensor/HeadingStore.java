@@ -24,15 +24,24 @@ public final class HeadingStore implements SensorEventListener {
 
     private volatile Float degrees;
 
+    /**
+     * @param context 应用上下文
+     */
     public HeadingStore(Context context) {
         manager = (SensorManager) context.getSystemService(Context.SENSOR_SERVICE);
         rotation = manager == null ? null : manager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
     }
 
+    /**
+     * @return 是否有旋转矢量传感器
+     */
     public boolean available() {
         return rotation != null;
     }
 
+    /**
+     * 订阅航向。
+     */
     public void start() {
         if (manager == null || rotation == null) {
             return;
@@ -40,6 +49,9 @@ public final class HeadingStore implements SensorEventListener {
         manager.registerListener(this, rotation, SensorManager.SENSOR_DELAY_UI);
     }
 
+    /**
+     * 停止订阅。
+     */
     public void stop() {
         if (manager == null) {
             return;
@@ -47,6 +59,9 @@ public final class HeadingStore implements SensorEventListener {
         manager.unregisterListener(this);
     }
 
+    /**
+     * @return 航向角度，无读数时为空
+     */
     public Float degrees() {
         return degrees;
     }

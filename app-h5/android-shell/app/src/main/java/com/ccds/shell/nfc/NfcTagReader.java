@@ -1,10 +1,12 @@
 package com.ccds.shell.nfc;
 
+import android.nfc.FormatException;
 import android.nfc.NdefMessage;
 import android.nfc.NdefRecord;
 import android.nfc.Tag;
 import android.nfc.tech.Ndef;
 
+import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.Locale;
@@ -54,7 +56,7 @@ public final class NfcTagReader {
             try {
                 ndef.connect();
                 message = ndef.getNdefMessage();
-            } catch (Exception ex) {
+            } catch (IOException | FormatException ex) {
                 return "";
             } finally {
                 closeQuiet(ndef);
@@ -106,7 +108,7 @@ public final class NfcTagReader {
     private static void closeQuiet(Ndef ndef) {
         try {
             ndef.close();
-        } catch (Exception ex) {
+        } catch (IOException ex) {
             return;
         }
     }

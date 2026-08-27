@@ -34,7 +34,6 @@ public class WebSocketConfig implements WebSocketConfigurer {
                 .setAllowedOriginPatterns(
                         "http://127.0.0.1:*",
                         "http://localhost:*",
-                        "https://*",
                         "file://*",
                         "null");
     }

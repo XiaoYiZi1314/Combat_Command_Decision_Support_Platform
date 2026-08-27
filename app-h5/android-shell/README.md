@@ -13,6 +13,6 @@ npm run pack:android
 
 `pack:android` 把 `dist/` 拷到 `android-shell/app/src/main/assets/www/`。
 
-再用 Android Studio 打开 `android-shell/` 出 APK。
+再用 Android Studio 打开 `android-shell/`，或在该目录执行 `gradlew.bat assembleRelease` 出 APK。
 
-`local.properties` 只放本机 SDK 与 `ccds.apiBase`，见 `local.properties.example`。release 构建强制 `DEBUG_NFC=false`，正式包不含调试密钥。
+把 `local.properties.example` 复制为 `local.properties`，填写本机 `sdk.dir` 与 `ccds.apiBase`。`local.properties` 不入库。release 构建强制 `DEBUG_NFC=false`，正式包不含调试密钥。

@@ -71,7 +71,7 @@ async function mockInvoke(method, payload) {
     case 'heading':
       return wrap(true, { degrees: 0, source: 'mock' }, '');
     case 'locate':
-      return wrap(true, { lng: 0, lat: 0, source: 'mock' }, '');
+      return wrap(true, { lng: 123.95, lat: 47.35, source: 'mock' }, '');
     case 'speak':
       return wrap(true, { spoken: Boolean(payload && payload.text), source: 'mock' }, '');
     case 'openUrl':

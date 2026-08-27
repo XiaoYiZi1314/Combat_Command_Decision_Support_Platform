@@ -1,5 +1,6 @@
 import web_webview from '@ohos.web.webview';
 import { CcdsJsBridge } from '../bridge/CcdsJsBridge';
+import { API_BASE } from '../config/HostConfig';
 
 @Entry
 @Component
@@ -14,9 +15,8 @@ struct Index {
         .domStorageAccess(true)
         .fileAccess(true)
         .onPageEnd(() => {
-          this.controller.runJavaScript(
-            "window.CCDS_API_BASE=window.CCDS_API_BASE||'';"
-          );
+          const base = JSON.stringify(API_BASE || '');
+          this.controller.runJavaScript(`window.CCDS_API_BASE=${base};`);
         })
         .javaScriptProxy({
           object: this.bridge,
