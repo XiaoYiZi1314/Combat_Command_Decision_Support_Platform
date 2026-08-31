@@ -1,6 +1,7 @@
 import '../water/water.css';
 import { getMe, homeHashOf } from '../../stores/session.js';
 import { el } from '../water/shared.js';
+import { buildStationSelect, currentStationId } from '../shared/station-scope.js';
 import {
   deleteArchive,
   downloadArchiveExcel,
@@ -16,28 +17,6 @@ const KIND_LABELS = {
   drill: '演练',
   dispatch: '出警'
 };
-
-function visibleStations() {
-  const me = getMe() || {};
-  return Array.isArray(me.visibleStations) ? me.visibleStations : [];
-}
-
-function currentStationId() {
-  const me = getMe() || {};
-  if (me.role === 'station' && me.stationId) {
-    return String(me.stationId);
-  }
-  const saved = localStorage.getItem(STATION_KEY);
-  if (saved && visibleStations().some((item) => String(item.id) === saved)) {
-    return saved;
-  }
-  const first = visibleStations()[0];
-  return first ? String(first.id) : '';
-}
-
-function setStationId(id) {
-  localStorage.setItem(STATION_KEY, String(id));
-}
 
 function kindLabel(kind) {
   return KIND_LABELS[kind] || kind || '演练';
@@ -67,27 +46,9 @@ export function renderAttackHistoryPage(root) {
   };
 
   /* 站切换（非站级） */
-  const stations = visibleStations();
-  if (me.role !== 'station' && stations.length) {
-    const wrap = el('div', 'water-station');
-    wrap.appendChild(el('label', '', '查看单位'));
-    const select = el('select');
-    if (me.role === 'hq' || me.role === 'developer') {
-      select.appendChild(el('option', '', '全部单位')).value = '';
-    }
-    stations.forEach((station) => {
-      const opt = document.createElement('option');
-      opt.value = String(station.id);
-      opt.textContent = station.name;
-      select.appendChild(opt);
-    });
-    select.value = currentStationId();
-    select.addEventListener('change', () => {
-      setStationId(select.value);
-      load();
-    });
-    wrap.appendChild(select);
-    body.appendChild(wrap);
+  const stationSelect = buildStationSelect(STATION_KEY, load);
+  if (stationSelect) {
+    body.appendChild(stationSelect);
   }
 
   /* 类型筛选 */
@@ -146,15 +107,14 @@ export function renderAttackHistoryPage(root) {
   }
 
   async function load() {
-    const stationId = currentStationId();
+    const stationId = currentStationId(STATION_KEY);
     if (!stationId && !isCommand) {
       list.textContent = '没有可见单位';
       return;
     }
     try {
-      if (isCommand && !stationId) {
-        state.rows = await fetchAllArchives(state.kindFilter);
-      } else if (isCommand) {
+      if (isCommand) {
+        /* 指挥端统一走全量接口，前端不按站过滤，由后端数据权限控制 */
         state.rows = await fetchAllArchives(state.kindFilter);
       } else {
         state.rows = await fetchStationArchives(stationId, state.kindFilter);

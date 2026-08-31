@@ -1,6 +1,5 @@
 package com.ccds.vehicle.vehicle.service.impl;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -12,6 +11,7 @@ import com.ccds.iam.identity.entity.AccountDO;
 import com.ccds.iam.identity.enums.AccountRoleEnum;
 import com.ccds.org.org.entity.StationDO;
 import com.ccds.org.org.mapper.StationMapper;
+import com.ccds.org.org.service.OrgQueryService;
 import com.ccds.vehicle.vehicle.service.VehicleAccessService;
 
 import lombok.RequiredArgsConstructor;
@@ -37,6 +37,8 @@ public class VehicleAccessServiceImpl implements VehicleAccessService {
     private static final String MSG_STATION_MISSING = "单位不存在";
 
     private final StationMapper stationMapper;
+
+    private final OrgQueryService orgQueryService;
 
     /**
      * {@inheritDoc}
@@ -98,41 +100,13 @@ public class VehicleAccessServiceImpl implements VehicleAccessService {
      */
     @Override
     public List<Long> visibleStationIds(AccountDO account) {
-        AccountRoleEnum role = AccountRoleEnum.fromCode(account.getRole());
-        if (role == null) {
-            return Collections.emptyList();
-        }
-        if (role == AccountRoleEnum.HQ || role == AccountRoleEnum.DEVELOPER) {
-            return stationMapper.selectAll().stream()
-                    .map(StationDO::getId)
-                    .collect(Collectors.toList());
-        }
-        if (role == AccountRoleEnum.BRIGADE) {
-            return stationMapper.selectByBrigadeId(account.getBrigadeId()).stream()
-                    .map(StationDO::getId)
-                    .collect(Collectors.toList());
-        }
-        if (role == AccountRoleEnum.STATION && account.getStationId() != null) {
-            return Collections.singletonList(account.getStationId());
-        }
-        return Collections.emptyList();
+        return orgQueryService.listVisibleStationEntities(account).stream()
+                .map(StationDO::getId)
+                .collect(Collectors.toList());
     }
 
     private boolean canView(AccountDO account, StationDO station) {
-        AccountRoleEnum role = AccountRoleEnum.fromCode(account.getRole());
-        if (role == null) {
-            return false;
-        }
-        switch (role) {
-            case STATION:
-                return account.getStationId() != null && account.getStationId().equals(station.getId());
-            case BRIGADE:
-                return account.getBrigadeId() != null && account.getBrigadeId().equals(station.getBrigadeId());
-            case HQ:
-            case DEVELOPER:
-                return true;
-            default:
-                return false;
-        }
+        return orgQueryService.listVisibleStationEntities(account).stream()
+                .anyMatch(visible -> visible.getId().equals(station.getId()));
     }
 }

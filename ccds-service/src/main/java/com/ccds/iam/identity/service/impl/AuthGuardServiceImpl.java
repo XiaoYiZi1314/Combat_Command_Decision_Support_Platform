@@ -36,6 +36,21 @@ public class AuthGuardServiceImpl implements AuthGuardService {
      * {@inheritDoc}
      */
     @Override
+    public AccountDO requireAccount(AuthPrincipal principal) {
+        if (principal == null || principal.getAccountId() == null) {
+            throw new BizException(ErrorCodeConstant.AUTH_UNAUTHORIZED, AuthRuleConstant.MSG_UNAUTHORIZED);
+        }
+        AccountDO account = accountMapper.selectById(principal.getAccountId());
+        if (account == null) {
+            throw new BizException(ErrorCodeConstant.AUTH_UNAUTHORIZED, AuthRuleConstant.MSG_UNAUTHORIZED);
+        }
+        return account;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public void assertActiveSession(AuthPrincipal principal) {
         if (principal == null || principal.getAccountId() == null || principal.getSessionId() == null) {
             throw new BizException(ErrorCodeConstant.AUTH_UNAUTHORIZED, AuthRuleConstant.MSG_UNAUTHORIZED);

@@ -109,6 +109,20 @@ public final class VehicleRuleConstant {
     public static final String REQUEST_REJECTED = "rejected";
 
     /**
+     * 合法车辆类型码集合，与前端 VEHICLE_TYPES 保持一致。
+     */
+    public static final java.util.Set<String> VALID_TYPES = java.util.Set.of(
+            TYPE_WATER_FOAM, TYPE_AERIAL, TYPE_HIGH_SPRAY, TYPE_RESCUE,
+            TYPE_TROOP_TRANSPORT, TYPE_AIR_SUPPLY, TYPE_LONG_SUPPLY,
+            TYPE_DRY_POWDER, TYPE_SMOKE_EXHAUST, TYPE_COMMAND,
+            TYPE_PUBLICITY, TYPE_OTHER);
+
+    /**
+     * 车辆类型码不合法提示。
+     */
+    public static final String MSG_TYPE_INVALID = "车辆类型不合法";
+
+    /**
      * 号牌最长。
      */
     public static final int PLATE_MAX_LENGTH = 30;

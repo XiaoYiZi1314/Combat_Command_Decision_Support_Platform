@@ -80,7 +80,7 @@ public class AttackArchiveController {
      * 指挥端全部历史。
      *
      * @param request   HTTP 请求
-     * @param stationId 站主键，可空
+     * @param stationId 过滤站主键，可空
      * @param eventKind 类型过滤，可空
      * @return 列表
      */

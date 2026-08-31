@@ -1,6 +1,7 @@
 import '../water/water.css';
 import { getMe, homeHashOf } from '../../stores/session.js';
 import { el } from '../water/shared.js';
+import { buildStationSelect, currentStationId } from '../shared/station-scope.js';
 import {
   VEHICLE_TYPES,
   deleteStationVehicle,
@@ -16,45 +17,6 @@ import {
 } from '../../api/vehicle.js';
 
 const STATION_KEY = 'ccds_vehicle_station';
-
-function visibleStations() {
-  const me = getMe() || {};
-  return Array.isArray(me.visibleStations) ? me.visibleStations : [];
-}
-
-function currentStationId() {
-  const me = getMe() || {};
-  if (me.role === 'station' && me.stationId) {
-    return String(me.stationId);
-  }
-  const saved = localStorage.getItem(STATION_KEY);
-  if (saved && visibleStations().some((item) => String(item.id) === saved)) {
-    return saved;
-  }
-  const first = visibleStations()[0];
-  return first ? String(first.id) : '';
-}
-
-function setStationId(id) {
-  localStorage.setItem(STATION_KEY, String(id));
-}
-
-const STATUS_OPTIONS = [
-  { value: '执勤', label: '执勤' },
-  { value: '报修', label: '报修' }
-];
-
-const ACTION_LABELS = {
-  add: '新增',
-  modify: '编辑',
-  delete: '删除'
-};
-
-const REQUEST_STATUS_LABELS = {
-  pending: '待审批',
-  approved: '已通过',
-  rejected: '已驳回'
-};
 
 function summaryOf(vehicle) {
   const parts = [];
@@ -95,27 +57,9 @@ export function renderVehiclesPage(root) {
   };
 
   /* 站切换（非站级） */
-  const stations = visibleStations();
-  if (me.role !== 'station' && stations.length) {
-    const wrap = el('div', 'water-station');
-    wrap.appendChild(el('label', '', '查看单位'));
-    const select = el('select');
-    if (me.role === 'hq' || me.role === 'developer') {
-      select.appendChild(el('option', '', '全部单位')).value = '';
-    }
-    stations.forEach((station) => {
-      const opt = document.createElement('option');
-      opt.value = String(station.id);
-      opt.textContent = station.name;
-      select.appendChild(opt);
-    });
-    select.value = currentStationId();
-    select.addEventListener('change', () => {
-      setStationId(select.value);
-      load();
-    });
-    wrap.appendChild(select);
-    body.appendChild(wrap);
+  const stationSelect = buildStationSelect(STATION_KEY, load);
+  if (stationSelect) {
+    body.appendChild(stationSelect);
   }
 
   /* 模式切换：列表 / 审批 */
@@ -196,7 +140,7 @@ export function renderVehiclesPage(root) {
   body.appendChild(msg);
 
   /* 审批/申请记录区 */
-  const requestBox = el('div', 'water-list');
+  const requestBox = el('div', 'water-list vehicle-request-list');
   body.appendChild(requestBox);
 
   /* 车辆列表 */
@@ -217,7 +161,7 @@ export function renderVehiclesPage(root) {
   }
 
   async function load() {
-    const stationId = currentStationId();
+    const stationId = currentStationId(STATION_KEY);
     if (!stationId && !isCommand) {
       list.textContent = '没有可见单位';
       return;
@@ -247,7 +191,7 @@ export function renderVehiclesPage(root) {
       if (isCommand) {
         state.requests = await fetchAllVehicleRequests();
       } else {
-        state.requests = await fetchVehicleRequests(currentStationId());
+        state.requests = await fetchVehicleRequests(currentStationId(STATION_KEY));
       }
       renderRequests();
     } catch (err) {
@@ -478,7 +422,7 @@ export function renderVehiclesPage(root) {
       };
       const stationId = state.editing
         ? state.editing.stationId
-        : (me.role === 'station' ? me.stationId : (currentStationId() || me.stationId));
+        : (me.role === 'station' ? me.stationId : (currentStationId(STATION_KEY) || me.stationId));
       if (!stationId) {
         setMsg('请先选择所属单位', true);
         return;

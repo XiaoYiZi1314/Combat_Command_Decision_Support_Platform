@@ -60,6 +60,6 @@
 
 ## 5. 处理规则
 
-1. 放弃对象不进 `ccds_*` 业务表，不在 H5 建路由（车辆、文书、内攻历史、批量 NFC、作业模式已按 [02-routes-and-ux.md](02-routes-and-ux.md) 隐藏）。
+1. 放弃对象不进 `ccds_*` 业务表，不在 H5 建路由（车辆、文书、内攻历史、批量 NFC、作业模式已按 [02-routes-and-ux.md](02-routes-and-ux.md) 隐藏）。二期启用车辆/文书/内攻历史/批量 NFC 的决策变更见 [ADR-0012](../adr/0012-phase2-vehicle-archive-doc-nfc.md)——启用的模块走本库 `ccds_*` 表与本仓 H5 路由，不翻 R2 旧数据。
 2. 发现残留现网密钥、R2 SDK、旧 IP 视为缺陷，记入 [p10-security-walkthrough.md](p10-security-walkthrough.md)，不「兼容旧通道」。
 3. 后续若客户提供 Excel / `water_sources_manifest.js` / 预案文件包，走既有导入 API 或一次性脚本，不翻 R2。

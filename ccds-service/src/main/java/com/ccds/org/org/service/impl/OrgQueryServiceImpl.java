@@ -107,22 +107,30 @@ public class OrgQueryServiceImpl implements OrgQueryService {
      */
     @Override
     public List<StationVO> listVisibleStations(AccountDO account) {
+        return toStationVoList(listVisibleStationEntities(account));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<StationDO> listVisibleStationEntities(AccountDO account) {
         AccountRoleEnum role = AccountRoleEnum.fromCode(account.getRole());
         if (role == null) {
             return List.of();
         }
         switch (role) {
             case STATION:
-                StationVO own = findStation(account.getStationId());
+                StationDO own = account.getStationId() == null ? null : stationMapper.selectById(account.getStationId());
                 return own == null ? List.of() : List.of(own);
             case BRIGADE:
                 if (account.getBrigadeId() == null) {
                     return List.of();
                 }
-                return toStationVoList(stationMapper.selectByBrigadeId(account.getBrigadeId()));
+                return stationMapper.selectByBrigadeId(account.getBrigadeId());
             case HQ:
             case DEVELOPER:
-                return toStationVoList(stationMapper.selectAll());
+                return stationMapper.selectAll();
             default:
                 return List.of();
         }

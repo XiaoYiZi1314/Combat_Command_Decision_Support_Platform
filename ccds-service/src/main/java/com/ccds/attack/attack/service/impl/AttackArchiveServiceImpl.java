@@ -28,12 +28,13 @@ import com.ccds.common.api.constant.ErrorCodeConstant;
 import com.ccds.common.api.exception.BizException;
 import com.ccds.iam.identity.entity.AccountDO;
 import com.ccds.iam.identity.enums.AccountRoleEnum;
-import com.ccds.iam.identity.mapper.AccountMapper;
 import com.ccds.iam.identity.model.AuthPrincipal;
+import com.ccds.iam.identity.service.AuthGuardService;
 import com.ccds.infra.excel.SpreadsheetCodec;
 import com.ccds.infra.excel.SpreadsheetTable;
 import com.ccds.org.org.entity.StationDO;
 import com.ccds.org.org.mapper.StationMapper;
+import com.ccds.org.org.service.OrgQueryService;
 import com.ccds.roster.roster.service.RosterAccessService;
 
 import lombok.RequiredArgsConstructor;
@@ -54,8 +55,6 @@ public class AttackArchiveServiceImpl implements AttackArchiveService {
 
     private static final DateTimeFormatter TIME_TEXT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    private static final String MSG_UNAUTHORIZED = "请先登录";
-
     private static final String MSG_NOT_WITHDRAWN = "仍有人员未撤出，全部撤出后才能归档";
 
     private static final String MSG_EMPTY = "暂无内攻人员卡片";
@@ -69,7 +68,7 @@ public class AttackArchiveServiceImpl implements AttackArchiveService {
     private static final String MSG_JSON = "归档快照序列化失败";
 
     private static final List<String> EXPORT_HEADERS = List.of(
-            "记录场次", "归档时间", "单位", "类型", "名称", "地点", "模式",
+            "记录场次", "归档时间", "单位", "类型", "名称", "地点",
             "内攻组/编组", "姓名/编号", "入场时间", "入场空呼压力(MPa)",
             "出场时间", "出场空呼压力(MPa)", "强度", "场景", "状态", "气瓶(L)");
 
@@ -84,7 +83,9 @@ public class AttackArchiveServiceImpl implements AttackArchiveService {
 
     private final StationMapper stationMapper;
 
-    private final AccountMapper accountMapper;
+    private final AuthGuardService authGuardService;
+
+    private final OrgQueryService orgQueryService;
 
     private final SpreadsheetCodec spreadsheetCodec;
 
@@ -120,7 +121,6 @@ public class AttackArchiveServiceImpl implements AttackArchiveService {
                 .eventKind(kind)
                 .eventName(trimToNull(command == null ? null : command.getEventName()))
                 .location(trimToNull(command == null ? null : command.getLocation()))
-                .mode(null)
                 .startedAt(startedAt)
                 .finishedAt(finishedAt)
                 .personCount(snapshot.size())
@@ -164,9 +164,11 @@ public class AttackArchiveServiceImpl implements AttackArchiveService {
         if (stationIds.isEmpty()) {
             return new ArrayList<>();
         }
+        /* 指定站时校验该站可见；全部模式时校验首个可见站，其余站均来自同一可见集 */
         rosterAccessService.requireVisibleStation(account, stationIds.get(0));
+        List<AttackArchiveDO> archives = attackArchiveMapper.selectByStations(stationIds);
         Map<Long, String> names = stationNameMap();
-        return attackArchiveMapper.selectByStations(stationIds).stream()
+        return archives.stream()
                 .filter(archive -> kindMatches(archive, eventKind))
                 .map(archive -> toVO(archive, names.get(archive.getStationId()),
                         readJson(archive.getPersonSnapshotJson())))
@@ -208,7 +210,8 @@ public class AttackArchiveServiceImpl implements AttackArchiveService {
         }
         AttackArchiveDO archive = requireArchive(stationId, archiveId);
         attackArchiveMapper.deleteById(archive.getId());
-        log.info("内攻历史删除：stationId={}, archiveId={}", stationId, archiveId);
+        log.info("内攻历史删除：stationId={}, archiveId={}, kind={}, persons={}, operatorId={}",
+                stationId, archiveId, archive.getEventKind(), archive.getPersonCount(), account.getId());
     }
 
     /**
@@ -266,12 +269,10 @@ public class AttackArchiveServiceImpl implements AttackArchiveService {
     private List<String> detailRow(AttackArchiveVO archive, AttackArchivePersonVO person) {
         List<String> row = new ArrayList<String>();
         row.add(nz(archive.getFinishedAt()));
-        row.add(nz(archive.getFinishedAt()));
         row.add(nz(archive.getStationName()));
         row.add(kindLabel(archive.getEventKind()));
         row.add(nz(archive.getEventName()));
         row.add(nz(archive.getLocation()));
-        row.add(nz(archive.getMode()));
         if (person == null) {
             for (int i = 0; i < 10; i += 1) {
                 row.add("");
@@ -302,21 +303,9 @@ public class AttackArchiveServiceImpl implements AttackArchiveService {
     }
 
     private List<Long> visibleStationIds(AccountDO account) {
-        AccountRoleEnum role = AccountRoleEnum.fromCode(account.getRole());
-        if (role == AccountRoleEnum.HQ || role == AccountRoleEnum.DEVELOPER) {
-            return stationMapper.selectAll().stream()
-                    .map(StationDO::getId)
-                    .collect(Collectors.toList());
-        }
-        if (role == AccountRoleEnum.BRIGADE) {
-            return stationMapper.selectByBrigadeId(account.getBrigadeId()).stream()
-                    .map(StationDO::getId)
-                    .collect(Collectors.toList());
-        }
-        if (role == AccountRoleEnum.STATION && account.getStationId() != null) {
-            return List.of(account.getStationId());
-        }
-        return List.of();
+        return orgQueryService.listVisibleStationEntities(account).stream()
+                .map(StationDO::getId)
+                .collect(Collectors.toList());
     }
 
     private AttackArchiveDO requireArchive(Long stationId, Long archiveId) {
@@ -328,14 +317,7 @@ public class AttackArchiveServiceImpl implements AttackArchiveService {
     }
 
     private AccountDO requireAccount(AuthPrincipal principal) {
-        if (principal == null || principal.getAccountId() == null) {
-            throw new BizException(ErrorCodeConstant.AUTH_UNAUTHORIZED, MSG_UNAUTHORIZED);
-        }
-        AccountDO account = accountMapper.selectById(principal.getAccountId());
-        if (account == null) {
-            throw new BizException(ErrorCodeConstant.AUTH_UNAUTHORIZED, MSG_UNAUTHORIZED);
-        }
-        return account;
+        return authGuardService.requireAccount(principal);
     }
 
     private AttackArchivePersonVO toSnapshotPerson(AttackPersonDO person) {
@@ -362,7 +344,6 @@ public class AttackArchiveServiceImpl implements AttackArchiveService {
                 .eventKind(archive.getEventKind())
                 .eventName(archive.getEventName())
                 .location(archive.getLocation())
-                .mode(archive.getMode())
                 .startedAt(timeText(archive.getStartedAt()))
                 .finishedAt(timeText(archive.getFinishedAt()))
                 .personCount(archive.getPersonCount())
@@ -393,6 +374,7 @@ public class AttackArchiveServiceImpl implements AttackArchiveService {
     }
 
     private Map<Long, String> stationNameMap() {
+        /* 归档列表仅按可见站查询，站名直接取全部站字典，避免逐站查询 */
         return stationMapper.selectAll().stream()
                 .collect(Collectors.toMap(StationDO::getId,
                         station -> station.getName() == null ? "" : station.getName()));

@@ -50,11 +50,6 @@ public class AttackArchiveVO {
     private String location;
 
     /**
-     * 归档时操作模式。
-     */
-    private String mode;
-
-    /**
      * 本次内攻开始时间。
      */
     private String startedAt;

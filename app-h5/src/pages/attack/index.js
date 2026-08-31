@@ -939,6 +939,12 @@ export function renderAttackPage(root) {
     if (location === null) {
       return;
     }
+    /* 归档是破坏性操作：确认后人员卡片将被清空，只能在内攻历史中查看 */
+    const confirmed = window.confirm(
+      `确认归档本次内攻？归档后本站 ${persons.length} 张人员卡片将被清空，仅能在内攻历史中查看。`);
+    if (!confirmed) {
+      return;
+    }
     try {
       await archiveStation(state.stationId, {
         eventKind: kind.trim() || 'drill',

@@ -17,8 +17,8 @@ import com.ccds.common.api.constant.ErrorCodeConstant;
 import com.ccds.common.api.exception.BizException;
 import com.ccds.iam.identity.entity.AccountDO;
 import com.ccds.iam.identity.enums.AccountRoleEnum;
-import com.ccds.iam.identity.mapper.AccountMapper;
 import com.ccds.iam.identity.model.AuthPrincipal;
+import com.ccds.iam.identity.service.AuthGuardService;
 import com.ccds.org.org.entity.StationDO;
 import com.ccds.org.org.mapper.StationMapper;
 import com.ccds.vehicle.vehicle.constant.VehicleRuleConstant;
@@ -64,7 +64,7 @@ public class VehicleServiceImpl implements VehicleService {
 
     private final StationMapper stationMapper;
 
-    private final AccountMapper accountMapper;
+    private final AuthGuardService authGuardService;
 
     /**
      * {@inheritDoc}
@@ -296,14 +296,7 @@ public class VehicleServiceImpl implements VehicleService {
     }
 
     private AccountDO requireAccount(AuthPrincipal principal) {
-        if (principal == null || principal.getAccountId() == null) {
-            throw new BizException(ErrorCodeConstant.AUTH_UNAUTHORIZED, VehicleRuleConstant.MSG_UNAUTHORIZED);
-        }
-        AccountDO account = accountMapper.selectById(principal.getAccountId());
-        if (account == null) {
-            throw new BizException(ErrorCodeConstant.AUTH_UNAUTHORIZED, VehicleRuleConstant.MSG_UNAUTHORIZED);
-        }
-        return account;
+        return authGuardService.requireAccount(principal);
     }
 
     private VehicleDO requireVehicle(Long stationId, Long vehicleId) {
@@ -359,6 +352,10 @@ public class VehicleServiceImpl implements VehicleService {
         }
         if (dto.getType() == null || dto.getType().isEmpty()) {
             dto.setType(VehicleRuleConstant.TYPE_OTHER);
+            return;
+        }
+        if (!VehicleRuleConstant.VALID_TYPES.contains(dto.getType())) {
+            throw new BizException(ErrorCodeConstant.VEHICLE_INVALID, VehicleRuleConstant.MSG_TYPE_INVALID);
         }
     }
 

@@ -4,7 +4,6 @@ import java.util.Arrays;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -41,7 +40,7 @@ public class CorsConfig implements WebMvcConfigurer {
         registry.addMapping("/api/**")
                 .allowedOriginPatterns(allowedOrigins)
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-                .allowedHeaders(CorsConfiguration.ALL)
+                .allowedHeaders("Authorization", "Content-Type", "Content-Disposition")
                 .allowCredentials(false)
                 .maxAge(CORS_MAX_AGE_SECONDS);
     }

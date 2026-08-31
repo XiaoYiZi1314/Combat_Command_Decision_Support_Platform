@@ -544,10 +544,6 @@ html.harmony-compat textarea {
   font-size: 16px;
 }
 
-/* .drawer-item 旧文字列表样式已随抽屉重构废弃，保留占位避免行号混乱。 */
-
-/* 更多功能抽屉的分区磁贴样式统一在 pages/shared/drawer.css 维护。 */
-
 .quick-panel {
   display: none;
   position: fixed;

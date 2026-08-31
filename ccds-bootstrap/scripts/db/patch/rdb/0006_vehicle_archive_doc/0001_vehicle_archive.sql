@@ -65,7 +65,9 @@ CREATE TABLE IF NOT EXISTS `ccds_attack_archive` (
     KEY `idx_archive_finished` (`finished_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='内攻历史归档';
 
--- 支队本级车辆挂靠站（客户 APK 的「支队本级」条目）
+-- 支队本级车辆挂靠站（客户 APK 的「支队本级」条目）。
+-- brigade_id 置 NULL 为有意设计：该站仅支队/开发者可见（大队按 brigade 过滤看不到），
+-- 与「支队本级车辆由支队直接管理」的现网语义一致。
 INSERT INTO ccds_station (id, brigade_id, name, name_norm, category, sort_no)
 SELECT 24, NULL, '支队本级', '支队本级', '支队本级', 24
 WHERE NOT EXISTS (SELECT 1 FROM ccds_station WHERE id = 24);

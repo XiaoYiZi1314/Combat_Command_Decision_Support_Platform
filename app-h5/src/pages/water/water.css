@@ -335,6 +335,9 @@
 }
 
 /* ---- 车辆档案 ---- */
+.vehicle-request-list {
+  margin-bottom: 14px;
+}
 .vehicle-title-row {
   display: flex;
   justify-content: space-between;

@@ -1,26 +1,4 @@
-import { apiRequest } from './client.js';
-import { getAccessToken } from '../stores/session.js';
-import { refreshSession } from './auth.js';
-
-function authHeader() {
-  const token = getAccessToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
-
-async function withRefresh(executor) {
-  try {
-    return await executor();
-  } catch (err) {
-    if (err.code !== 'AUTH_UNAUTHORIZED' && err.code !== 'AUTH_REFRESH_INVALID') {
-      throw err;
-    }
-    const refreshed = await refreshSession();
-    if (!refreshed) {
-      throw err;
-    }
-    return executor();
-  }
-}
+import { apiRequest, authHeader, withRefresh } from './client.js';
 
 export async function fetchRoster(stationId) {
   return withRefresh(() => apiRequest(`/stations/${stationId}/roster`, { headers: authHeader() }));

@@ -35,10 +35,10 @@ public interface AttackArchiveService {
     List<AttackArchiveVO> list(AuthPrincipal principal, Long stationId, String eventKind);
 
     /**
-     * 指挥端全部可见站历史，stationId 为空时返回全部。
+     * 指挥端全部可见站历史；stationId 非空时仅返回该站，为空时返回全部可见站。
      *
      * @param principal 当前身份
-     * @param stationId 站主键，可空
+     * @param stationId 过滤站主键，可空
      * @param eventKind 类型过滤，可空
      * @return 列表，不会为 null
      */

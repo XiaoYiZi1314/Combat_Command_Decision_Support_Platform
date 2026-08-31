@@ -67,6 +67,8 @@ target/
 dist/
 build/
 out/
+# 反编产物仅作本地参考，不入库（内含客户 APK 的真实云配置密钥）
+tmp_apk/
 app-h5/android-shell/local.properties
 app-h5/android-shell/.gradle/
 app-h5/android-shell/app/build/
