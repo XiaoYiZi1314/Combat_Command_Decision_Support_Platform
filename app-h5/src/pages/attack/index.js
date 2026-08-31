@@ -1,9 +1,13 @@
 import './attack.css';
+import { buildDrawer } from '../shared/drawer.js';
+import '../shared/drawer.css';
 import { getMe } from '../../stores/session.js';
 import { getScbaSettings } from '../../stores/settings.js';
 import { fetchRoster } from '../../api/roster.js';
 import { fetchStationAttack, submitAttackEvent } from '../../api/attack.js';
 import { bridge } from '../../bridge/index.js';
+import { tagMatchesProfile } from '../../stores/nfc.js';
+import { archiveStation } from '../../api/archive.js';
 import { shouldDeferBackgroundPaint } from '../../lib/device-compat.js';
 import { confirmLeaveMain, setPageBackHandler } from '../../lib/host.js';
 import {
@@ -143,14 +147,18 @@ export function renderAttackPage(root) {
   const nfcBtn = el('button', '', state.nfcReady ? '请进行NFC扫描' : '本机无 NFC，请用快速录入');
   nfcBtn.type = 'button';
   nfcBar.appendChild(nfcBtn);
+  const archiveBtn = el('button', 'nfc-archive-btn', '一键归档');
+  archiveBtn.type = 'button';
+  nfcBar.appendChild(archiveBtn);
   page.appendChild(nfcBar);
 
-  const overlay = el('div', 'drawer-overlay');
-  const drawer = el('div', 'drawer');
-  drawer.appendChild(buildDrawer());
+  /* buildDrawer 返回的 fragment 内含 .drawer-mask 与 aside.drawer，直接挂 page，避免双层嵌套 */
+  const drawerRoot = el('div', 'drawer-root');
+  drawerRoot.appendChild(buildDrawer(() => setDrawer(false)));
+  const drawer = drawerRoot.querySelector('.drawer');
+  const overlay = drawerRoot.querySelector('.drawer-mask');
   const quick = el('div', 'quick-panel');
-  page.appendChild(overlay);
-  page.appendChild(drawer);
+  page.appendChild(drawerRoot);
   page.appendChild(quick);
   root.appendChild(page);
 
@@ -311,45 +319,11 @@ export function renderAttackPage(root) {
     return row;
   }
 
-  function buildDrawer() {
-    const wrap = document.createDocumentFragment();
-    const headRow = el('div', 'drawer-head');
-    headRow.appendChild(el('h2', '', '更多功能'));
-    const close = el('button', 'drawer-close', '✕');
-    close.type = 'button';
-    close.addEventListener('click', () => setDrawer(false));
-    headRow.appendChild(close);
-    wrap.appendChild(headRow);
-    const body = el('div', 'drawer-body');
-    [
-      ['人员档案', '#/roster'],
-      ['天气与方位', '#/weather'],
-      ['空呼时间计算器', '#/scba'],
-      ['重点单位', '#/key-units'],
-      ['水源档案', '#/water'],
-      ['二维码共享', '#/share'],
-      ['危化品查询', '#/hazmat'],
-      ['值班表', '#/duty'],
-      ['供水计算', '#/supply'],
-      ['AI助手', '#/ai'],
-      ['版本信息', '#/version']
-    ].forEach((item) => {
-      const btn = el('button', 'drawer-item', item[0]);
-      btn.type = 'button';
-      btn.addEventListener('click', () => {
-        setDrawer(false);
-        window.location.hash = item[1];
-      });
-      body.appendChild(btn);
-    });
-    wrap.appendChild(body);
-    return wrap;
-  }
-
   function setDrawer(open) {
     overlay.classList.toggle('show', open);
     drawer.classList.toggle('show', open);
   }
+
 
   function setQuick(open) {
     if (open) {
@@ -883,10 +857,7 @@ export function renderAttackPage(root) {
     }
     const tag = String(result.data.tag || '').replace(/[\s:：\-_]/g, '').toUpperCase();
     const roster = state.roster || {};
-    const matched = ((roster.profiles) || []).find((prof) => {
-      const nfc = String(prof.nfcTag || '').replace(/[\s:：\-_]/g, '').toUpperCase();
-      return nfc && nfc === tag;
-    });
+    const matched = ((roster.profiles) || []).find((prof) => tagMatchesProfile(prof.nfcTag, tag));
     if (!matched) {
       showToast('未找到对应花名册');
       setQuick(true);
@@ -939,6 +910,46 @@ export function renderAttackPage(root) {
       pressure,
       cylType
     }, `${matched.name} 已预录入`);
+  });
+
+  archiveBtn.addEventListener('click', async () => {
+    if (!writableStation) {
+      showToast('指挥端只读');
+      return;
+    }
+    const persons = currentPersons();
+    if (!persons.length) {
+      showToast('暂无内攻人员卡片');
+      return;
+    }
+    const active = persons.filter((p) => p.liveStatus !== 'out');
+    if (active.length) {
+      showToast(`仍有 ${active.length} 人未撤出，全部撤出后才能归档`);
+      return;
+    }
+    const kind = window.prompt('类型（drill=演练 / dispatch=出警）：', 'drill');
+    if (kind === null) {
+      return;
+    }
+    const name = window.prompt('事件名称：', '');
+    if (name === null) {
+      return;
+    }
+    const location = window.prompt('地点：', '');
+    if (location === null) {
+      return;
+    }
+    try {
+      await archiveStation(state.stationId, {
+        eventKind: kind.trim() || 'drill',
+        eventName: name.trim(),
+        location: location.trim()
+      });
+      showToast('本次内攻已归档，可在内攻历史中查看');
+      await load();
+    } catch (err) {
+      showToast(err.message || '归档失败');
+    }
   });
 
   if (!writableStation) {

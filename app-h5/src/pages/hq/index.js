@@ -1,4 +1,6 @@
 import './hq.css';
+import { buildDrawer } from '../shared/drawer.js';
+import '../shared/drawer.css';
 import { getMe } from '../../stores/session.js';
 import { fetchAttackSnapshots } from '../../api/attack.js';
 import { issueWebSocketTicket } from '../../api/auth.js';
@@ -62,11 +64,28 @@ export function renderHqPage(root) {
     window.location.hash = '#/settings';
   });
   head.appendChild(settingsBtn);
+  const moreBtn = el('button', 'btn-icon', '☰');
+  moreBtn.type = 'button';
+  moreBtn.setAttribute('aria-label', '更多功能');
+  const drawerWrap = el('div', 'hq-drawer-root');
+  const drawerNode = buildDrawer(() => setDrawer(false));
+  drawerWrap.appendChild(drawerNode);
+  const drawerEl = drawerWrap.querySelector('.drawer');
+  const maskEl = drawerWrap.querySelector('.drawer-mask');
+  drawerEl.classList.remove('drawer');
+  drawerEl.classList.add('hq-drawer-panel');
+  function setDrawer(open) {
+    drawerEl.classList.toggle('show', open);
+    maskEl.classList.toggle('show', open);
+  }
+  moreBtn.addEventListener('click', () => setDrawer(true));
+  head.appendChild(moreBtn);
   page.appendChild(head);
   const status = el('div', 'hq-status', '连接中…');
   page.appendChild(status);
   const list = el('div', 'hq-list');
   page.appendChild(list);
+  page.appendChild(drawerWrap);
   root.appendChild(page);
 
   const state = {

@@ -5,6 +5,41 @@
   background: var(--bg);
 }
 
+/* 更多功能抽屉：复用 pages/shared/drawer.css 的磁贴样式。 */
+.hq-drawer-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(320px, 84vw);
+  z-index: 290;
+  background: linear-gradient(155deg, rgba(21, 29, 72, 0.88), rgba(13, 17, 23, 0.96));
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.hq-drawer-panel.show {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.hq-drawer-root .drawer-mask {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease;
+}
+
+.hq-drawer-root .drawer-mask.show {
+  opacity: 1;
+  visibility: visible;
+}
+
 .hq-head {
   background: linear-gradient(135deg, var(--header-from), var(--header-to));
   padding: 10px 14px;

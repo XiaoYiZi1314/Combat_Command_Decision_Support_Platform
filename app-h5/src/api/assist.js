@@ -35,6 +35,14 @@ export async function visionHazmat(body) {
   }));
 }
 
+export async function fetchChatAnswer(body) {
+  return withRefresh(() => apiRequest('/assist/chat', {
+    method: 'POST',
+    headers: authHeader(),
+    body
+  }));
+}
+
 export async function fetchAttackAdvice(body) {
   return withRefresh(() => apiRequest('/assist/attack-advice', {
     method: 'POST',
@@ -50,6 +58,14 @@ export async function fetchWeather(lng, lat) {
 
 export async function fetchSupplyAdvice(body) {
   return withRefresh(() => apiRequest('/assist/supply-calc', {
+    method: 'POST',
+    headers: authHeader(),
+    body
+  }));
+}
+
+export async function generateDocument(body) {
+  return withRefresh(() => apiRequest('/assist/document', {
     method: 'POST',
     headers: authHeader(),
     body

@@ -110,4 +110,9 @@
         DELETE FROM ccds_attack_person
         WHERE id = #{id}
     </delete>
+
+    <delete id="deleteByStationId">
+        DELETE FROM ccds_attack_person
+        WHERE station_id = #{stationId}
+    </delete>
 </mapper>

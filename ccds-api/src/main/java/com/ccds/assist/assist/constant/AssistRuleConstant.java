@@ -34,6 +34,16 @@ public final class AssistRuleConstant {
     public static final int TEXT_MAX_LENGTH = 500;
 
     /**
+     * AI 通用问答问题最长。
+     */
+    public static final int CHAT_QUESTION_MAX_LENGTH = 500;
+
+    /**
+     * AI 通用问答上下文最长。
+     */
+    public static final int CHAT_CONTEXT_MAX_LENGTH = 1000;
+
+    /**
      * 火点/现场描述最长。
      */
     public static final int SCENE_DESC_MAX_LENGTH = 200;
@@ -84,9 +94,9 @@ public final class AssistRuleConstant {
     public static final int MODEL_CONNECT_TIMEOUT_MS = 5000;
 
     /**
-     * 模型读取超时毫秒。
+     * 模型读取超时毫秒。推理型模型长尾可达 60s+，放宽到 120s。
      */
-    public static final int MODEL_READ_TIMEOUT_MS = 30000;
+    public static final int MODEL_READ_TIMEOUT_MS = 120000;
 
     /**
      * 模型最大重试。

@@ -21,6 +21,10 @@ import { renderKeyUnitEditPage, renderKeyUnitsPage } from './pages/key-units/ind
 import { renderSharePage } from './pages/share/index.js';
 import { renderScbaPage } from './pages/scba/index.js';
 import { renderVersionPage } from './pages/version/index.js';
+import { renderVehiclesPage } from './pages/vehicles/index.js';
+import { renderAttackHistoryPage } from './pages/attack-history/index.js';
+import { renderDocPage } from './pages/doc/index.js';
+import { renderNfcPage } from './pages/nfc/index.js';
 import { fetchMe, fetchOrgStations, refreshSession } from './api/auth.js';
 import { bridge, probeBridge } from './bridge/index.js';
 import { initDeviceCompat } from './lib/device-compat.js';
@@ -269,6 +273,26 @@ async function render() {
   if (route.path === '/version') {
     app.innerHTML = '';
     renderVersionPage(app);
+    return;
+  }
+  if (route.path === '/vehicles') {
+    app.innerHTML = '';
+    renderVehiclesPage(app);
+    return;
+  }
+  if (route.path === '/attack-history') {
+    app.innerHTML = '';
+    renderAttackHistoryPage(app);
+    return;
+  }
+  if (route.path === '/doc') {
+    app.innerHTML = '';
+    renderDocPage(app);
+    return;
+  }
+  if (route.path === '/nfc') {
+    app.innerHTML = '';
+    renderNfcPage(app);
     return;
   }
 

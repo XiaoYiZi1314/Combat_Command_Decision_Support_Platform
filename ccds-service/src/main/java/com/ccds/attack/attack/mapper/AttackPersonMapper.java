@@ -83,4 +83,12 @@ public interface AttackPersonMapper {
      * @return 影响行数
      */
     int deleteById(@Param("id") Long id);
+
+    /**
+     * 按站删除全部人员卡片（归档后清场）。
+     *
+     * @param stationId 站主键
+     * @return 影响行数
+     */
+    int deleteByStationId(@Param("stationId") Long stationId);
 }

@@ -333,3 +333,169 @@
   font-size: 13px;
   color: var(--dim);
 }
+
+/* ---- 车辆档案 ---- */
+.vehicle-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.vehicle-title-text {
+  min-width: 0;
+}
+
+.vehicle-name {
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--text);
+}
+
+.vehicle-plate {
+  font-size: 12px;
+  color: var(--blue);
+  margin-top: 3px;
+}
+
+.vehicle-status {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--green);
+  flex-shrink: 0;
+}
+
+.vehicle-status.repair {
+  color: var(--amber);
+}
+
+.vehicle-line {
+  font-size: 12px;
+  color: var(--dim);
+  line-height: 1.65;
+}
+
+.vehicle-vin {
+  font-size: 11px;
+  color: var(--dim);
+  word-break: break-all;
+}
+
+.vehicle-ops {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.vehicle-op-btn {
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.vehicle-op-btn.primary {
+  border-color: var(--blue);
+  background: var(--blue-bg);
+  color: var(--blue);
+}
+
+.vehicle-op-btn.danger {
+  border-color: rgba(248, 81, 73, 0.45);
+  background: rgba(248, 81, 73, 0.12);
+  color: #ff6b6b;
+}
+
+.vehicle-request-item {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 8px 0;
+}
+
+.vehicle-request-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.vehicle-request-ops {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.vehicle-form-btns {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.vehicle-form-btns .wf-save,
+.vehicle-form-btns .wf-cancel {
+  flex: 1;
+}
+
+/* ---- 内攻历史 ---- */
+.danger-text {
+  color: #ff6b6b;
+}
+
+.archive-group-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.archive-group-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(74, 158, 255, 0.12);
+  border: 1px solid rgba(74, 158, 255, 0.22);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.archive-person-list {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ---- 文书生成 ---- */
+.doc-output {
+  margin-top: 14px;
+  white-space: pre-wrap;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+
+.doc-copy-btn {
+  width: 100%;
+  margin-top: 8px;
+}
+
+/* ---- NFC 联动记录 ---- */
+.nfc-help-text {
+  font-size: 12px;
+  color: var(--dim);
+  line-height: 1.6;
+  margin-bottom: 10px;
+}

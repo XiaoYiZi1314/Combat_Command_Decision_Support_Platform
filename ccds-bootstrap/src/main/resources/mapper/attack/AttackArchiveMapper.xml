@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ccds.attack.attack.mapper.AttackArchiveMapper">
+
+    <resultMap id="BaseResultMap" type="com.ccds.attack.attack.entity.AttackArchiveDO">
+        <id column="id" property="id"/>
+        <result column="station_id" property="stationId"/>
+        <result column="event_kind" property="eventKind"/>
+        <result column="event_name" property="eventName"/>
+        <result column="location" property="location"/>
+        <result column="mode" property="mode"/>
+        <result column="started_at" property="startedAt"/>
+        <result column="finished_at" property="finishedAt"/>
+        <result column="person_count" property="personCount"/>
+        <result column="person_snapshot_json" property="personSnapshotJson"/>
+        <result column="created_by" property="createdBy"/>
+        <result column="gmt_create" property="gmtCreate"/>
+        <result column="gmt_modified" property="gmtModified"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ccds_attack_archive (station_id, event_kind, event_name, location, mode,
+                                          started_at, finished_at, person_count, person_snapshot_json,
+                                          created_by)
+        VALUES (#{stationId}, #{eventKind}, #{eventName}, #{location}, #{mode},
+                #{startedAt}, #{finishedAt}, #{personCount}, #{personSnapshotJson},
+                #{createdBy})
+    </insert>
+
+    <update id="updateById">
+        UPDATE ccds_attack_archive
+        SET event_kind = #{eventKind},
+            event_name = #{eventName},
+            location = #{location},
+            gmt_modified = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM ccds_attack_archive WHERE id = #{id}
+    </delete>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT id, station_id, event_kind, event_name, location, mode, started_at, finished_at,
+               person_count, person_snapshot_json, created_by, gmt_create, gmt_modified
+        FROM ccds_attack_archive
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectByStation" resultMap="BaseResultMap">
+        SELECT id, station_id, event_kind, event_name, location, mode, started_at, finished_at,
+               person_count, person_snapshot_json, created_by, gmt_create, gmt_modified
+        FROM ccds_attack_archive
+        WHERE station_id = #{stationId}
+        ORDER BY finished_at DESC, id DESC
+    </select>
+
+    <select id="selectByStations" resultMap="BaseResultMap">
+        SELECT id, station_id, event_kind, event_name, location, mode, started_at, finished_at,
+               person_count, person_snapshot_json, created_by, gmt_create, gmt_modified
+        FROM ccds_attack_archive
+        WHERE station_id IN
+        <foreach collection="stationIds" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+        ORDER BY finished_at DESC, id DESC
+    </select>
+
+</mapper>

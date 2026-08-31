@@ -155,29 +155,36 @@ public class ModelGatewayImpl implements ModelGateway {
             throw new IllegalStateException(MSG_CALL_FAILED);
         }
         try {
-            JsonNode content = objectMapper.readTree(body).path("choices").path(0).path("message").path("content");
-            if (content.isTextual()) {
-                String text = content.asText();
-                if (hasText(text)) {
-                    return text.trim();
-                }
+            JsonNode message = objectMapper.readTree(body).path("choices").path(0).path("message");
+            String text = extractText(message.path("content"));
+            if (hasText(text)) {
+                return text.trim();
             }
-            if (content.isArray()) {
-                StringBuilder builder = new StringBuilder();
-                for (JsonNode part : content) {
-                    if (part.has("text") && part.get("text").isTextual()) {
-                        builder.append(part.get("text").asText());
-                    }
-                }
-                String text = builder.toString().trim();
-                if (hasText(text)) {
-                    return text;
-                }
+            /* 推理型模型：思考耗尽 token 时 content 为空，回退取思考内容，避免白白报错重试 */
+            String reasoning = extractText(message.path("reasoning_content"));
+            if (hasText(reasoning)) {
+                return reasoning.trim();
             }
         } catch (IOException ex) {
             throw new IllegalStateException(MSG_CALL_FAILED, ex);
         }
         throw new IllegalStateException(MSG_CALL_FAILED);
+    }
+
+    private String extractText(JsonNode content) {
+        if (content.isTextual()) {
+            return content.asText();
+        }
+        if (content.isArray()) {
+            StringBuilder builder = new StringBuilder();
+            for (JsonNode part : content) {
+                if (part.has("text") && part.get("text").isTextual()) {
+                    builder.append(part.get("text").asText());
+                }
+            }
+            return builder.toString();
+        }
+        return "";
     }
 
     private String chatUrl() {

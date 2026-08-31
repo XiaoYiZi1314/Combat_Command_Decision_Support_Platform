@@ -4,8 +4,11 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.net.http.SslCertificate;
+import android.net.http.SslError;
 import android.net.Uri;
 import android.os.Bundle;
+import android.webkit.SslErrorHandler;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -21,6 +24,8 @@ import com.ccds.shell.nfc.NfcSession;
 import com.ccds.shell.sensor.HeadingStore;
 import com.ccds.shell.sensor.LocationStore;
 
+import java.security.MessageDigest;
+
 import org.json.JSONObject;
 
 /**
@@ -33,9 +38,9 @@ public class MainActivity extends AppCompatActivity {
 
     private static final int REQ_LOCATION = 32;
 
-    private static final String ASSET_URL = "file:///android_asset/www/index.html";
+    private static final String ASSET_URL = "https://appassets.androidplatform.net/assets/www/index.html";
 
-    private static final String ASSET_PREFIX = "file:///android_asset/www/";
+    private static final String ASSET_PREFIX = "https://appassets.androidplatform.net/assets/www/";
 
     private WebView webView;
 
@@ -46,6 +51,9 @@ public class MainActivity extends AppCompatActivity {
     private LocationStore locationStore;
 
     private CcdsJsBridge bridge;
+
+    /** 打包内置测试证书指纹，惰性初始化；仅 debug 构建使用。 */
+    private byte[] packagedCertFingerprint;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -79,13 +87,23 @@ public class MainActivity extends AppCompatActivity {
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
         webView.setWebChromeClient(new WebChromeClient());
+        final androidx.webkit.WebViewAssetLoader assetLoader = new androidx.webkit.WebViewAssetLoader.Builder()
+                .addPathHandler("/assets/", new androidx.webkit.WebViewAssetLoader.AssetsPathHandler(this))
+                .build();
         webView.setWebViewClient(new WebViewClient() {
             @Override
+            public android.webkit.WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                // 将虚拟域名的静态资源请求映射到打包 assets，避开 file:// 对 ES module 的 CORS 限制
+                return assetLoader.shouldInterceptRequest(request.getUrl());
+            }
+
+            @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                if (request == null || request.getUrl() == null) {
-                    return true;
+                if (isPackedAsset(request.getUrl())) {
+                    return false;
                 }
-                return !isPackedAsset(request.getUrl());
+                // 非打包资源一律交给系统浏览器，壳内不加载外部页面
+                return true;
             }
 
             @Override
@@ -93,6 +111,17 @@ public class MainActivity extends AppCompatActivity {
                 if (isPackedAsset(url)) {
                     injectHost();
                 }
+            }
+
+            @Override
+            public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
+                if (BuildConfig.DEBUG_NFC && isTrustedTestCa(error)) {
+                    // 仅 debug 检测包：信任打包内置的测试自签证书。
+                    // release 包 BuildConfig.DEBUG_NFC 恒为 false，不会走到这里。
+                    handler.proceed();
+                    return;
+                }
+                handler.cancel();
             }
         });
         webView.addJavascriptInterface(bridge, CcdsJsBridge.NAME);
@@ -110,6 +139,80 @@ public class MainActivity extends AppCompatActivity {
             return false;
         }
         return url.equals(ASSET_URL) || url.startsWith(ASSET_PREFIX);
+    }
+
+    /**
+     * 判断 SSL 错误是否由打包内置的测试自签证书引起。
+     * 仅 debug 构建使用；证书指纹与内置证书不一致时一律不信任。
+     *
+     * @param error WebView 上报的 SSL 错误
+     * @return 服务器证书与内置测试证书指纹一致时为 true
+     */
+    private boolean isTrustedTestCa(SslError error) {
+        if (error.getPrimaryError() != SslError.SSL_UNTRUSTED) {
+            return false;
+        }
+        if (packagedCertFingerprint == null) {
+            packagedCertFingerprint = fingerprintOf(readRawCert(R.raw.ccds_test_ca));
+        }
+        byte[] presented = fingerprintOf(presentedCert(error.getCertificate()));
+        return packagedCertFingerprint != null && MessageDigest.isEqual(packagedCertFingerprint, presented);
+    }
+
+    /**
+     * 从 WebView 上报的证书还原 X509 证书。
+     *
+     * @param cert WebView 上报的证书
+     * @return X509 证书，无法还原时返回 null
+     */
+    private java.security.cert.X509Certificate presentedCert(SslCertificate cert) {
+        if (cert == null) {
+            return null;
+        }
+        android.os.Bundle state = SslCertificate.saveState(cert);
+        byte[] encoded = state.getByteArray("x509-certificate");
+        if (encoded == null) {
+            return null;
+        }
+        try {
+            java.security.cert.CertificateFactory factory = java.security.cert.CertificateFactory.getInstance("X.509");
+            return (java.security.cert.X509Certificate) factory.generateCertificate(
+                    new java.io.ByteArrayInputStream(encoded));
+        } catch (java.security.cert.CertificateException e) {
+            return null;
+        }
+    }
+
+    /**
+     * 读取打包内置的 PEM 证书。
+     *
+     * @param resId raw 资源 ID
+     * @return X509 证书，解析失败返回 null
+     */
+    private java.security.cert.X509Certificate readRawCert(int resId) {
+        try (java.io.InputStream in = getResources().openRawResource(resId)) {
+            java.security.cert.CertificateFactory factory = java.security.cert.CertificateFactory.getInstance("X.509");
+            return (java.security.cert.X509Certificate) factory.generateCertificate(in);
+        } catch (java.io.IOException | java.security.cert.CertificateException e) {
+            return null;
+        }
+    }
+
+    /**
+     * 计算 X509 证书 SHA-256 指纹。
+     *
+     * @param cert X509 证书
+     * @return 指纹，证书为空时返回空数组
+     */
+    private byte[] fingerprintOf(java.security.cert.X509Certificate cert) {
+        try {
+            if (cert == null) {
+                return new byte[0];
+            }
+            return java.security.MessageDigest.getInstance("SHA-256").digest(cert.getEncoded());
+        } catch (java.security.cert.CertificateEncodingException | java.security.NoSuchAlgorithmException e) {
+            return new byte[0];
+        }
     }
 
     private void injectHost() {

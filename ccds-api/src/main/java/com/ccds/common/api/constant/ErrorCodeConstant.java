@@ -279,6 +279,61 @@ public final class ErrorCodeConstant {
     public static final String ASSIST_SUPPLY_INVALID = "ASSIST_SUPPLY_INVALID";
 
     /**
+     * AI 通用问答参数不合法。
+     */
+    public static final String ASSIST_CHAT_INVALID = "ASSIST_CHAT_INVALID";
+
+    /**
+     * AI 文书生成参数不合法。
+     */
+    public static final String ASSIST_DOCUMENT_INVALID = "ASSIST_DOCUMENT_INVALID";
+
+    /**
+     * AI 文书生成失败。
+     */
+    public static final String ASSIST_DOCUMENT_UNAVAILABLE = "ASSIST_DOCUMENT_UNAVAILABLE";
+
+    /**
+     * 车辆档案参数不合法。
+     */
+    public static final String VEHICLE_INVALID = "VEHICLE_INVALID";
+
+    /**
+     * 无权操作该站车辆。
+     */
+    public static final String VEHICLE_STATION_FORBIDDEN = "VEHICLE_STATION_FORBIDDEN";
+
+    /**
+     * 车辆档案不存在。
+     */
+    public static final String VEHICLE_NOT_FOUND = "VEHICLE_NOT_FOUND";
+
+    /**
+     * 车辆变更申请状态不合法。
+     */
+    public static final String VEHICLE_REQUEST_INVALID = "VEHICLE_REQUEST_INVALID";
+
+    /**
+     * 内攻历史参数不合法。
+     */
+    public static final String ATTACK_ARCHIVE_INVALID = "ATTACK_ARCHIVE_INVALID";
+
+    /**
+     * 无权操作该站内攻历史。
+     */
+    public static final String ATTACK_ARCHIVE_FORBIDDEN = "ATTACK_ARCHIVE_FORBIDDEN";
+
+    /**
+     * 内攻历史不存在。
+     */
+    public static final String ATTACK_ARCHIVE_NOT_FOUND = "ATTACK_ARCHIVE_NOT_FOUND";
+
+    /**
+     * 内攻历史仍有人未撤出。
+     */
+    public static final String ATTACK_ARCHIVE_NOT_WITHDRAWN = "ATTACK_ARCHIVE_NOT_WITHDRAWN";
+
+    /**
      * 无权使用该站辅助研判。
      */
     public static final String ASSIST_STATION_FORBIDDEN = "ASSIST_STATION_FORBIDDEN";

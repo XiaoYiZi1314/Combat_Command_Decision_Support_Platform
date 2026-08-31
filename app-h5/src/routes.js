@@ -20,7 +20,11 @@ export const ROUTES = [
   { path: '/key-units/:id', title: '预案详情', file: 'key-units-edit' },
   { path: '/hq', title: '指挥汇总', file: 'hq' },
   { path: '/hq/station/:stationId', title: '单站态势', file: 'hq-station' },
-  { path: '/version', title: '版本信息', file: 'version' }
+  { path: '/version', title: '版本信息', file: 'version' },
+  { path: '/nfc', title: 'NFC联动记录', file: 'nfc' },
+  { path: '/vehicles', title: '车辆档案', file: 'vehicles' },
+  { path: '/attack-history', title: '内攻历史', file: 'attack-history' },
+  { path: '/doc', title: '文书生成', file: 'doc' }
 ];
 
 const PARAM = /^:([A-Za-z0-9_]+)$/;

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ccds.vehicle.vehicle.mapper.VehicleRequestMapper">
+
+    <resultMap id="BaseResultMap" type="com.ccds.vehicle.vehicle.entity.VehicleRequestDO">
+        <id column="id" property="id"/>
+        <result column="station_id" property="stationId"/>
+        <result column="action" property="action"/>
+        <result column="item_json" property="itemJson"/>
+        <result column="before_json" property="beforeJson"/>
+        <result column="status" property="status"/>
+        <result column="created_by" property="createdBy"/>
+        <result column="reviewed_by" property="reviewedBy"/>
+        <result column="reviewer_name" property="reviewerName"/>
+        <result column="reviewed_at" property="reviewedAt"/>
+        <result column="gmt_create" property="gmtCreate"/>
+        <result column="gmt_modified" property="gmtModified"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ccds_vehicle_request (station_id, action, item_json, before_json, status, created_by)
+        VALUES (#{stationId}, #{action}, #{itemJson}, #{beforeJson}, #{status}, #{createdBy})
+    </insert>
+
+    <update id="updateById">
+        UPDATE ccds_vehicle_request
+        SET status = #{status},
+            reviewed_by = #{reviewedBy},
+            reviewer_name = #{reviewerName},
+            reviewed_at = #{reviewedAt},
+            gmt_modified = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM ccds_vehicle_request WHERE id = #{id}
+    </delete>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT id, station_id, action, item_json, before_json, status, created_by,
+               reviewed_by, reviewer_name, reviewed_at, gmt_create, gmt_modified
+        FROM ccds_vehicle_request
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectByStation" resultMap="BaseResultMap">
+        SELECT id, station_id, action, item_json, before_json, status, created_by,
+               reviewed_by, reviewer_name, reviewed_at, gmt_create, gmt_modified
+        FROM ccds_vehicle_request
+        WHERE station_id = #{stationId}
+        ORDER BY id DESC
+    </select>
+
+    <select id="selectByStations" resultMap="BaseResultMap">
+        SELECT id, station_id, action, item_json, before_json, status, created_by,
+               reviewed_by, reviewer_name, reviewed_at, gmt_create, gmt_modified
+        FROM ccds_vehicle_request
+        WHERE station_id IN
+        <foreach collection="stationIds" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+        ORDER BY id DESC
+    </select>
+
+</mapper>

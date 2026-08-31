@@ -1,0 +1,187 @@
+/* 「更多功能」抽屉：客户 APK 同款样式，attack 与 hq 共用。 */
+.drawer-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 280;
+  background: rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.22s ease, visibility 0.22s;
+}
+
+.drawer-mask.show {
+  opacity: 1;
+  visibility: visible;
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(320px, 84vw);
+  z-index: 290;
+  background: linear-gradient(155deg, rgba(21, 29, 72, 0.88), rgba(13, 17, 23, 0.96));
+  border-left: 1px solid var(--border);
+  overflow: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: env(safe-area-inset-bottom);
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(12px);
+  transition: opacity 0.22s ease, transform 0.22s ease, visibility 0.22s;
+}
+
+.drawer.show {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(0);
+}
+
+.drawer-head {
+  padding: 20px 18px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  z-index: 5;
+  flex: 0 0 auto;
+}
+
+.drawer-head h2 {
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.drawer-close {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 16px;
+  width: 36px;
+  height: 36px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.drawer-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 14px 12px calc(22px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.drawer-zone {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 16px;
+  padding: 12px 10px 10px;
+  flex: 0 0 auto;
+}
+
+.drawer-zone-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.48);
+  letter-spacing: 0.04em;
+  margin: 0 4px 10px;
+}
+
+.drawer-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px 4px;
+}
+
+.drawer-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: auto;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.drawer-tile.is-hidden {
+  display: none !important;
+}
+
+.drawer-tile:active {
+  transform: scale(0.96);
+  opacity: 0.92;
+}
+
+.drawer-tile-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  overflow: hidden;
+  flex: 0 0 auto;
+  background: #334155;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.22);
+}
+
+.drawer-tile-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border: 0;
+}
+
+.drawer-tile-label {
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+  max-width: 100%;
+  word-break: break-word;
+}
+
+html.huawei-compat .drawer,
+html.harmony-compat .drawer {
+  height: 100dvh;
+  max-height: 100vh;
+  top: 0;
+  bottom: auto;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+html.huawei-compat .drawer-body,
+html.harmony-compat .drawer-body {
+  overflow-y: scroll;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  padding-bottom: max(54px, calc(22px + env(safe-area-inset-bottom)));
+  transform: translateZ(0);
+}
+
+html.huawei-compat .drawer-tile:not(.is-hidden),
+html.harmony-compat .drawer-tile:not(.is-hidden) {
+  display: flex !important;
+  flex-direction: column !important;
+  visibility: visible !important;
+  opacity: 1;
+  min-height: 0;
+  width: auto;
+}

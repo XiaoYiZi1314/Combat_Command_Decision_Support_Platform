@@ -1,6 +1,6 @@
 import '../water/water.css';
 import { getMe, homeHashOf } from '../../stores/session.js';
-import { fetchAttackAdvice, fetchWeather } from '../../api/assist.js';
+import { fetchAttackAdvice, fetchChatAnswer, fetchWeather } from '../../api/assist.js';
 import { fetchStationAttack } from '../../api/attack.js';
 import { el } from '../water/shared.js';
 import { bridge } from '../../bridge/index.js';
@@ -57,6 +57,28 @@ export function renderAiPage(root) {
 
   const body = el('div', 'water-body');
   body.appendChild(el('div', 'supply-hint', DISCLAIMER));
+
+  const chatForm = el('div', 'water-form');
+  chatForm.appendChild(el('h3', '', '通用问答'));
+  const questionInput = document.createElement('textarea');
+  questionInput.rows = 4;
+  questionInput.maxLength = 500;
+  questionInput.placeholder = '请输入消防作战或安全问题';
+  chatForm.appendChild(row('问题', questionInput));
+  const chatContextInput = document.createElement('textarea');
+  chatContextInput.rows = 3;
+  chatContextInput.maxLength = 1000;
+  chatContextInput.placeholder = '可补充不含敏感信息的现场摘要';
+  chatForm.appendChild(row('摘要', chatContextInput));
+  const chatButton = el('button', 'wf-save', '发送问题');
+  chatButton.type = 'button';
+  chatForm.appendChild(chatButton);
+  body.appendChild(chatForm);
+
+  const chatMsg = el('div', 'water-msg');
+  body.appendChild(chatMsg);
+  const chatResult = el('div', 'supply-result');
+  body.appendChild(chatResult);
 
   const form = el('div', 'water-form');
   const stationSel = el('select');
@@ -221,6 +243,38 @@ export function renderAiPage(root) {
       setMsg(err.message || '人员摘要加载失败', true);
     }
   }
+
+  chatButton.addEventListener('click', async () => {
+    if (!online()) {
+      chatMsg.className = 'water-msg error';
+      chatMsg.textContent = '无网：已禁用 AI';
+      return;
+    }
+    const question = questionInput.value.trim();
+    if (!question) {
+      chatMsg.className = 'water-msg error';
+      chatMsg.textContent = '请输入问题';
+      return;
+    }
+    chatButton.disabled = true;
+    chatMsg.className = 'water-msg';
+    chatMsg.textContent = '回答生成中…';
+    chatResult.innerHTML = '';
+    try {
+      const data = await fetchChatAnswer({
+        question,
+        context: chatContextInput.value.trim() || undefined
+      });
+      chatResult.appendChild(el('div', 'supply-line', data.answer || '模型未返回回答'));
+      chatResult.appendChild(el('div', 'supply-hint', data.disclaimer || DISCLAIMER));
+      chatMsg.textContent = '';
+    } catch (err) {
+      chatMsg.className = 'water-msg error';
+      chatMsg.textContent = err.message || '问答失败';
+    } finally {
+      chatButton.disabled = false;
+    }
+  });
 
   go.addEventListener('click', async () => {
     if (!online()) {

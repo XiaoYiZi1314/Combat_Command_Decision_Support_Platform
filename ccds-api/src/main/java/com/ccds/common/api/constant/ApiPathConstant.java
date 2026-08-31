@@ -239,6 +239,71 @@ public final class ApiPathConstant {
      */
     public static final String ASSIST_SUPPLY_CALC = "/assist/supply-calc";
 
+    /**
+     * AI 通用问答。
+     */
+    public static final String ASSIST_CHAT = "/assist/chat";
+
+    /**
+     * 站点车辆档案列表。
+     */
+    public static final String STATION_VEHICLES = "/stations/{stationId}/vehicles";
+
+    /**
+     * 单车档案。
+     */
+    public static final String STATION_VEHICLE = "/stations/{stationId}/vehicles/{vehicleId}";
+
+    /**
+     * 全部可见车辆（指挥端）。
+     */
+    public static final String VEHICLES_ALL = "/vehicles";
+
+    /**
+     * 车辆变更申请列表。
+     */
+    public static final String STATION_VEHICLE_REQUESTS = "/stations/{stationId}/vehicle-requests";
+
+    /**
+     * 单条车辆变更申请。
+     */
+    public static final String STATION_VEHICLE_REQUEST = "/stations/{stationId}/vehicle-requests/{requestId}";
+
+    /**
+     * 全部车辆变更申请（指挥端）。
+     */
+    public static final String VEHICLE_REQUESTS_ALL = "/vehicle-requests";
+
+    /**
+     * 站点内攻历史列表。
+     */
+    public static final String STATION_ATTACK_ARCHIVES = "/stations/{stationId}/attack-archives";
+
+    /**
+     * 单条内攻历史。
+     */
+    public static final String STATION_ATTACK_ARCHIVE = "/stations/{stationId}/attack-archives/{archiveId}";
+
+    /**
+     * 全部内攻历史（指挥端）。
+     */
+    public static final String ATTACK_ARCHIVES_ALL = "/attack-archives";
+
+    /**
+     * 内攻历史导出。
+     */
+    public static final String ATTACK_ARCHIVES_EXPORT = "/attack-archives/export";
+
+    /**
+     * 内攻历史统计导出。
+     */
+    public static final String ATTACK_ARCHIVES_EXPORT_STATS = "/attack-archives/export-stats";
+
+    /**
+     * AI 文书生成。
+     */
+    public static final String ASSIST_DOCUMENT = "/assist/document";
+
     private ApiPathConstant() {
     }
 }
