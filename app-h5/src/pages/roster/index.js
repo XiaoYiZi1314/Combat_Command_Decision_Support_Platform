@@ -7,6 +7,7 @@ import {
   importRoster,
   saveGroups
 } from '../../api/roster.js';
+import { pickLocalFile } from '../../api/file-transfer.js';
 
 const STATION_KEY = 'ccds_roster_station';
 
@@ -94,14 +95,10 @@ export function renderRosterPage(root) {
   const exportBtn = el('button', '', '导出本站');
   const templateBtn = el('button', '', '导出模板');
   const importBtn = el('button', '', '导入表格');
-  const fileInput = el('input', 'hidden-file');
-  fileInput.type = 'file';
-  fileInput.accept = '.xlsx,.xls,.html,.htm,.csv';
   actions.appendChild(exportBtn);
   actions.appendChild(templateBtn);
   if (me.role === 'station') {
     actions.appendChild(importBtn);
-    actions.appendChild(fileInput);
   }
   body.appendChild(actions);
   const msg = el('div', 'roster-msg');
@@ -114,7 +111,7 @@ export function renderRosterPage(root) {
   exportBtn.addEventListener('click', async () => {
     try {
       await downloadRosterExcel(currentRosterStationId(), false);
-      setMsg(msg, '本站花名册已导出');
+      setMsg(msg, '已导出到系统下载目录');
     } catch (err) {
       setMsg(msg, err.message || '导出失败', true);
     }
@@ -122,15 +119,13 @@ export function renderRosterPage(root) {
   templateBtn.addEventListener('click', async () => {
     try {
       await downloadRosterExcel(currentRosterStationId(), true);
-      setMsg(msg, 'Excel模板已导出');
+      setMsg(msg, '模板已导出到系统下载目录');
     } catch (err) {
       setMsg(msg, err.message || '导出失败', true);
     }
   });
-  importBtn.addEventListener('click', () => fileInput.click());
-  fileInput.addEventListener('change', async () => {
-    const file = fileInput.files && fileInput.files[0];
-    fileInput.value = '';
+  importBtn.addEventListener('click', async () => {
+    const file = await pickLocalFile('.xlsx,.xls,.html,.htm,.csv');
     if (!file) {
       return;
     }

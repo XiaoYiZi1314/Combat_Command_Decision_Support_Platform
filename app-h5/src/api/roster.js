@@ -1,4 +1,5 @@
-import { apiRequest, authHeader, withRefresh } from './client.js';
+import { apiRequest, apiUrl, authHeader, withRefresh } from './client.js';
+import { saveBlobFile } from './file-transfer.js';
 
 export async function fetchRoster(stationId) {
   return withRefresh(() => apiRequest(`/stations/${stationId}/roster`, { headers: authHeader() }));
@@ -53,7 +54,7 @@ export async function importRoster(stationId, file) {
     form.append('file', file);
     let response;
     try {
-      response = await fetch(`/api/v1/stations/${stationId}/profiles/import`, {
+      response = await fetch(apiUrl(`/stations/${stationId}/profiles/import`), {
         method: 'POST',
         headers: authHeader(),
         body: form
@@ -76,11 +77,11 @@ export async function importRoster(stationId, file) {
 export async function downloadRosterExcel(stationId, template) {
   return withRefresh(async () => {
     const path = template
-      ? `/api/v1/stations/${stationId}/profiles/template`
-      : `/api/v1/stations/${stationId}/profiles/export`;
+      ? `/stations/${stationId}/profiles/template`
+      : `/stations/${stationId}/profiles/export`;
     let response;
     try {
-      response = await fetch(path, { headers: authHeader() });
+      response = await fetch(apiUrl(path), { headers: authHeader() });
     } catch (err) {
       const error = new Error('网络不可用，请检查连接');
       error.code = 'NETWORK';
@@ -106,13 +107,6 @@ export async function downloadRosterExcel(stationId, template) {
     const stamp = new Date().toISOString().slice(0, 10);
     const prefix = template ? '人员档案_战斗编组导入模板_' : '人员档案_战斗编组_';
     const name = `${prefix}${stamp}.xlsx`;
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = name;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+    await saveBlobFile(blob, name);
   });
 }

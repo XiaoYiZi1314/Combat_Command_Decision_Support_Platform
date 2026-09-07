@@ -58,6 +58,10 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // 开启 WebView 远程调试（通过 chrome://inspect 查看控制台）
+        if (BuildConfig.DEBUG) {
+            WebView.setWebContentsDebuggingEnabled(true);
+        }
         setContentView(R.layout.activity_main);
         nfcSession = new NfcSession(this);
         headingStore = new HeadingStore(this);
@@ -102,7 +106,13 @@ public class MainActivity extends AppCompatActivity {
                 if (isPackedAsset(request.getUrl())) {
                     return false;
                 }
-                // 非打包资源一律交给系统浏览器，壳内不加载外部页面
+                Uri uri = request.getUrl();
+                if (!request.isForMainFrame() && uri != null
+                        && "https".equalsIgnoreCase(uri.getScheme())) {
+                    // 百度地图 SDK 通过 HTTPS 子 frame 完成初始化，不能由宿主吞掉。
+                    return false;
+                }
+                // 非打包主页面仍由壳拦截，防止外部页面替换业务界面。
                 return true;
             }
 
@@ -222,6 +232,16 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
+     * 供 JsBridge 在 UI 线程执行脚本并回推事件。
+     *
+     * @param script   JavaScript 脚本
+     * @param callback 结果回调，可为 null
+     */
+    public void evaluateJs(String script, android.webkit.ValueCallback<String> callback) {
+        webView.evaluateJavascript(script, callback);
+    }
+
+    /**
      * 向系统申请定位权限；已授权则直接开定位。
      */
     public void requestLocationPermission() {
@@ -233,6 +253,14 @@ public class MainActivity extends AppCompatActivity {
                 Manifest.permission.ACCESS_FINE_LOCATION,
                 Manifest.permission.ACCESS_COARSE_LOCATION
         }, REQ_LOCATION);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (bridge != null) {
+            bridge.onActivityResult(requestCode, resultCode, data);
+        }
     }
 
     @Override

@@ -10,6 +10,7 @@ import {
   importWaters,
   updateWater
 } from '../../api/water.js';
+import { pickLocalFile } from '../../api/file-transfer.js';
 import { TYPE_OPTIONS, STATUS_OPTIONS, buildBaiduNavUrl, el, typeLabel, statusLabel } from './shared.js';
 
 const STATION_KEY = 'ccds_water_station';
@@ -182,16 +183,13 @@ export function renderWaterPage(root) {
   const exportBtn = el('button', '', '导出本站');
   const templateBtn = el('button', '', '导出模板');
   const importBtn = el('button', '', '导入表格');
-  const fileInput = el('input', 'hidden-file');
-  fileInput.type = 'file';
-  fileInput.accept = '.xlsx,.xls,.html,.htm,.csv';
   exportBtn.type = 'button';
   templateBtn.type = 'button';
   importBtn.type = 'button';
   exportBtn.addEventListener('click', async () => {
     try {
       await downloadWaterExcel(currentWaterStationId(), false);
-      setMsg('本站水源已导出');
+      setMsg('已导出到系统下载目录');
     } catch (err) {
       setMsg(err.message || '导出失败', true);
     }
@@ -199,15 +197,13 @@ export function renderWaterPage(root) {
   templateBtn.addEventListener('click', async () => {
     try {
       await downloadWaterExcel(currentWaterStationId(), true);
-      setMsg('模板已导出');
+      setMsg('模板已导出到系统下载目录');
     } catch (err) {
       setMsg(err.message || '导出失败', true);
     }
   });
-  importBtn.addEventListener('click', () => fileInput.click());
-  fileInput.addEventListener('change', async () => {
-    const file = fileInput.files && fileInput.files[0];
-    fileInput.value = '';
+  importBtn.addEventListener('click', async () => {
+    const file = await pickLocalFile('.xlsx,.xls,.html,.htm,.csv');
     if (!file) {
       return;
     }
@@ -229,7 +225,6 @@ export function renderWaterPage(root) {
   actions.appendChild(templateBtn);
   if (me.role === 'station') {
     actions.appendChild(importBtn);
-    actions.appendChild(fileInput);
   }
   body.appendChild(actions);
 

@@ -40,7 +40,7 @@ import {
   saveSession
 } from './stores/session.js';
 
-const app = document.getElementById('app');
+let app = null;
 let bootstrapped = false;
 
 function queryFlag(hash, name) {
@@ -87,13 +87,13 @@ async function restoreSession() {
     try {
       saveOrgTree(await fetchOrgStations());
     } catch (orgErr) {
-      if (orgErr.code !== 'NETWORK') {
+      if (orgErr.code !== 'NETWORK' && orgErr.code !== 'TIMEOUT') {
         throw orgErr;
       }
     }
     return me;
   } catch (err) {
-    if (err.code === 'NETWORK') {
+    if (err.code === 'NETWORK' || err.code === 'TIMEOUT') {
       return getMe();
     }
     const refreshed = await refreshSession();
@@ -103,7 +103,7 @@ async function restoreSession() {
     try {
       saveOrgTree(await fetchOrgStations());
     } catch (orgErr) {
-      if (orgErr.code !== 'NETWORK') {
+      if (orgErr.code !== 'NETWORK' && orgErr.code !== 'TIMEOUT') {
         throw orgErr;
       }
     }
@@ -299,9 +299,29 @@ async function render() {
   renderShell(route, params, hash);
 }
 
-window.addEventListener('hashchange', () => {
-  render();
-});
+function initApp() {
+  app = document.getElementById('app');
+  if (!app) {
+    console.error('FATAL: #app container not found');
+    return;
+  }
+
+  window.addEventListener('hashchange', () => {
+    render();
+  });
+
+  if (!window.location.hash) {
+    window.location.hash = '#/login';
+  } else {
+    render();
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
 
 window.CcdsHost = {
   onBack() {
@@ -317,10 +337,18 @@ window.CcdsHost = {
   }
 };
 
-probeBridge().then(() => initDeviceCompat(bridge)).catch(() => initDeviceCompat(bridge));
+/**
+ * 原生文件选择结果回推入口：把桥层的字符串载荷转成 DOM 事件，
+ * 供 pickLocalFile 等待者监听。载荷结构为 {ok,data,errorCode}。
+ */
+window.__ccdsFilePicked = function __ccdsFilePicked(payloadJson) {
+  let detail = null;
+  try {
+    detail = typeof payloadJson === 'string' ? JSON.parse(payloadJson) : payloadJson;
+  } catch (parseErr) {
+    detail = null;
+  }
+  window.dispatchEvent(new CustomEvent('__ccdsFilePicked', { detail }));
+};
 
-if (!window.location.hash) {
-  window.location.hash = '#/login';
-} else {
-  render();
-}
+probeBridge().then(() => initDeviceCompat(bridge)).catch(() => initDeviceCompat(bridge));

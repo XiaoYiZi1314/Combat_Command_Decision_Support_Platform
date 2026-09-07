@@ -1,4 +1,5 @@
-import { apiRequest, authHeader, withRefresh } from './client.js';
+import { apiRequest, apiUrl, authHeader, withRefresh } from './client.js';
+import { saveBlobFile } from './file-transfer.js';
 
 export async function fetchStationArchives(stationId, eventKind) {
   const query = new URLSearchParams();
@@ -53,7 +54,7 @@ async function downloadExcel(path, eventKind, filePrefix) {
   const suffix = query.toString() ? `?${query}` : '';
   let response;
   try {
-    response = await fetch(`api/v1${path}${suffix}`, { headers: authHeader() });
+    response = await fetch(`${apiUrl(path)}${suffix}`, { headers: authHeader() });
   } catch (err) {
     const error = new Error('网络不可用，请检查连接');
     error.code = 'NETWORK';
@@ -71,14 +72,7 @@ async function downloadExcel(path, eventKind, filePrefix) {
   }
   const blob = await response.blob();
   const stamp = new Date().toISOString().slice(0, 10);
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `${filePrefix}${stamp}.xlsx`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
+  await saveBlobFile(blob, `${filePrefix}${stamp}.xlsx`);
 }
 
 export async function downloadArchiveExcel(eventKind) {

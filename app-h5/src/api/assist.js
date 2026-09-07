@@ -1,5 +1,7 @@
 import { apiRequest, authHeader, withRefresh } from './client.js';
 
+const CHAT_REQUEST_TIMEOUT_MS = 180000;
+
 export async function searchHazmat(query) {
   const params = new URLSearchParams({ q: query });
   return withRefresh(() => apiRequest(`/hazmat/search?${params.toString()}`, { headers: authHeader() }));
@@ -17,6 +19,7 @@ export async function fetchChatAnswer(body) {
   return withRefresh(() => apiRequest('/assist/chat', {
     method: 'POST',
     headers: authHeader(),
+    timeoutMs: CHAT_REQUEST_TIMEOUT_MS,
     body
   }));
 }

@@ -1,4 +1,5 @@
-import { apiRequest, authHeader, withRefresh } from './client.js';
+import { apiRequest, apiUrl, authHeader, withRefresh } from './client.js';
+import { saveBlobFile } from './file-transfer.js';
 
 export async function fetchWaters(stationId) {
   return withRefresh(() => apiRequest(`/stations/${stationId}/waters`, { headers: authHeader() }));
@@ -49,7 +50,7 @@ export async function importWaters(stationId, file) {
     form.append('file', file);
     let response;
     try {
-      response = await fetch(`/api/v1/stations/${stationId}/waters/import`, {
+      response = await fetch(apiUrl(`/stations/${stationId}/waters/import`), {
         method: 'POST',
         headers: authHeader(),
         body: form
@@ -72,11 +73,11 @@ export async function importWaters(stationId, file) {
 export async function downloadWaterExcel(stationId, template) {
   return withRefresh(async () => {
     const path = template
-      ? `/api/v1/stations/${stationId}/waters/template`
-      : `/api/v1/stations/${stationId}/waters/export`;
+      ? `/stations/${stationId}/waters/template`
+      : `/stations/${stationId}/waters/export`;
     let response;
     try {
-      response = await fetch(path, { headers: authHeader() });
+      response = await fetch(apiUrl(path), { headers: authHeader() });
     } catch (err) {
       const error = new Error('网络不可用，请检查连接');
       error.code = 'NETWORK';
@@ -102,13 +103,6 @@ export async function downloadWaterExcel(stationId, template) {
     const stamp = new Date().toISOString().slice(0, 10);
     const prefix = template ? '水源检查记录导入模板_' : '水源检查记录_';
     const name = `${prefix}${stamp}.xlsx`;
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = name;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+    await saveBlobFile(blob, name);
   });
 }

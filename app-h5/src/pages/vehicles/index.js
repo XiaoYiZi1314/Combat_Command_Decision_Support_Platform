@@ -18,6 +18,26 @@ import {
 
 const STATION_KEY = 'ccds_vehicle_station';
 
+/** 车辆状态选项（与后端 VehicleRuleConstant 对齐：执勤/报修） */
+const STATUS_OPTIONS = [
+  { value: '执勤', label: '执勤' },
+  { value: '报修', label: '报修' }
+];
+
+/** 变更动作标签（与后端 ACTION_ADD/MODIFY/DELETE 对齐） */
+const ACTION_LABELS = {
+  add: '新增',
+  modify: '修改',
+  delete: '删除'
+};
+
+/** 申请状态标签（与后端 REQUEST_PENDING/APPROVED/REJECTED 对齐） */
+const REQUEST_STATUS_LABELS = {
+  pending: '待审批',
+  approved: '已通过',
+  rejected: '已驳回'
+};
+
 function summaryOf(vehicle) {
   const parts = [];
   if (vehicle.waterCap) { parts.push(`水 ${vehicle.waterCap}t`); }

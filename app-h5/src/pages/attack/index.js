@@ -82,6 +82,7 @@ export function renderAttackPage(root) {
     focusId: '',
     nfcReady: bridge.hasNfc(),
     syncing: false,
+    flushPromise: null,
     online: typeof navigator === 'undefined' ? true : navigator.onLine
   };
 
@@ -726,6 +727,18 @@ export function renderAttackPage(root) {
   }
 
   async function flushQueue() {
+    if (state.flushPromise) {
+      return state.flushPromise;
+    }
+    state.flushPromise = drainQueue();
+    try {
+      return await state.flushPromise;
+    } finally {
+      state.flushPromise = null;
+    }
+  }
+
+  async function drainQueue() {
     while (true) {
       const queue = await peekAttackQueue();
       if (!queue.length) {
@@ -917,12 +930,39 @@ export function renderAttackPage(root) {
       showToast('指挥端只读');
       return;
     }
-    const persons = currentPersons();
+    let persons = currentPersons();
     if (!persons.length) {
       showToast('暂无内攻人员卡片');
       return;
     }
-    const active = persons.filter((p) => p.liveStatus !== 'out');
+    let active = persons.filter((p) => p.liveStatus !== 'out');
+    if (active.length) {
+      showToast(`仍有 ${active.length} 人未撤出，全部撤出后才能归档`);
+      return;
+    }
+    try {
+      await resetQueueBackoff();
+      await flushQueue();
+    } catch (err) {
+      showToast(err.message || '操作同步失败，请重试');
+      return;
+    }
+    const pending = await attackQueueLength(state.stationId);
+    if (pending > 0) {
+      showToast(`仍有 ${pending} 条操作待同步，请检查网络后重试`);
+      return;
+    }
+    try {
+      const cloudAttack = await fetchStationAttack(state.stationId);
+      applyAttack(cloudAttack);
+      renderStats();
+      renderCards();
+    } catch (err) {
+      showToast(err.message || '无法确认人员撤出状态，请重试');
+      return;
+    }
+    persons = currentPersons();
+    active = persons.filter((p) => p.liveStatus !== 'out');
     if (active.length) {
       showToast(`仍有 ${active.length} 人未撤出，全部撤出后才能归档`);
       return;

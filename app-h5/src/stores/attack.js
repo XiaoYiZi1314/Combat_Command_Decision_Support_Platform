@@ -332,9 +332,12 @@ export async function rewriteQueuedPersonId(localId, serverId) {
   });
 }
 
-export async function attackQueueLength() {
+export async function attackQueueLength(stationId) {
   const queue = await peekAttackQueue();
-  return queue.length;
+  if (stationId == null) {
+    return queue.length;
+  }
+  return queue.filter((item) => String(item.stationId) === String(stationId)).length;
 }
 
 export function markWrittenEvent(eventId) {

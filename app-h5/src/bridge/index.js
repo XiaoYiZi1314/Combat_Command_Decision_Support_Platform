@@ -93,6 +93,10 @@ async function mockInvoke(method, payload) {
       }, '');
     case 'getDeviceCompatInfo':
       return wrap(true, { huaweiHarmony: false, source: 'mock' }, '');
+    case 'saveFile':
+      return wrap(true, { path: 'browser', source: 'mock' }, '');
+    case 'pickFile':
+      return wrap(false, null, UNSUPPORTED);
     default:
       return wrap(false, null, UNSUPPORTED);
   }
@@ -166,5 +170,46 @@ export const bridge = {
   },
   getDeviceCompatInfo() {
     return invoke('getDeviceCompatInfo');
+  },
+  /**
+   * 保存文件到设备下载目录（Android 壳）；浏览器环境返回 unsupported，
+   * 调用方需自行降级到 <a download>。
+   *
+   * @param {string} fileName 目标文件名
+   * @param {Blob} blob 文件内容
+   * @returns {Promise<{ok:boolean,data:Object,errorCode:string}>}
+   */
+  async saveFile(fileName, blob) {
+    const base64 = await blobToBase64(blob);
+    return invoke('saveFile', { fileName, base64 });
+  },
+  /**
+   * 拉起系统文件选择器（Android 壳）；浏览器环境返回 unsupported，
+   * 调用方需自行降级到 <input type="file">。
+   *
+   * @param {string} mime 可选的 MIME 过滤
+   * @returns {Promise<{ok:boolean,data:Object,errorCode:string}>}
+   */
+  pickFile(mime) {
+    return invoke('pickFile', { mime });
   }
 };
+
+/**
+ * Blob 转 base64（无换行）。
+ *
+ * @param {Blob} blob
+ * @returns {Promise<string>}
+ */
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = String(reader.result || '');
+      const comma = text.indexOf(',');
+      resolve(comma >= 0 ? text.slice(comma + 1) : text);
+    };
+    reader.onerror = () => reject(new Error('读取文件内容失败'));
+    reader.readAsDataURL(blob);
+  });
+}

@@ -4,6 +4,12 @@ spring:
   jackson:
     serialization:
       write-dates-as-timestamps: false
+    default-property-inclusion: non_null
+  http:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
   datasource:
     url: ${CCDS_MYSQL_URL:jdbc:mysql://127.0.0.1:3306/ccds?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai}
     username: ${CCDS_MYSQL_USERNAME:ccds}
@@ -29,6 +35,11 @@ mybatis:
 
 server:
   port: ${CCDS_SERVER_PORT:8080}
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
 
 ccds:
   jwt:
