@@ -1,3 +1,5 @@
+import { bridge } from '../bridge/index.js';
+
 const ACCESS_KEY = 'ccds_access_token';
 const REFRESH_KEY = 'ccds_refresh_token';
 const ME_KEY = 'ccds_me';
@@ -115,6 +117,22 @@ export function saveSession(login) {
   if (memory.me) {
     writeJson(ME_KEY, memory.me);
   }
+  bridge.secureSession({ method: 'save', data: {
+    accessToken: memory.accessToken,
+    refreshToken: memory.refreshToken
+  } }).catch(() => {});
+}
+
+export async function restoreSecureSession() {
+  const saved = await bridge.secureSession({ method: 'load' });
+  if (!saved || !saved.accessToken || !saved.refreshToken) {
+    return false;
+  }
+  memory.accessToken = saved.accessToken;
+  memory.refreshToken = saved.refreshToken;
+  writeSessionText(ACCESS_KEY, memory.accessToken);
+  writeSessionText(REFRESH_KEY, memory.refreshToken);
+  return true;
 }
 
 export function clearSession() {
@@ -122,8 +140,8 @@ export function clearSession() {
   removeSessionKey(ACCESS_KEY);
   removeSessionKey(REFRESH_KEY);
   purgeLegacyTokens();
-  removeKey(ME_KEY);
   removeKey(ORG_KEY);
+  bridge.secureSession({ method: 'clear' }).catch(() => {});
 }
 
 export function hasSession() {

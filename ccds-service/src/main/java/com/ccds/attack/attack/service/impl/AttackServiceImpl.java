@@ -313,6 +313,7 @@ public class AttackServiceImpl implements AttackService {
         person.setInitPressure(pressure);
         person.setCurrentPressure(pressure);
         person.setEnteredAt(now);
+        person.setStatus(AttackStatusEnum.IN.getCode());
         person.setWithdrawnAt(null);
         applyWorkContext(person, command);
         refreshRuntime(person, now);

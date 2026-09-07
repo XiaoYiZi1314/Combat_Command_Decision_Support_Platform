@@ -29,6 +29,14 @@
         WHERE username = #{username}
     </select>
 
+    <select id="selectByUsernameForUpdate" resultMap="AccountResultMap">
+        SELECT
+        <include refid="AccountColumns"/>
+        FROM ccds_account
+        WHERE username = #{username}
+        FOR UPDATE
+    </select>
+
     <select id="selectById" resultMap="AccountResultMap">
         SELECT
         <include refid="AccountColumns"/>

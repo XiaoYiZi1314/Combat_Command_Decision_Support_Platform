@@ -67,10 +67,10 @@ public class AuthServiceImpl implements AuthService {
      * {@inheritDoc}
      */
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(rollbackFor = Exception.class, noRollbackFor = LoginRejectedException.class)
     public LoginVO login(LoginCommand command) {
         String username = normalizeUsername(command.getUsername());
-        AccountDO account = accountMapper.selectByUsername(username);
+        AccountDO account = accountMapper.selectByUsernameForUpdate(username);
         LocalDateTime now = LocalDateTime.now();
         if (account != null && isLocked(account, now)) {
             log.warn("login locked accountId={}", account.getId());
@@ -84,7 +84,7 @@ public class AuthServiceImpl implements AuthService {
                 PasswordHashUtil.matches(command.getPassword(), DUMMY_PASSWORD_HASH);
                 log.warn("login failed reason=unknown_or_bad_password");
             }
-            throw new BizException(ErrorCodeConstant.AUTH_LOGIN_FAILED, AuthRuleConstant.MSG_LOGIN_FAILED);
+            throw new LoginRejectedException();
         }
         accountMapper.clearLoginFailure(account.getId(), now);
         account.setFailedLoginCount(0);
@@ -226,6 +226,14 @@ public class AuthServiceImpl implements AuthService {
                 .mustChangePassword(Boolean.TRUE.equals(account.getMustChangePassword()))
                 .me(me)
                 .build();
+    }
+
+    /** 仅密码校验失败允许提交计数，签发令牌等后续失败仍回滚。 */
+    private static final class LoginRejectedException extends BizException {
+
+        private LoginRejectedException() {
+            super(ErrorCodeConstant.AUTH_LOGIN_FAILED, AuthRuleConstant.MSG_LOGIN_FAILED);
+        }
     }
 
     private void handleLoginFailure(AccountDO account, LocalDateTime now) {

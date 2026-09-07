@@ -191,6 +191,7 @@ public class FileObjectServiceImpl implements FileObjectService {
     public FileObjectDTO getWithPreviewUrl(AuthPrincipal principal, Long fileId) {
         AccountDO account = dutyAccessService.requireAccount(principal);
         FileObjectDO fileObject = requireFile(fileId);
+        requireFileOwner(account, fileObject);
         String actualBizType = FileRuleConstant.actualBizType(fileObject.getBizType());
         Long stationId = requireBizStationId(actualBizType, fileObject.getBizId());
         if (stationId != null) {
@@ -230,6 +231,7 @@ public class FileObjectServiceImpl implements FileObjectService {
     public void deleteById(AuthPrincipal principal, Long fileId) {
         AccountDO account = dutyAccessService.requireAccount(principal);
         FileObjectDO fileObject = requireFile(fileId);
+        requireFileOwner(account, fileObject);
         String actualBizType = FileRuleConstant.actualBizType(fileObject.getBizType());
         Long stationId = requireBizStationId(actualBizType, fileObject.getBizId());
         if (stationId != null) {
@@ -309,6 +311,14 @@ public class FileObjectServiceImpl implements FileObjectService {
         String fileName = request.getFileName();
         if (fileName.contains("/") || fileName.contains("\\") || fileName.contains("..")) {
             throw new BizException(ErrorCodeConstant.PARAM_INVALID, MSG_NAME);
+        }
+    }
+
+    private void requireFileOwner(AccountDO account, FileObjectDO fileObject) {
+        String bizType = FileRuleConstant.actualBizType(fileObject.getBizType());
+        if (FileBizTypeConstant.HAZMAT_IMAGE.equals(bizType)
+                && !account.getId().equals(fileObject.getCreatedBy())) {
+            throw new BizException(ErrorCodeConstant.FILE_NOT_FOUND, MSG_FILE_MISSING);
         }
     }
 

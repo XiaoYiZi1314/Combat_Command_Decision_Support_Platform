@@ -77,6 +77,7 @@ export function renderAttackPage(root) {
     filter: '',
     openEnterId: '',
     openUpdateId: '',
+    pressureDrafts: {},
     selectedIds: {},
     groupTab: '全部',
     focusId: '',
@@ -252,10 +253,13 @@ export function renderAttackPage(root) {
   }
 
   function pressureControl(id, value) {
+    const draftKey = `${id}:${state.openEnterId || state.openUpdateId || ''}`;
+    const draft = state.pressureDrafts[draftKey];
+    const initialValue = draft == null ? value : draft;
     const wrap = el('div', 'pressure-control');
     const headRow = el('div', 'pressure-head');
     headRow.appendChild(el('span', '', '压力'));
-    const label = el('b', '', `${Number(value).toFixed(1)} MPa`);
+    const label = el('b', '', `${Number(initialValue).toFixed(1)} MPa`);
     headRow.appendChild(label);
     const input = document.createElement('input');
     input.type = 'range';
@@ -263,8 +267,9 @@ export function renderAttackPage(root) {
     input.min = String(SCBA.pressureMin);
     input.max = String(SCBA.pressureMax);
     input.step = String(SCBA.pressureStep);
-    input.value = String(value);
+    input.value = String(initialValue);
     input.addEventListener('input', () => {
+      state.pressureDrafts[draftKey] = Number(input.value);
       label.textContent = `${Number(input.value).toFixed(1)} MPa`;
     });
     wrap.appendChild(headRow);
@@ -287,7 +292,7 @@ export function renderAttackPage(root) {
 
   function enterPanel(person) {
     const row = el('div', 'enter-row');
-    const pressure = pressureControl('enter', person.currentPressure || SCBA.defaultPressure);
+    const pressure = pressureControl('enter', person.currentPressure ?? SCBA.defaultPressure);
     const cyl = cylSelect(person.cylType);
     const go = el('button', 'btn-enter-go', '确认入场');
     go.type = 'button';
@@ -306,7 +311,7 @@ export function renderAttackPage(root) {
 
   function updatePanel(person) {
     const row = el('div', 'upd-row');
-    const pressure = pressureControl('upd', person.currentPressure || SCBA.defaultPressure);
+    const pressure = pressureControl('upd', person.currentPressure ?? SCBA.defaultPressure);
     const go = el('button', 'btn-ok', '确认复测');
     go.type = 'button';
     go.addEventListener('click', () => submit({
@@ -672,6 +677,8 @@ export function renderAttackPage(root) {
     await enqueueAttackEvent(state.stationId, payload);
     state.openEnterId = '';
     state.openUpdateId = '';
+    delete state.pressureDrafts[`enter:${payload.personId || ''}`];
+    delete state.pressureDrafts[`upd:${payload.personId || ''}`];
     renderStats();
     renderCards();
     try {

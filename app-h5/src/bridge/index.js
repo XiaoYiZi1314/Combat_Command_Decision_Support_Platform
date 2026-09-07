@@ -94,7 +94,7 @@ async function mockInvoke(method, payload) {
     case 'getDeviceCompatInfo':
       return wrap(true, { huaweiHarmony: false, source: 'mock' }, '');
     case 'saveFile':
-      return wrap(true, { path: 'browser', source: 'mock' }, '');
+      return wrap(false, null, UNSUPPORTED);
     case 'pickFile':
       return wrap(false, null, UNSUPPORTED);
     default:
@@ -139,6 +139,31 @@ export async function probeBridge() {
 }
 
 export const bridge = {
+  secureSession(request) {
+    const channel = window.CcdsSession;
+    if (!channel || typeof channel.postMessage !== 'function') {
+      return Promise.resolve(null);
+    }
+    return new Promise((resolve) => {
+      const requestId = `session_${Date.now()}_${Math.random()}`;
+      const timer = window.setTimeout(() => {
+        window.removeEventListener('message', onMessage);
+        resolve(null);
+      }, 2000);
+      function onMessage(event) {
+        const data = parseJson(event.data);
+        if (!data || data.requestId !== requestId) {
+          return;
+        }
+        window.clearTimeout(timer);
+        window.removeEventListener('message', onMessage);
+        resolve(data.ok ? data.data : null);
+      }
+      window.addEventListener('message', onMessage);
+      channel.postMessage(JSON.stringify(Object.assign({}, request, { requestId })));
+    });
+  },
+
   hasNfc() {
     if (!resolveNativeBridge()) {
       return false;
@@ -180,6 +205,9 @@ export const bridge = {
    * @returns {Promise<{ok:boolean,data:Object,errorCode:string}>}
    */
   async saveFile(fileName, blob) {
+    if (!resolveNativeBridge()) {
+      return wrap(false, null, UNSUPPORTED);
+    }
     const base64 = await blobToBase64(blob);
     return invoke('saveFile', { fileName, base64 });
   },

@@ -18,13 +18,17 @@ import android.webkit.WebViewClient;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+import androidx.webkit.WebViewCompat;
+import androidx.webkit.WebViewFeature;
 
 import com.ccds.shell.bridge.CcdsJsBridge;
+import com.ccds.shell.bridge.SecureSessionStore;
 import com.ccds.shell.nfc.NfcSession;
 import com.ccds.shell.sensor.HeadingStore;
 import com.ccds.shell.sensor.LocationStore;
 
 import java.security.MessageDigest;
+import java.util.Collections;
 
 import org.json.JSONObject;
 
@@ -52,6 +56,8 @@ public class MainActivity extends AppCompatActivity {
 
     private CcdsJsBridge bridge;
 
+    private SecureSessionStore secureSessionStore;
+
     /** 打包内置测试证书指纹，惰性初始化；仅 debug 构建使用。 */
     private byte[] packagedCertFingerprint;
 
@@ -67,6 +73,7 @@ public class MainActivity extends AppCompatActivity {
         headingStore = new HeadingStore(this);
         locationStore = new LocationStore(this);
         bridge = new CcdsJsBridge(this, nfcSession, headingStore, locationStore);
+        secureSessionStore = new SecureSessionStore(this);
         webView = findViewById(R.id.webView);
         setupWebView();
         nfcSession.onNewIntent(getIntent());
@@ -135,6 +142,32 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         webView.addJavascriptInterface(bridge, CcdsJsBridge.NAME);
+        registerSessionMessages();
+    }
+
+    private void registerSessionMessages() {
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
+            return;
+        }
+        WebViewCompat.addWebMessageListener(webView, "CcdsSession",
+                Collections.singleton("https://appassets.androidplatform.net"),
+                (view, message, sourceOrigin, isMainFrame, replyProxy) -> {
+                    if (!isMainFrame || sourceOrigin == null
+                            || !"https".equals(sourceOrigin.getScheme())
+                            || !"appassets.androidplatform.net".equals(sourceOrigin.getHost())) {
+                        return;
+                    }
+                    try {
+                        JSONObject request = new JSONObject(message.getData());
+                        JSONObject response = new JSONObject(secureSessionStore.handle(request.toString()));
+                        if (request.has("requestId")) {
+                            response.put("requestId", request.getString("requestId"));
+                        }
+                        replyProxy.postMessage(response.toString());
+                    } catch (Exception ex) {
+                        replyProxy.postMessage("{\"ok\":false,\"data\":null,\"errorCode\":\"SESSION_STORAGE_FAILED\"}");
+                    }
+                });
     }
 
     private boolean isPackedAsset(Uri uri) {

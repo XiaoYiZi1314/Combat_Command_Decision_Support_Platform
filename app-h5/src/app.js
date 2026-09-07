@@ -36,6 +36,7 @@ import {
   hasSession,
   homeHashOf,
   isLegalAgreed,
+  restoreSecureSession,
   saveOrgTree,
   saveSession
 } from './stores/session.js';
@@ -74,6 +75,7 @@ function renderShell(route, params, hash) {
 }
 
 async function restoreSession() {
+  await restoreSecureSession();
   if (!hasSession()) {
     return null;
   }

@@ -25,6 +25,14 @@ public interface AccountMapper {
     AccountDO selectByUsername(@Param("username") String username);
 
     /**
+     * 登录事务内锁定账号，串行累计失败次数。
+     *
+     * @param username 登录名
+     * @return 账号，不存在为 null
+     */
+    AccountDO selectByUsernameForUpdate(@Param("username") String username);
+
+    /**
      * 按主键查询。
      *
      * @param id 主键
