@@ -1,8 +1,8 @@
 import {
   SCBA,
+  estimateNow,
   fmtElapsed,
   fmtMinSec,
-  remainSecOf,
   resolveStatus,
   statusLabel,
   worstStatus
@@ -26,21 +26,16 @@ export function livePerson(person, nowMs) {
   if (copy.status === 'out' || copy.status === 'pending' || !entered) {
     copy.liveRemain = null;
     copy.liveElapsed = 0;
+    copy.livePressure = Number(copy.currentPressure || copy.initPressure || 0);
     copy.liveStatus = copy.status || 'pending';
     return copy;
   }
   const elapsedSec = Math.max(0, Math.floor((nowMs - entered) / 1000));
-  const modified = copy.gmtModified ? new Date(copy.gmtModified).getTime() : entered;
-  const sinceMeasure = Math.max(0, Math.floor((nowMs - Math.max(entered, modified)) / 1000));
+  const estimated = estimateNow(copy, nowMs);
   copy.liveElapsed = elapsedSec;
-  copy.liveRemain = Math.max(0, remainSecOf(
-    copy.currentPressure,
-    copy.cylType,
-    copy.workLevel,
-    copy.scene,
-    copy.personalK
-  ) - sinceMeasure);
-  copy.liveStatus = resolveStatus(copy.status, copy.currentPressure, copy.liveRemain);
+  copy.livePressure = estimated.pressure;
+  copy.liveRemain = estimated.remainSec;
+  copy.liveStatus = resolveStatus(copy.status, copy.livePressure, copy.liveRemain);
   return copy;
 }
 
@@ -108,7 +103,7 @@ export function paintPersonCard(person, focusId) {
   card.appendChild(top);
 
   const metrics = el('div', 'metrics');
-  const pressure = Number(person.currentPressure || 0);
+  const pressure = Number(person.livePressure != null ? person.livePressure : person.currentPressure || 0);
   const remain = person.liveRemain;
   const settings = getScbaSettings();
   const pCls = pressure <= settings.dangerPressure

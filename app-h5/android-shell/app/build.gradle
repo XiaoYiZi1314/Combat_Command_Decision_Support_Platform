@@ -16,8 +16,8 @@ android {
         applicationId 'com.ccds.shell'
         minSdk 26
         targetSdk 34
-        versionCode 1
-        versionName '0.1.0'
+        versionCode 2
+        versionName '0.1.1'
         def apiBase = localProps.getProperty('ccds.apiBase', '')
         buildConfigField 'String', 'API_BASE', "\"${apiBase}\""
         buildConfigField 'boolean', 'DEBUG_NFC', 'false'

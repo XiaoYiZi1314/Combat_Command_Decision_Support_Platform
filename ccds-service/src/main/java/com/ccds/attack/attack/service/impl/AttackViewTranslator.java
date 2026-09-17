@@ -5,6 +5,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.stereotype.Component;
 
@@ -16,6 +17,7 @@ import com.ccds.attack.attack.vo.AttackPersonVO;
 import com.ccds.attack.attack.vo.AttackSnapshotVO;
 import com.ccds.attack.attack.vo.StationAttackVO;
 import com.ccds.org.org.entity.StationDO;
+import com.ccds.roster.roster.entity.ProfileDO;
 
 /**
  * 内攻 DO 转 VO。
@@ -53,10 +55,12 @@ public class AttackViewTranslator {
      * @param person     卡片
      * @param now        当前时间
      * @param calibrated 是否有标定
-     * @param personalK  个人空呼 K，可空
+     * @param personalK  代谢个人 K，可空
+     * @param profile    花名册档案，可空
      * @return 视图
      */
-    public AttackPersonVO toPersonVo(AttackPersonDO person, LocalDateTime now, boolean calibrated, BigDecimal personalK) {
+    public AttackPersonVO toPersonVo(AttackPersonDO person, LocalDateTime now, boolean calibrated,
+                                     BigDecimal personalK, ProfileDO profile) {
         AttackStatusEnum status = AttackStatusEnum.fromCode(person.getStatus());
         Integer elapsed = elapsedSec(person, now);
         return AttackPersonVO.builder()
@@ -77,6 +81,9 @@ public class AttackViewTranslator {
                 .elapsedSec(elapsed)
                 .temp(person.getProfileId() == null)
                 .calibrated(calibrated)
+                .heightCm(profile == null ? null : profile.getHeightCm())
+                .weightKg(profile == null ? null : profile.getWeightKg())
+                .age(profile == null ? null : profile.getAge())
                 .personalK(personalK)
                 .clientEventId(person.getClientEventId())
                 .gmtModified(person.getGmtModified())
@@ -184,17 +191,27 @@ public class AttackViewTranslator {
      * @param now          当前时间
      * @param calibrated   是否有标定，与 persons 下标对齐
      * @param personalKs   个人 K，与 persons 下标对齐
+     * @param profiles     档案，按 profileId 取体型
      * @return 视图列表
      */
     public List<AttackPersonVO> toPersonVos(List<AttackPersonDO> persons, LocalDateTime now, List<Boolean> calibrated,
-                                            List<BigDecimal> personalKs) {
+                                            List<BigDecimal> personalKs, Map<Long, ProfileDO> profiles) {
         List<AttackPersonVO> result = new ArrayList<AttackPersonVO>();
         for (int i = 0; i < persons.size(); i++) {
+            AttackPersonDO person = persons.get(i);
             boolean flag = calibrated != null && i < calibrated.size() && Boolean.TRUE.equals(calibrated.get(i));
             BigDecimal k = personalKs != null && i < personalKs.size() ? personalKs.get(i) : null;
-            result.add(toPersonVo(persons.get(i), now, flag, k));
+            ProfileDO profile = lookupProfile(profiles, person);
+            result.add(toPersonVo(person, now, flag, k, profile));
         }
         return result;
+    }
+
+    private ProfileDO lookupProfile(Map<Long, ProfileDO> profiles, AttackPersonDO person) {
+        if (profiles == null || person == null || person.getProfileId() == null) {
+            return null;
+        }
+        return profiles.get(person.getProfileId());
     }
 
     private Integer elapsedSec(AttackPersonDO person, LocalDateTime now) {

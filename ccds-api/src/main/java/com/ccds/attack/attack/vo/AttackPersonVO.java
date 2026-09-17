@@ -106,7 +106,22 @@ public class AttackPersonVO {
     private Boolean calibrated;
 
     /**
-     * 个人空呼 K 值。无标定时为空，H5 倒计时与后端共用。
+     * 身高厘米，供前端按体型估算。
+     */
+    private Integer heightCm;
+
+    /**
+     * 体重公斤，供前端按体型估算。
+     */
+    private Integer weightKg;
+
+    /**
+     * 年龄，供前端按体型估算。
+     */
+    private Integer age;
+
+    /**
+     * 代谢个人 K。无标定时为空，H5 倒计时与后端共用。
      */
     private BigDecimal personalK;
 

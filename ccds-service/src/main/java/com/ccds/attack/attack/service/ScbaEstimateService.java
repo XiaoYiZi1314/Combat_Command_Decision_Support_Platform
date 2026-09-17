@@ -2,12 +2,15 @@ package com.ccds.attack.attack.service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import com.ccds.attack.attack.enums.AttackStatusEnum;
+import com.ccds.attack.attack.model.ScbaEstimateQuery;
+import com.ccds.attack.attack.model.ScbaEstimateResult;
 import com.ccds.roster.roster.entity.ScbaCalibrationDO;
 
 /**
- * 空呼剩余时间。前后端同一套常量。
+ * 空呼剩余时间。前后端同一套常量与公式。
  *
  * @author ccds
  * @since 0.1.0
@@ -15,25 +18,20 @@ import com.ccds.roster.roster.entity.ScbaCalibrationDO;
 public interface ScbaEstimateService {
 
     /**
-     * 估算剩余秒。预录入 / 已撤出返回 null。
+     * 先估当前压力，再按混合压降速率算剩余。预录入 / 已撤出剩余为空。
      *
-     * @param pressure    当前压力
-     * @param cylType     气瓶规格
-     * @param workLevel   作业强度
-     * @param scene       场景
-     * @param calibration 高强度标定，可空
-     * @return 剩余秒，无法估算为 null
+     * @param query 估算入参，不能为空
+     * @return 估算结果，不会为 null
      */
-    Integer remainSec(BigDecimal pressure, String cylType, String workLevel, String scene,
-                      ScbaCalibrationDO calibration);
+    ScbaEstimateResult estimate(ScbaEstimateQuery query);
 
     /**
-     * 高强度标定相对默认 RMV 的个人 K。无有效标定返回 null。
+     * 最近标定加权得到的代谢个人 K。无有效标定返回 null。
      *
-     * @param calibration 高强度标定，可空
+     * @param calibrations 高强度标定，新到旧，可空
      * @return 个人 K，无法计算为 null
      */
-    BigDecimal personalK(ScbaCalibrationDO calibration);
+    BigDecimal personalK(List<ScbaCalibrationDO> calibrations);
 
     /**
      * 按压力与剩余时间判定状态。先到先得，取更严重。

@@ -111,6 +111,341 @@ public final class AttackRuleConstant {
     public static final BigDecimal SCENE_SEARCH = new BigDecimal("1.25");
 
     /**
+     * 平地代谢倍率。
+     */
+    public static final BigDecimal SCENE_FLAT_MET = BigDecimal.ONE;
+
+    /**
+     * 平地心理负荷。
+     */
+    public static final BigDecimal SCENE_FLAT_STRESS = BigDecimal.ONE;
+
+    /**
+     * 平地环境系数。
+     */
+    public static final BigDecimal SCENE_FLAT_ENV = BigDecimal.ONE;
+
+    /**
+     * 高层代谢倍率。
+     */
+    public static final BigDecimal SCENE_HIGHRISE_MET = new BigDecimal("1.12");
+
+    /**
+     * 高层心理负荷。
+     */
+    public static final BigDecimal SCENE_HIGHRISE_STRESS = new BigDecimal("1.04");
+
+    /**
+     * 高层环境系数。
+     */
+    public static final BigDecimal SCENE_HIGHRISE_ENV = new BigDecimal("1.02");
+
+    /**
+     * 黑暗代谢倍率。
+     */
+    public static final BigDecimal SCENE_DARK_MET = new BigDecimal("0.95");
+
+    /**
+     * 黑暗心理负荷。
+     */
+    public static final BigDecimal SCENE_DARK_STRESS = new BigDecimal("1.12");
+
+    /**
+     * 黑暗环境系数。
+     */
+    public static final BigDecimal SCENE_DARK_ENV = new BigDecimal("1.02");
+
+    /**
+     * 大跨度代谢倍率。
+     */
+    public static final BigDecimal SCENE_LARGE_MET = new BigDecimal("1.04");
+
+    /**
+     * 大跨度心理负荷。
+     */
+    public static final BigDecimal SCENE_LARGE_STRESS = new BigDecimal("1.04");
+
+    /**
+     * 大跨度环境系数。
+     */
+    public static final BigDecimal SCENE_LARGE_ENV = new BigDecimal("1.02");
+
+    /**
+     * 搜救代谢倍率。
+     */
+    public static final BigDecimal SCENE_SEARCH_MET = new BigDecimal("1.12");
+
+    /**
+     * 搜救心理负荷。
+     */
+    public static final BigDecimal SCENE_SEARCH_STRESS = new BigDecimal("1.08");
+
+    /**
+     * 搜救环境系数。
+     */
+    public static final BigDecimal SCENE_SEARCH_ENV = new BigDecimal("1.03");
+
+    /**
+     * 默认代谢 K。
+     */
+    public static final BigDecimal DEFAULT_K_PER_MET = new BigDecimal("6.35");
+
+    /**
+     * 高强度参考 MET 备用。
+     */
+    public static final BigDecimal HIGH_REFERENCE_MET = new BigDecimal("12");
+
+    /**
+     * 低强度 MET。
+     */
+    public static final BigDecimal MET_LIGHT = new BigDecimal("6.7");
+
+    /**
+     * 中强度 MET。
+     */
+    public static final BigDecimal MET_MODERATE = new BigDecimal("8.9");
+
+    /**
+     * 高强度 MET，平地现场用此值。
+     */
+    public static final BigDecimal MET_HEAVY = new BigDecimal("11.5");
+
+    /**
+     * 个人 K 相对默认 K 的下限倍率。
+     */
+    public static final BigDecimal PERSONAL_K_MIN_FACTOR = new BigDecimal("0.58");
+
+    /**
+     * 个人 K 相对默认 K 的上限倍率。
+     */
+    public static final BigDecimal PERSONAL_K_MAX_FACTOR = new BigDecimal("1.75");
+
+    /**
+     * 加权标定条数。
+     */
+    public static final int CALIBRATION_WINDOW = 6;
+
+    /**
+     * RMV 下限 L/min。
+     */
+    public static final BigDecimal RMV_MIN = new BigDecimal("22");
+
+    /**
+     * RMV 上限 L/min。
+     */
+    public static final BigDecimal RMV_MAX = new BigDecimal("105");
+
+    /**
+     * 压降速率下限 MPa/分。
+     */
+    public static final BigDecimal RATE_MIN = new BigDecimal("0.05");
+
+    /**
+     * 压降速率上限 MPa/分。
+     */
+    public static final BigDecimal RATE_MAX = new BigDecimal("1.9");
+
+    /**
+     * 体型起算身高 cm。
+     */
+    public static final int DEMO_HEIGHT_MIN_CM = 120;
+
+    /**
+     * 体型起算体重 kg。
+     */
+    public static final int DEMO_WEIGHT_MIN_KG = 35;
+
+    /**
+     * BSA 参考值。
+     */
+    public static final BigDecimal BSA_REF = new BigDecimal("1.84");
+
+    /**
+     * BSA 系数。
+     */
+    public static final BigDecimal BSA_COEF = new BigDecimal("0.26");
+
+    /**
+     * BSA 公式分母。
+     */
+    public static final int BSA_DIVISOR = 3600;
+
+    /**
+     * 高 BMI 门槛。
+     */
+    public static final BigDecimal BMI_HIGH = new BigDecimal("28");
+
+    /**
+     * 高 BMI 系数。
+     */
+    public static final BigDecimal BMI_HIGH_COEF = new BigDecimal("0.018");
+
+    /**
+     * 高 BMI 附加上限。
+     */
+    public static final BigDecimal BMI_HIGH_ADD_MAX = new BigDecimal("0.16");
+
+    /**
+     * 低 BMI 门槛。
+     */
+    public static final BigDecimal BMI_LOW = new BigDecimal("20");
+
+    /**
+     * 低 BMI 系数。
+     */
+    public static final BigDecimal BMI_LOW_COEF = new BigDecimal("0.01");
+
+    /**
+     * 低 BMI 附加上限。
+     */
+    public static final BigDecimal BMI_LOW_ADD_MAX = new BigDecimal("0.06");
+
+    /**
+     * 高年龄门槛。
+     */
+    public static final int AGE_HIGH = 35;
+
+    /**
+     * 高年龄系数。
+     */
+    public static final BigDecimal AGE_HIGH_COEF = new BigDecimal("0.005");
+
+    /**
+     * 高年龄附加上限。
+     */
+    public static final BigDecimal AGE_HIGH_ADD_MAX = new BigDecimal("0.18");
+
+    /**
+     * 低年龄门槛。
+     */
+    public static final int AGE_YOUNG = 25;
+
+    /**
+     * 低年龄倍率。
+     */
+    public static final BigDecimal AGE_YOUNG_FACTOR = new BigDecimal("0.98");
+
+    /**
+     * 体型系数下限。
+     */
+    public static final BigDecimal DEMO_FACTOR_MIN = new BigDecimal("0.78");
+
+    /**
+     * 体型系数上限。
+     */
+    public static final BigDecimal DEMO_FACTOR_MAX = new BigDecimal("1.38");
+
+    /**
+     * 默认模型体型缩小系数。
+     */
+    public static final BigDecimal DEFAULT_BODY_BLEND = new BigDecimal("0.35");
+
+    /**
+     * 默认模型体型缩放下限。
+     */
+    public static final BigDecimal DEFAULT_BODY_MIN = new BigDecimal("0.90");
+
+    /**
+     * 默认模型体型缩放上限。
+     */
+    public static final BigDecimal DEFAULT_BODY_MAX = new BigDecimal("1.12");
+
+    /**
+     * 校准系数在综合耗气中的权重。
+     */
+    public static final BigDecimal COMBINED_CAL_BLEND = new BigDecimal("0.75");
+
+    /**
+     * 体型在综合耗气中的权重。
+     */
+    public static final BigDecimal COMBINED_BODY_BLEND = new BigDecimal("0.25");
+
+    /**
+     * 综合耗气系数下限。
+     */
+    public static final BigDecimal COMBINED_FACTOR_MIN = new BigDecimal("0.62");
+
+    /**
+     * 综合耗气系数上限。
+     */
+    public static final BigDecimal COMBINED_FACTOR_MAX = new BigDecimal("1.85");
+
+    /**
+     * 只有校准时公式速率权重。
+     */
+    public static final BigDecimal BLEND_FORMULA_WITH_CAL = new BigDecimal("0.25");
+
+    /**
+     * 只有校准时校准速率权重。
+     */
+    public static final BigDecimal BLEND_CAL_ONLY = new BigDecimal("0.75");
+
+    /**
+     * 校准混合后相对公式速率的下限倍率。
+     */
+    public static final BigDecimal BLEND_CAL_CLAMP_MIN = new BigDecimal("0.92");
+
+    /**
+     * 校准混合后相对公式速率的上限倍率。
+     */
+    public static final BigDecimal BLEND_CAL_CLAMP_MAX = new BigDecimal("1.40");
+
+    /**
+     * 剩余夹取低压门槛 MPa。
+     */
+    public static final BigDecimal REMAIN_BAND_LOW_PRESSURE = new BigDecimal("8");
+
+    /**
+     * 剩余夹取中压门槛 MPa。
+     */
+    public static final BigDecimal REMAIN_BAND_MID_PRESSURE = new BigDecimal("15");
+
+    /**
+     * 低压剩余下限倍率。
+     */
+    public static final BigDecimal REMAIN_LOW_MIN_FACTOR = new BigDecimal("0.70");
+
+    /**
+     * 低压剩余上限倍率。
+     */
+    public static final BigDecimal REMAIN_LOW_MAX_FACTOR = new BigDecimal("1.10");
+
+    /**
+     * 低压剩余上限附加分钟。
+     */
+    public static final BigDecimal REMAIN_LOW_MAX_ADD_MIN = new BigDecimal("0.7");
+
+    /**
+     * 中高压剩余下限倍率。
+     */
+    public static final BigDecimal REMAIN_MID_MIN_FACTOR = new BigDecimal("0.72");
+
+    /**
+     * 中压剩余上限倍率。
+     */
+    public static final BigDecimal REMAIN_MID_MAX_FACTOR = new BigDecimal("1.14");
+
+    /**
+     * 中压剩余上限附加分钟。
+     */
+    public static final BigDecimal REMAIN_MID_MAX_ADD_MIN = new BigDecimal("1.2");
+
+    /**
+     * 高压剩余上限倍率。
+     */
+    public static final BigDecimal REMAIN_HIGH_MAX_FACTOR = new BigDecimal("1.18");
+
+    /**
+     * 高压剩余上限附加分钟。
+     */
+    public static final BigDecimal REMAIN_HIGH_MAX_ADD_MIN = new BigDecimal("2.0");
+
+    /**
+     * 计算器报警哨压力 MPa，仅训练标定使用。
+     */
+    public static final BigDecimal CAL_ALARM_PRESSURE = new BigDecimal("5");
+
+    /**
      * 强制撤离参考系数。
      */
     public static final BigDecimal EVAC_RATIO = new BigDecimal("0.8");

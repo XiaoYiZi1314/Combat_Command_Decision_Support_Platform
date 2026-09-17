@@ -1,9 +1,7 @@
 import './scba.css';
 import { fetchProfile, fetchRoster, saveScbaCalibration } from '../../api/roster.js';
-import { SCBA, fmtMinSec, remainSecOf } from '../../lib/scba.js';
+import { calibrationPreview, fmtMinSec } from '../../lib/scba.js';
 import { getMe, homeHashOf } from '../../stores/session.js';
-
-const ALARM_PRESSURE = 5;
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -30,13 +28,6 @@ function metric(label, className) {
   const value = el('b', '', '--');
   box.appendChild(value);
   return { box, value };
-}
-
-function personalK(pressure, cylType, fullTimeSec) {
-  const measuredMin = fullTimeSec / SCBA.secondsPerMinute;
-  const formulaMin = Number(pressure) * SCBA.pressureToVolume
-    * SCBA.cylVolume[String(cylType)] / SCBA.rmv.heavy;
-  return measuredMin > 0 ? formulaMin / measuredMin : null;
 }
 
 export function renderScbaPage(root) {
@@ -85,6 +76,11 @@ export function renderScbaPage(root) {
   const minuteField = field('高强度使用时间（分钟）', 'number'); minuteField.input.min = '0'; minuteField.input.step = '1';
   const secondField = field('补充秒数（0–59）', 'number'); secondField.input.min = '0'; secondField.input.max = '59'; secondField.input.step = '1'; secondField.input.value = '0';
   const timeGrid = el('div', 'scba-grid'); timeGrid.appendChild(minuteField.row); timeGrid.appendChild(secondField.row); form.appendChild(timeGrid);
+  const heightField = field('身高（cm）', 'number'); heightField.input.min = '0'; heightField.input.step = '1';
+  const weightField = field('体重（kg）', 'number'); weightField.input.min = '0'; weightField.input.step = '1';
+  const ageField = field('年龄', 'number'); ageField.input.min = '0'; ageField.input.step = '1';
+  const demoGrid = el('div', 'scba-grid'); demoGrid.appendChild(heightField.row); demoGrid.appendChild(weightField.row); form.appendChild(demoGrid);
+  form.appendChild(ageField.row);
   const calculate = el('button', 'scba-btn primary', '计算校准时间'); calculate.type = 'button'; form.appendChild(calculate);
   body.appendChild(form);
 
@@ -117,6 +113,9 @@ export function renderScbaPage(root) {
       state.profile = await fetchProfile(state.stationId, personField.input.value);
       cylField.input.value = String(state.profile.cylType || '6.8');
       if (state.profile.morningPressure) pressureField.input.value = String(state.profile.morningPressure);
+      heightField.input.value = state.profile.heightCm == null ? '' : String(state.profile.heightCm);
+      weightField.input.value = state.profile.weightKg == null ? '' : String(state.profile.weightKg);
+      ageField.input.value = state.profile.age == null ? '' : String(state.profile.age);
       drawHistory();
     } catch (err) { setMessage(err.message || '档案加载失败', true); }
   }
@@ -133,19 +132,30 @@ export function renderScbaPage(root) {
   calculate.addEventListener('click', () => {
     const pressure = Number(pressureField.input.value); const minutes = Number(minuteField.input.value || 0); const seconds = Number(secondField.input.value || 0); const total = Math.round(minutes * 60 + seconds);
     if (!(pressure > 0 && pressure <= 30) || total < 60 || total > 14400 || seconds < 0 || seconds > 59) { setMessage('请输入有效压力和1分钟至4小时的实测时间', true); return; }
-    const k = personalK(pressure, cylField.input.value, total);
-    if (!Number.isFinite(k) || k <= 0) {
+    const preview = calibrationPreview({
+      pressure,
+      cylType: cylField.input.value,
+      fullTimeSec: total,
+      heightCm: heightField.input.value,
+      weightKg: weightField.input.value,
+      age: ageField.input.value
+    });
+    if (!preview || !(preview.k > 0)) {
       state.result = null;
       setMessage('标定参数无法计算，请检查气瓶规格和实测时间', true);
       return;
     }
-    const alarmSec = Math.round(total * Math.max(0, pressure - ALARM_PRESSURE) / pressure);
-    const evacSec = Math.round(alarmSec * SCBA.evacRatio);
-    full.value.textContent = fmtMinSec(total); alarm.value.textContent = fmtMinSec(alarmSec); evac.value.textContent = fmtMinSec(evacSec);
+    full.value.textContent = fmtMinSec(preview.fullSec);
+    alarm.value.textContent = fmtMinSec(preview.alarmSec);
+    evac.value.textContent = fmtMinSec(preview.evacSec);
     estimates.innerHTML = '';
-    estimates.appendChild(el('div', 'scba-estimate', `个人 K 值：${k.toFixed(3)}`));
-    estimates.appendChild(el('div', 'scba-estimate', `中强度 / 平地预计：${fmtMinSec(remainSecOf(pressure, cylField.input.value, 'moderate', 'flat', k))}`));
-    estimates.appendChild(el('div', 'scba-estimate', `低强度 / 平地预计：${fmtMinSec(remainSecOf(pressure, cylField.input.value, 'light', 'flat', k))}`));
+    estimates.appendChild(el('div', 'scba-estimate', `校准系数 f：${preview.f.toFixed(3)}`));
+    estimates.appendChild(el('div', 'scba-estimate', `实测 RMV：${preview.rmvHeavy.toFixed(1)} L/min`));
+    estimates.appendChild(el('div', 'scba-estimate', `个人 K 值：${preview.k.toFixed(3)}`));
+    estimates.appendChild(el('div', 'scba-estimate', `中强度 / 平地预计：${fmtMinSec(preview.moderateSec)}`));
+    estimates.appendChild(el('div', 'scba-estimate', `低强度 / 平地预计：${fmtMinSec(preview.lightSec)}`));
+    estimates.appendChild(el('div', 'scba-estimate', `高层 / 高强预计：${fmtMinSec(preview.highriseHeavySec)}`));
+    estimates.appendChild(el('div', 'scba-estimate', `搜救 / 高强预计：${fmtMinSec(preview.searchHeavySec)}`));
     state.result = { pressure, fullTimeSec: total, cylType: cylField.input.value, source: '空呼时间计算器' };
     setMessage('计算完成');
   });

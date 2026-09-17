@@ -15,35 +15,49 @@ public enum AttackSceneEnum {
     /**
      * 平地。
      */
-    FLAT("flat", AttackRuleConstant.SCENE_FLAT),
+    FLAT("flat", AttackRuleConstant.SCENE_FLAT, AttackRuleConstant.SCENE_FLAT_MET,
+            AttackRuleConstant.SCENE_FLAT_STRESS, AttackRuleConstant.SCENE_FLAT_ENV),
 
     /**
      * 高层。
      */
-    HIGHRISE("highrise", AttackRuleConstant.SCENE_HIGHRISE),
+    HIGHRISE("highrise", AttackRuleConstant.SCENE_HIGHRISE, AttackRuleConstant.SCENE_HIGHRISE_MET,
+            AttackRuleConstant.SCENE_HIGHRISE_STRESS, AttackRuleConstant.SCENE_HIGHRISE_ENV),
 
     /**
      * 黑暗。
      */
-    DARK("dark", AttackRuleConstant.SCENE_DARK),
+    DARK("dark", AttackRuleConstant.SCENE_DARK, AttackRuleConstant.SCENE_DARK_MET,
+            AttackRuleConstant.SCENE_DARK_STRESS, AttackRuleConstant.SCENE_DARK_ENV),
 
     /**
      * 大跨度。
      */
-    LARGE("large", AttackRuleConstant.SCENE_LARGE),
+    LARGE("large", AttackRuleConstant.SCENE_LARGE, AttackRuleConstant.SCENE_LARGE_MET,
+            AttackRuleConstant.SCENE_LARGE_STRESS, AttackRuleConstant.SCENE_LARGE_ENV),
 
     /**
      * 搜救。
      */
-    SEARCH("search", AttackRuleConstant.SCENE_SEARCH);
+    SEARCH("search", AttackRuleConstant.SCENE_SEARCH, AttackRuleConstant.SCENE_SEARCH_MET,
+            AttackRuleConstant.SCENE_SEARCH_STRESS, AttackRuleConstant.SCENE_SEARCH_ENV);
 
     private final String code;
 
     private final BigDecimal factor;
 
-    AttackSceneEnum(String code, BigDecimal factor) {
+    private final BigDecimal metScale;
+
+    private final BigDecimal stress;
+
+    private final BigDecimal env;
+
+    AttackSceneEnum(String code, BigDecimal factor, BigDecimal metScale, BigDecimal stress, BigDecimal env) {
         this.code = code;
         this.factor = factor;
+        this.metScale = metScale;
+        this.stress = stress;
+        this.env = env;
     }
 
     /**
@@ -62,6 +76,33 @@ public enum AttackSceneEnum {
      */
     public BigDecimal getFactor() {
         return factor;
+    }
+
+    /**
+     * 代谢倍率。
+     *
+     * @return 倍率
+     */
+    public BigDecimal getMetScale() {
+        return metScale;
+    }
+
+    /**
+     * 心理负荷。
+     *
+     * @return 系数
+     */
+    public BigDecimal getStress() {
+        return stress;
+    }
+
+    /**
+     * 环境系数。
+     *
+     * @return 系数
+     */
+    public BigDecimal getEnv() {
+        return env;
     }
 
     /**

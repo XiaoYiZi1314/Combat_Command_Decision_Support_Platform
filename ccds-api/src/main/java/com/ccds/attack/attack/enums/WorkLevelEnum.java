@@ -1,5 +1,7 @@
 package com.ccds.attack.attack.enums;
 
+import java.math.BigDecimal;
+
 import com.ccds.attack.attack.constant.AttackRuleConstant;
 
 /**
@@ -13,25 +15,28 @@ public enum WorkLevelEnum {
     /**
      * 低。
      */
-    LIGHT("light", AttackRuleConstant.RMV_LIGHT),
+    LIGHT("light", AttackRuleConstant.RMV_LIGHT, AttackRuleConstant.MET_LIGHT),
 
     /**
      * 中。
      */
-    MODERATE("moderate", AttackRuleConstant.RMV_MODERATE),
+    MODERATE("moderate", AttackRuleConstant.RMV_MODERATE, AttackRuleConstant.MET_MODERATE),
 
     /**
      * 高。
      */
-    HEAVY("heavy", AttackRuleConstant.RMV_HEAVY);
+    HEAVY("heavy", AttackRuleConstant.RMV_HEAVY, AttackRuleConstant.MET_HEAVY);
 
     private final String code;
 
     private final int rmv;
 
-    WorkLevelEnum(String code, int rmv) {
+    private final BigDecimal met;
+
+    WorkLevelEnum(String code, int rmv, BigDecimal met) {
         this.code = code;
         this.rmv = rmv;
+        this.met = met;
     }
 
     /**
@@ -50,6 +55,15 @@ public enum WorkLevelEnum {
      */
     public int getRmv() {
         return rmv;
+    }
+
+    /**
+     * 默认 MET。
+     *
+     * @return MET
+     */
+    public BigDecimal getMet() {
+        return met;
     }
 
     /**

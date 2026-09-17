@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -32,6 +33,8 @@ import com.ccds.attack.attack.enums.WorkLevelEnum;
 import com.ccds.attack.attack.mapper.AttackEventMapper;
 import com.ccds.attack.attack.mapper.AttackPersonMapper;
 import com.ccds.attack.attack.mapper.StationSnapshotMapper;
+import com.ccds.attack.attack.model.ScbaEstimateQuery;
+import com.ccds.attack.attack.model.ScbaEstimateResult;
 import com.ccds.attack.attack.service.AttackService;
 import com.ccds.attack.attack.service.CommandPushService;
 import com.ccds.attack.attack.service.ScbaEstimateService;
@@ -316,9 +319,9 @@ public class AttackServiceImpl implements AttackService {
         person.setStatus(AttackStatusEnum.IN.getCode());
         person.setWithdrawnAt(null);
         applyWorkContext(person, command);
-        refreshRuntime(person, now);
         person.setClientEventId(eventId);
         person.setGmtModified(now);
+        refreshRuntime(person, now);
         attackPersonMapper.update(person);
         return person;
     }
@@ -333,9 +336,9 @@ public class AttackServiceImpl implements AttackService {
         BigDecimal pressure = requirePressure(command.getPressure(), null);
         person.setCurrentPressure(pressure);
         applyWorkContext(person, command);
-        refreshRuntime(person, now);
         person.setClientEventId(eventId);
         person.setGmtModified(now);
+        refreshRuntime(person, now);
         attackPersonMapper.update(person);
         return person;
     }
@@ -373,29 +376,37 @@ public class AttackServiceImpl implements AttackService {
     }
 
     private void refreshRuntime(AttackPersonDO person, LocalDateTime now) {
-        ScbaCalibrationDO calibration = latestCalibration(person.getProfileId());
-        Integer remain = liveRemainSec(person, now, calibration);
+        ProfileDO profile = person.getProfileId() == null ? null : profileMapper.selectAliveById(person.getProfileId());
+        applyEstimate(person, now, profile, calibrationsOf(person.getProfileId()));
+    }
+
+    private void applyEstimate(AttackPersonDO person, LocalDateTime now, ProfileDO profile,
+                               List<ScbaCalibrationDO> calibrations) {
+        ScbaEstimateResult result = scbaEstimateService.estimate(toEstimateQuery(person, now, profile, calibrations));
         AttackStatusEnum current = AttackStatusEnum.fromCode(person.getStatus());
-        AttackStatusEnum next = scbaEstimateService.resolveStatus(current, person.getCurrentPressure(), remain, now,
-                person.getEnteredAt(), person.getWithdrawnAt());
-        person.setRemainSec(remain);
+        AttackStatusEnum next = scbaEstimateService.resolveStatus(current, result.getCurrentPressure(),
+                result.getRemainSec(), now, person.getEnteredAt(), person.getWithdrawnAt());
+        person.setRemainSec(result.getRemainSec());
         person.setStatus(next.getCode());
     }
 
-    private Integer liveRemainSec(AttackPersonDO person, LocalDateTime now, ScbaCalibrationDO calibration) {
-        Integer remain = scbaEstimateService.remainSec(person.getCurrentPressure(), person.getCylType(),
-                person.getWorkLevel(), person.getScene(), calibration);
-        if (remain == null) {
-            return null;
-        }
-        int elapsed = 0;
-        if (person.getEnteredAt() != null && person.getGmtModified() != null
-                && person.getEnteredAt().isBefore(person.getGmtModified())) {
-            elapsed = (int) Math.max(0L, Duration.between(person.getGmtModified(), now).getSeconds());
-        } else if (person.getEnteredAt() != null) {
-            elapsed = (int) Math.max(0L, Duration.between(person.getEnteredAt(), now).getSeconds());
-        }
-        return Math.max(0, remain - elapsed);
+    private ScbaEstimateQuery toEstimateQuery(AttackPersonDO person, LocalDateTime now, ProfileDO profile,
+                                              List<ScbaCalibrationDO> calibrations) {
+        return ScbaEstimateQuery.builder()
+                .pressure(person.getCurrentPressure())
+                .initPressure(person.getInitPressure())
+                .cylType(person.getCylType())
+                .workLevel(person.getWorkLevel())
+                .scene(person.getScene())
+                .status(person.getStatus())
+                .heightCm(profile == null ? null : profile.getHeightCm())
+                .weightKg(profile == null ? null : profile.getWeightKg())
+                .age(profile == null ? null : profile.getAge())
+                .calibrations(calibrations)
+                .enteredAt(person.getEnteredAt())
+                .measuredAt(person.getGmtModified())
+                .now(now)
+                .build();
     }
 
     private AttackEventResultVO duplicateResult(StationDO station, AttackEventDO existed, LocalDateTime now,
@@ -468,9 +479,11 @@ public class AttackServiceImpl implements AttackService {
 
     private AttackSnapshotVO refreshSnapshot(Long stationId, LocalDateTime now) {
         List<AttackPersonDO> persons = attackPersonMapper.selectByStationId(stationId);
-        Map<Long, ScbaCalibrationDO> latest = latestCalibrationMap(stationId);
+        Map<Long, ProfileDO> profiles = profileMap(stationId);
+        Map<Long, List<ScbaCalibrationDO>> calibrations = calibrationMap(stationId);
         for (AttackPersonDO person : persons) {
-            refreshDisplayedRemain(person, now, latest.get(person.getProfileId()));
+            applyEstimate(person, now, profiles.get(person.getProfileId()),
+                    listOrEmpty(calibrations.get(person.getProfileId())));
         }
         StatusCounts counts = countStatuses(persons);
         persistLiveSnapshot(stationId, counts, now);
@@ -608,39 +621,30 @@ public class AttackServiceImpl implements AttackService {
 
     private StationAttackVO buildStationAttack(StationDO station, boolean writable, LocalDateTime now) {
         List<AttackPersonDO> rows = attackPersonMapper.selectByStationId(station.getId());
-        Map<Long, ScbaCalibrationDO> latest = latestCalibrationMap(station.getId());
+        Map<Long, ProfileDO> profiles = profileMap(station.getId());
+        Map<Long, List<ScbaCalibrationDO>> calibrations = calibrationMap(station.getId());
         List<Boolean> calibrated = new ArrayList<Boolean>();
         List<BigDecimal> personalKs = new ArrayList<BigDecimal>();
         List<AttackPersonDO> live = new ArrayList<AttackPersonDO>();
         for (AttackPersonDO row : rows) {
-            ScbaCalibrationDO calibration = latest.get(row.getProfileId());
-            refreshDisplayedRemain(row, now, calibration);
+            List<ScbaCalibrationDO> items = listOrEmpty(calibrations.get(row.getProfileId()));
+            ProfileDO profile = row.getProfileId() == null ? null : profiles.get(row.getProfileId());
+            applyEstimate(row, now, profile, items);
             live.add(row);
-            calibrated.add(Boolean.valueOf(calibration != null));
-            personalKs.add(scbaEstimateService.personalK(calibration));
+            calibrated.add(Boolean.valueOf(!items.isEmpty()));
+            personalKs.add(scbaEstimateService.personalK(items));
         }
-        List<AttackPersonVO> persons = attackViewTranslator.toPersonVos(live, now, calibrated, personalKs);
+        List<AttackPersonVO> persons = attackViewTranslator.toPersonVos(live, now, calibrated, personalKs, profiles);
         AttackSnapshotVO snapshotVo = countsToSnapshot(station, countStatuses(live), now);
         return attackViewTranslator.toStationAttack(station, writable, persons, snapshotVo);
     }
 
-    private void refreshDisplayedRemain(AttackPersonDO person, LocalDateTime now, ScbaCalibrationDO calibration) {
-        AttackStatusEnum status = AttackStatusEnum.fromCode(person.getStatus());
-        if (status == null || !status.isInside()) {
-            return;
-        }
-        Integer remain = liveRemainSec(person, now, calibration);
-        AttackStatusEnum next = scbaEstimateService.resolveStatus(status, person.getCurrentPressure(), remain, now,
-                person.getEnteredAt(), person.getWithdrawnAt());
-        person.setRemainSec(remain);
-        person.setStatus(next.getCode());
-    }
-
     private AttackPersonVO toLivePerson(AttackPersonDO person, LocalDateTime now) {
-        ScbaCalibrationDO calibration = latestCalibration(person.getProfileId());
-        refreshDisplayedRemain(person, now, calibration);
-        return attackViewTranslator.toPersonVo(person, now, calibration != null,
-                scbaEstimateService.personalK(calibration));
+        ProfileDO profile = person.getProfileId() == null ? null : profileMapper.selectAliveById(person.getProfileId());
+        List<ScbaCalibrationDO> calibrations = calibrationsOf(person.getProfileId());
+        applyEstimate(person, now, profile, calibrations);
+        return attackViewTranslator.toPersonVo(person, now, !calibrations.isEmpty(),
+                scbaEstimateService.personalK(calibrations), profile);
     }
 
     private ProfileDO resolveProfileQuiet(Long stationId, AttackEventCommand command) {
@@ -769,27 +773,60 @@ public class AttackServiceImpl implements AttackService {
         return new BigDecimal(AttackRuleConstant.DEFAULT_PRESSURE);
     }
 
-    private ScbaCalibrationDO latestCalibration(Long profileId) {
+    private List<ScbaCalibrationDO> calibrationsOf(Long profileId) {
         if (profileId == null) {
-            return null;
+            return Collections.emptyList();
         }
         List<ScbaCalibrationDO> list = scbaCalibrationMapper.selectByProfileId(profileId);
         if (list == null || list.isEmpty()) {
-            return null;
+            return Collections.emptyList();
         }
-        return list.get(0);
+        List<ScbaCalibrationDO> limited = new ArrayList<ScbaCalibrationDO>();
+        int count = 0;
+        for (ScbaCalibrationDO item : list) {
+            if (count >= AttackRuleConstant.CALIBRATION_WINDOW) {
+                break;
+            }
+            limited.add(item);
+            count++;
+        }
+        return limited;
     }
 
-    private Map<Long, ScbaCalibrationDO> latestCalibrationMap(Long stationId) {
-        Map<Long, ScbaCalibrationDO> map = new HashMap<Long, ScbaCalibrationDO>();
+    private Map<Long, List<ScbaCalibrationDO>> calibrationMap(Long stationId) {
+        Map<Long, List<ScbaCalibrationDO>> map = new HashMap<Long, List<ScbaCalibrationDO>>();
         List<ScbaCalibrationDO> list = scbaCalibrationMapper.selectByStationId(stationId);
         for (ScbaCalibrationDO item : list) {
-            if (item.getProfileId() == null || map.containsKey(item.getProfileId())) {
+            if (item.getProfileId() == null) {
                 continue;
             }
-            map.put(item.getProfileId(), item);
+            List<ScbaCalibrationDO> rows = map.get(item.getProfileId());
+            if (rows == null) {
+                rows = new ArrayList<ScbaCalibrationDO>();
+                map.put(item.getProfileId(), rows);
+            }
+            if (rows.size() >= AttackRuleConstant.CALIBRATION_WINDOW) {
+                continue;
+            }
+            rows.add(item);
         }
         return map;
+    }
+
+    private Map<Long, ProfileDO> profileMap(Long stationId) {
+        Map<Long, ProfileDO> map = new HashMap<Long, ProfileDO>();
+        List<ProfileDO> list = profileMapper.selectAliveByStationId(stationId);
+        for (ProfileDO item : list) {
+            map.put(item.getId(), item);
+        }
+        return map;
+    }
+
+    private List<ScbaCalibrationDO> listOrEmpty(List<ScbaCalibrationDO> list) {
+        if (list == null) {
+            return Collections.emptyList();
+        }
+        return list;
     }
 
     private AccountDO requireAccount(AuthPrincipal principal) {

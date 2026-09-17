@@ -7,7 +7,63 @@ export const SCBA = {
   dangerTimeSec: 5 * 60,
   cylVolume: { '6.8': 6.8, 9: 9 },
   rmv: { light: 41, moderate: 55, heavy: 68 },
+  met: { light: 6.7, moderate: 8.9, heavy: 11.5 },
   sceneFactor: { flat: 1, highrise: 1.19, dark: 1.09, large: 1.1, search: 1.25 },
+  sceneParts: {
+    flat: { metScale: 1, stress: 1, env: 1 },
+    highrise: { metScale: 1.12, stress: 1.04, env: 1.02 },
+    dark: { metScale: 0.95, stress: 1.12, env: 1.02 },
+    large: { metScale: 1.04, stress: 1.04, env: 1.02 },
+    search: { metScale: 1.12, stress: 1.08, env: 1.03 }
+  },
+  defaultK: 6.35,
+  personalKMinFactor: 0.58,
+  personalKMaxFactor: 1.75,
+  rmvMin: 22,
+  rmvMax: 105,
+  rateMin: 0.05,
+  rateMax: 1.9,
+  demoHeightMin: 120,
+  demoWeightMin: 35,
+  bsaRef: 1.84,
+  bsaCoef: 0.26,
+  bsaDivisor: 3600,
+  bmiHigh: 28,
+  bmiHighCoef: 0.018,
+  bmiHighAddMax: 0.16,
+  bmiLow: 20,
+  bmiLowCoef: 0.01,
+  bmiLowAddMax: 0.06,
+  ageHigh: 35,
+  ageHighCoef: 0.005,
+  ageHighAddMax: 0.18,
+  ageYoung: 25,
+  ageYoungFactor: 0.98,
+  demoMin: 0.78,
+  demoMax: 1.38,
+  defaultBodyBlend: 0.35,
+  defaultBodyMin: 0.9,
+  defaultBodyMax: 1.12,
+  blendFormulaWithCal: 0.25,
+  blendCalOnly: 0.75,
+  blendCalClampMin: 0.92,
+  blendCalClampMax: 1.4,
+  remainBandLow: 8,
+  remainBandMid: 15,
+  remainLowMin: 0.7,
+  remainLowMax: 1.1,
+  remainLowAdd: 0.7,
+  remainMidMin: 0.72,
+  remainMidMax: 1.14,
+  remainMidAdd: 1.2,
+  remainHighMax: 1.18,
+  remainHighAdd: 2,
+  calAlarmPressure: 5,
+  calFactorMin: 0.62,
+  calFactorMax: 1.85,
+  midSensitivity: 0.14,
+  lowSensitivity: 0.22,
+  intensityClamp: 0.1,
   defaultPressure: 25,
   pressureMin: 0,
   pressureMax: 30,
@@ -17,6 +73,10 @@ export const SCBA = {
   pressureToVolume: 10,
   ungrouped: '未分组'
 };
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
 
 export function cylVolumeOf(cylType) {
   const key = String(cylType || '6.8').replace(/L$/i, '');
@@ -31,22 +91,196 @@ export function sceneFactorOf(scene) {
   return SCBA.sceneFactor[scene] || 1;
 }
 
-export function remainSecOf(pressure, cylType, workLevel, scene, personalK) {
+export function demographicFactor(heightCm, weightKg, age) {
+  const height = Number(heightCm);
+  const weight = Number(weightKg);
+  if (!(height > SCBA.demoHeightMin && weight > SCBA.demoWeightMin)) {
+    return 1;
+  }
+  const bsa = Math.sqrt(height * weight / SCBA.bsaDivisor);
+  const heightM = height / 100;
+  const bmi = weight / (heightM * heightM);
+  let factor = 1 + (bsa - SCBA.bsaRef) * SCBA.bsaCoef;
+  if (bmi > SCBA.bmiHigh) {
+    factor *= 1 + Math.min(SCBA.bmiHighAddMax, (bmi - SCBA.bmiHigh) * SCBA.bmiHighCoef);
+  } else if (bmi < SCBA.bmiLow) {
+    factor *= 1 + Math.min(SCBA.bmiLowAddMax, (SCBA.bmiLow - bmi) * SCBA.bmiLowCoef);
+  }
+  const years = Number(age);
+  if (years > SCBA.ageHigh) {
+    factor *= 1 + Math.min(SCBA.ageHighAddMax, (years - SCBA.ageHigh) * SCBA.ageHighCoef);
+  } else if (years > 0 && years < SCBA.ageYoung) {
+    factor *= SCBA.ageYoungFactor;
+  }
+  return clamp(factor, SCBA.demoMin, SCBA.demoMax);
+}
+
+function defaultBodyScale(demo) {
+  const factor = demographicFactor(demo && demo.heightCm, demo && demo.weightKg, demo && demo.age);
+  return clamp(1 + (factor - 1) * SCBA.defaultBodyBlend, SCBA.defaultBodyMin, SCBA.defaultBodyMax);
+}
+
+function scenePartsOf(scene) {
+  return SCBA.sceneParts[scene] || SCBA.sceneParts.flat;
+}
+
+function metOf(workLevel) {
+  return SCBA.met[workLevel] || SCBA.met.moderate;
+}
+
+export function rmvFromK(k, workLevel, scene) {
+  const parts = scenePartsOf(scene);
+  const rmv = Number(k) * metOf(workLevel) * parts.metScale * parts.stress * parts.env;
+  return clamp(rmv, SCBA.rmvMin, SCBA.rmvMax);
+}
+
+function pressureRate(rmv, cylType) {
+  const denom = SCBA.pressureToVolume * cylVolumeOf(cylType);
+  if (!(denom > 0)) {
+    return SCBA.rateMin;
+  }
+  return clamp(rmv / denom, SCBA.rateMin, SCBA.rateMax);
+}
+
+function formulaRateOf(cylType, workLevel, scene, demo) {
+  const rmv = rmvFromK(SCBA.defaultK, workLevel, scene) * defaultBodyScale(demo);
+  return pressureRate(rmv, cylType);
+}
+
+function calibrationRateOf(cylType, workLevel, scene, personalK) {
+  const k = Number(personalK);
+  if (!(k > 0)) {
+    return null;
+  }
+  return pressureRate(rmvFromK(k, workLevel, scene), cylType);
+}
+
+function blendedRate(formulaRate, calRate) {
+  if (!(calRate > 0)) {
+    return formulaRate;
+  }
+  const mixed = formulaRate * SCBA.blendFormulaWithCal + calRate * SCBA.blendCalOnly;
+  return clamp(mixed, formulaRate * SCBA.blendCalClampMin, formulaRate * SCBA.blendCalClampMax);
+}
+
+function clampRemainMinutes(pressure, rawMin, formulaMin) {
+  let minFactor = SCBA.remainMidMin;
+  let maxFactor = SCBA.remainHighMax;
+  let extra = SCBA.remainHighAdd;
+  if (pressure <= SCBA.remainBandLow) {
+    minFactor = SCBA.remainLowMin;
+    maxFactor = SCBA.remainLowMax;
+    extra = SCBA.remainLowAdd;
+  } else if (pressure <= SCBA.remainBandMid) {
+    minFactor = SCBA.remainMidMin;
+    maxFactor = SCBA.remainMidMax;
+    extra = SCBA.remainMidAdd;
+  }
+  return clamp(rawMin, formulaMin * minFactor, formulaMin * maxFactor + extra);
+}
+
+function remainingSec(pressure, blendRate, formulaRate) {
+  if (!(pressure > 0) || !(blendRate > 0)) {
+    return 0;
+  }
+  const rawMin = pressure / blendRate;
+  const formulaMin = formulaRate > 0 ? pressure / formulaRate : rawMin;
+  const minutes = clampRemainMinutes(pressure, rawMin, formulaMin);
+  return Math.max(0, Math.round(minutes * SCBA.secondsPerMinute));
+}
+
+function demoOf(person) {
+  return {
+    heightCm: person && person.heightCm,
+    weightKg: person && person.weightKg,
+    age: person && person.age
+  };
+}
+
+function elapsedMinutesOf(person, nowMs) {
+  const entered = person.enteredAt ? new Date(person.enteredAt).getTime() : 0;
+  const modified = person.gmtModified ? new Date(person.gmtModified).getTime() : 0;
+  const anchor = Math.max(entered, modified);
+  if (!anchor) {
+    return 0;
+  }
+  return Math.max(0, (nowMs - anchor) / 60000);
+}
+
+export function estimateNow(person, nowMs) {
+  const measured = Number(person.currentPressure || person.initPressure || 0);
+  if (person.status === 'out' || person.status === 'pending' || !person.enteredAt) {
+    return { pressure: measured, remainSec: null };
+  }
+  const demo = demoOf(person);
+  const formula = formulaRateOf(person.cylType, person.workLevel, person.scene, demo);
+  const cal = calibrationRateOf(person.cylType, person.workLevel, person.scene, person.personalK);
+  const blend = blendedRate(formula, cal);
+  const livePressure = Math.max(0, measured - blend * elapsedMinutesOf(person, nowMs));
+  return {
+    pressure: livePressure,
+    remainSec: remainingSec(livePressure, blend, formula)
+  };
+}
+
+export function remainSecOf(pressure, cylType, workLevel, scene, personalK, demo) {
   const p = Number(pressure);
   if (!(p > 0)) {
     return 0;
   }
-  let rmv = rmvOf(workLevel);
-  const k = Number(personalK);
-  if (k > 0) {
-    rmv *= k;
+  const formula = formulaRateOf(cylType, workLevel, scene, demo);
+  const cal = calibrationRateOf(cylType, workLevel, scene, personalK);
+  const blend = blendedRate(formula, cal);
+  return remainingSec(p, blend, formula);
+}
+
+export function calibrationK(pressure, cylType, fullTimeSec) {
+  const minutes = Number(fullTimeSec) / SCBA.secondsPerMinute;
+  if (!(minutes > 0) || !(Number(pressure) > 0)) {
+    return null;
   }
-  const denom = rmv * sceneFactorOf(scene);
-  if (!(denom > 0)) {
-    return 0;
+  const rmv = cylVolumeOf(cylType) * Number(pressure) * SCBA.pressureToVolume / minutes;
+  const raw = rmv / SCBA.met.heavy;
+  return clamp(raw, SCBA.defaultK * SCBA.personalKMinFactor, SCBA.defaultK * SCBA.personalKMaxFactor);
+}
+
+function intensityMultiplier(workLevel, demoFactor) {
+  if (workLevel === 'heavy') {
+    return 1;
   }
-  const minutes = (p * SCBA.pressureToVolume * cylVolumeOf(cylType)) / denom;
-  return Math.max(0, Math.round(minutes * SCBA.secondsPerMinute));
+  const base = SCBA.rmv.heavy / rmvOf(workLevel);
+  const sensitivity = workLevel === 'light' ? SCBA.lowSensitivity : SCBA.midSensitivity;
+  const actual = base * (1 - (demoFactor - 1) * sensitivity);
+  return clamp(actual, base * (1 - SCBA.intensityClamp), base * (1 + SCBA.intensityClamp));
+}
+
+export function calibrationPreview(input) {
+  const pressure = Number(input.pressure);
+  const fullTimeSec = Number(input.fullTimeSec);
+  const minutes = fullTimeSec / SCBA.secondsPerMinute;
+  const volume = cylVolumeOf(input.cylType);
+  const demoFactor = demographicFactor(input.heightCm, input.weightKg, input.age);
+  const theoryMin = pressure * SCBA.pressureToVolume * volume / SCBA.rmv.heavy;
+  const f = clamp(theoryMin / minutes, SCBA.calFactorMin, SCBA.calFactorMax);
+  const rmvHeavy = volume * pressure * SCBA.pressureToVolume / minutes;
+  const k = calibrationK(pressure, input.cylType, fullTimeSec);
+  const alarmSec = Math.round(fullTimeSec * Math.max(0, pressure - SCBA.calAlarmPressure) / pressure);
+  const evacSec = Math.round(alarmSec * SCBA.evacRatio);
+  const heavyMin = minutes;
+  const moderateMin = heavyMin * intensityMultiplier('moderate', demoFactor);
+  const lightMin = heavyMin * intensityMultiplier('light', demoFactor);
+  return {
+    f,
+    rmvHeavy,
+    k,
+    fullSec: Math.round(fullTimeSec),
+    alarmSec,
+    evacSec,
+    moderateSec: Math.round(moderateMin * SCBA.secondsPerMinute),
+    lightSec: Math.round(lightMin * SCBA.secondsPerMinute),
+    highriseHeavySec: Math.round(heavyMin / sceneFactorOf('highrise') * SCBA.secondsPerMinute),
+    searchHeavySec: Math.round(heavyMin / sceneFactorOf('search') * SCBA.secondsPerMinute)
+  };
 }
 
 export function resolveStatus(status, pressure, remainSec) {
