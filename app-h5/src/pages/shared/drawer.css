@@ -6,12 +6,14 @@
   background: rgba(0, 0, 0, 0.5);
   opacity: 0;
   visibility: hidden;
+  pointer-events: none;
   transition: opacity 0.22s ease, visibility 0.22s;
 }
 
 .drawer-mask.show {
   opacity: 1;
   visibility: visible;
+  pointer-events: auto;
 }
 
 .drawer {
@@ -30,6 +32,7 @@
   flex-direction: column;
   opacity: 0;
   visibility: hidden;
+  pointer-events: none;
   transform: translateX(12px);
   transition: opacity 0.22s ease, transform 0.22s ease, visibility 0.22s;
 }
@@ -37,6 +40,7 @@
 .drawer.show {
   opacity: 1;
   visibility: visible;
+  pointer-events: auto;
   transform: translateX(0);
 }
 
@@ -176,8 +180,10 @@ html.harmony-compat .drawer-body {
   transform: translateZ(0);
 }
 
-html.huawei-compat .drawer-tile:not(.is-hidden),
-html.harmony-compat .drawer-tile:not(.is-hidden) {
+html.huawei-compat .drawer.show .drawer-tile:not(.is-hidden),
+html.harmony-compat .drawer.show .drawer-tile:not(.is-hidden),
+html.huawei-compat .hq-drawer-panel.show .drawer-tile:not(.is-hidden),
+html.harmony-compat .hq-drawer-panel.show .drawer-tile:not(.is-hidden) {
   display: flex !important;
   flex-direction: column !important;
   visibility: visible !important;
