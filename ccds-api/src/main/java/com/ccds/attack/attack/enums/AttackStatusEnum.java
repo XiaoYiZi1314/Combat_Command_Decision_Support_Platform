@@ -19,19 +19,14 @@ public enum AttackStatusEnum {
     IN("in"),
 
     /**
-     * 内攻中·预警。
-     */
-    WARN("warn"),
-
-    /**
-     * 内攻中·危险。
-     */
-    DANGER("danger"),
-
-    /**
      * 已撤出。
      */
-    OUT("out");
+    OUT("out"),
+
+    /**
+     * NFC 扫描撤出。
+     */
+    SCANOUT("scanout");
 
     private final String code;
 
@@ -72,7 +67,7 @@ public enum AttackStatusEnum {
      * @return true 表示预录入或内攻中
      */
     public boolean isActive() {
-        return this != OUT;
+        return this != OUT && this != SCANOUT;
     }
 
     /**
@@ -81,6 +76,6 @@ public enum AttackStatusEnum {
      * @return true 表示安全/预警/危险
      */
     public boolean isInside() {
-        return this == IN || this == WARN || this == DANGER;
+        return this == IN;
     }
 }

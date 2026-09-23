@@ -198,19 +198,26 @@ function demoOf(person) {
 }
 
 function elapsedMinutesOf(person, nowMs) {
-  const entered = person.enteredAt ? new Date(person.enteredAt).getTime() : 0;
-  const modified = person.gmtModified ? new Date(person.gmtModified).getTime() : 0;
-  const anchor = Math.max(entered, modified);
-  if (!anchor) {
+  const anchor = person.manualPressureAt || person.gmtModified || person.enteredAt;
+  const anchorMs = anchor ? new Date(anchor).getTime() : 0;
+  if (!Number.isFinite(anchorMs) || !anchorMs) {
     return 0;
   }
-  return Math.max(0, (nowMs - anchor) / 60000);
+  const pausedAtMs = person.timerPausedAt ? new Date(person.timerPausedAt).getTime() : 0;
+  const effectiveNow = pausedAtMs > 0 ? Math.min(nowMs, pausedAtMs) : nowMs;
+  const previousPausedMin = Math.max(0, Number(person.pressurePausedSeconds || 0)) / SCBA.secondsPerMinute;
+  return Math.max(0, (effectiveNow - anchorMs) / 60000 - previousPausedMin);
 }
 
 export function estimateNow(person, nowMs) {
-  const measured = Number(person.currentPressure || person.initPressure || 0);
-  if (person.status === 'out' || person.status === 'pending' || !person.enteredAt) {
-    return { pressure: measured, remainSec: null };
+  const measured = Number(person.pressureAnchor != null
+    ? person.pressureAnchor : (person.currentPressure || person.initPressure || 0));
+  const lifecycle = person.lifecycleStatus || person.status;
+  if (lifecycle === 'out' || lifecycle === 'scanout' || !person.enteredAt) {
+    return { pressure: measured, remainSec: lifecycle === 'pending' ? 0 : null };
+  }
+  if (lifecycle === 'pending') {
+    return { pressure: measured, remainSec: 0 };
   }
   const demo = demoOf(person);
   const formula = formulaRateOf(person.cylType, person.workLevel, person.scene, demo);
@@ -284,7 +291,7 @@ export function calibrationPreview(input) {
 }
 
 export function resolveStatus(status, pressure, remainSec) {
-  if (status === 'out') {
+  if (status === 'out' || status === 'scanout') {
     return 'out';
   }
   if (status === 'pending' || !status) {

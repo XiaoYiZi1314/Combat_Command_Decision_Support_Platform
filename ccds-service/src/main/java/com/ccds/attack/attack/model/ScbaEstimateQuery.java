@@ -84,6 +84,21 @@ public class ScbaEstimateQuery {
     private LocalDateTime measuredAt;
 
     /**
+     * 暂停开始时间，存在时压力和剩余时间冻结。
+     */
+    private LocalDateTime timerPausedAt;
+
+    /**
+     * 已累计暂停秒数。
+     */
+    private Integer pausedSeconds;
+
+    /**
+     * 最近压力锚点后的累计暂停秒数。
+     */
+    private Integer pressurePausedSeconds;
+
+    /**
      * 当前时间。
      */
     private LocalDateTime now;

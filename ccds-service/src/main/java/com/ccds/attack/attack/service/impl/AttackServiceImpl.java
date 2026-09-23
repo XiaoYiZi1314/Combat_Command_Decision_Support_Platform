@@ -27,6 +27,7 @@ import com.ccds.attack.attack.entity.AttackEventDO;
 import com.ccds.attack.attack.entity.AttackPersonDO;
 import com.ccds.attack.attack.entity.StationSnapshotDO;
 import com.ccds.attack.attack.enums.AttackEventTypeEnum;
+import com.ccds.attack.attack.enums.AttackRiskStatusEnum;
 import com.ccds.attack.attack.enums.AttackSceneEnum;
 import com.ccds.attack.attack.enums.AttackStatusEnum;
 import com.ccds.attack.attack.enums.WorkLevelEnum;
@@ -207,8 +208,16 @@ public class AttackServiceImpl implements AttackService {
                 return handleEnter(stationId, command, eventId, now);
             case REMEASURE:
                 return handleRemeasure(stationId, command, eventId, now);
+            case CONTEXT:
+                return handleContext(stationId, command, eventId, now);
+            case PAUSE:
+                return handlePause(stationId, command, eventId, now);
+            case RESUME:
+                return handleResume(stationId, command, eventId, now);
             case WITHDRAW:
                 return handleWithdraw(stationId, command, eventId, now);
+            case SCANOUT:
+                return handleScanout(stationId, command, eventId, now);
             case DELETE:
                 return handleDelete(stationId, command, eventId, now);
             default:
@@ -291,10 +300,13 @@ public class AttackServiceImpl implements AttackService {
         person.setCylType(resolveCylType(command, profile));
         person.setInitPressure(pressure);
         person.setCurrentPressure(pressure);
+        person.setManualPressureAt(null);
         person.setWorkLevel(WorkLevelEnum.fromCodeOrDefault(command.getWorkLevel()).getCode());
         person.setScene(AttackSceneEnum.fromCodeOrDefault(command.getScene()).getCode());
         person.setStatus(AttackStatusEnum.PENDING.getCode());
-        person.setRemainSec(null);
+        person.setRemainSec(0);
+        person.setPausedSeconds(0);
+        person.setPressurePausedSeconds(0);
         person.setClientEventId(eventId);
         person.setGmtCreate(now);
         person.setGmtModified(now);
@@ -315,7 +327,11 @@ public class AttackServiceImpl implements AttackService {
         }
         person.setInitPressure(pressure);
         person.setCurrentPressure(pressure);
+        person.setManualPressureAt(now);
         person.setEnteredAt(now);
+        person.setTimerPausedAt(null);
+        person.setPausedSeconds(0);
+        person.setPressurePausedSeconds(0);
         person.setStatus(AttackStatusEnum.IN.getCode());
         person.setWithdrawnAt(null);
         applyWorkContext(person, command);
@@ -336,6 +352,9 @@ public class AttackServiceImpl implements AttackService {
         BigDecimal pressure = requirePressure(command.getPressure(), null);
         person.setCurrentPressure(pressure);
         applyWorkContext(person, command);
+        person.setManualPressureAt(now);
+        person.setPressurePausedSeconds(0);
+        person.setRemainAnchorSec(null);
         person.setClientEventId(eventId);
         person.setGmtModified(now);
         refreshRuntime(person, now);
@@ -343,19 +362,88 @@ public class AttackServiceImpl implements AttackService {
         return person;
     }
 
-    private AttackPersonDO handleWithdraw(Long stationId, AttackEventCommand command, String eventId,
+    private AttackPersonDO handleContext(Long stationId, AttackEventCommand command, String eventId,
                                           LocalDateTime now) {
         AttackPersonDO person = requirePerson(stationId, command.getPersonId());
         AttackStatusEnum status = AttackStatusEnum.fromCode(person.getStatus());
-        if (status == AttackStatusEnum.OUT) {
+        if (status != AttackStatusEnum.IN && status != AttackStatusEnum.PENDING) {
             throw new BizException(ErrorCodeConstant.ATTACK_STATUS_INVALID, MSG_STATUS);
         }
-        if (status == AttackStatusEnum.PENDING) {
+        applyWorkContext(person, command);
+        if (status == AttackStatusEnum.IN) {
+            refreshRuntime(person, now);
+        }
+        person.setClientEventId(eventId);
+        person.setGmtModified(now);
+        attackPersonMapper.update(person);
+        return person;
+    }
+
+    private AttackPersonDO handleWithdraw(Long stationId, AttackEventCommand command, String eventId,
+                                          LocalDateTime now) {
+        return finishWithdraw(stationId, command, eventId, now, AttackStatusEnum.OUT);
+    }
+
+    private AttackPersonDO handlePause(Long stationId, AttackEventCommand command, String eventId,
+                                       LocalDateTime now) {
+        AttackPersonDO person = requirePerson(stationId, command.getPersonId());
+        requireInside(person);
+        if (person.getTimerPausedAt() != null) {
             throw new BizException(ErrorCodeConstant.ATTACK_STATUS_INVALID, MSG_STATUS);
         }
+        refreshRuntime(person, now);
+        person.setTimerPausedAt(now);
+        person.setClientEventId(eventId);
+        person.setGmtModified(now);
+        attackPersonMapper.update(person);
+        return person;
+    }
+
+    private AttackPersonDO handleResume(Long stationId, AttackEventCommand command, String eventId,
+                                        LocalDateTime now) {
+        AttackPersonDO person = requirePerson(stationId, command.getPersonId());
+        requireInside(person);
+        if (person.getTimerPausedAt() == null) {
+            throw new BizException(ErrorCodeConstant.ATTACK_STATUS_INVALID, MSG_STATUS);
+        }
+        int pauseSeconds = elapsedSeconds(person.getTimerPausedAt(), now);
+        person.setPausedSeconds(nz(person.getPausedSeconds()) + pauseSeconds);
+        person.setPressurePausedSeconds(nz(person.getPressurePausedSeconds()) + pauseSeconds);
+        person.setTimerPausedAt(null);
+        person.setClientEventId(eventId);
+        person.setGmtModified(now);
+        refreshRuntime(person, now);
+        attackPersonMapper.update(person);
+        return person;
+    }
+
+    private AttackPersonDO handleScanout(Long stationId, AttackEventCommand command, String eventId,
+                                         LocalDateTime now) {
+        return finishWithdraw(stationId, command, eventId, now, AttackStatusEnum.SCANOUT);
+    }
+
+    private void requireInside(AttackPersonDO person) {
+        if (AttackStatusEnum.fromCode(person.getStatus()) != AttackStatusEnum.IN) {
+            throw new BizException(ErrorCodeConstant.ATTACK_STATUS_INVALID, MSG_STATUS);
+        }
+    }
+
+    private AttackPersonDO finishWithdraw(Long stationId, AttackEventCommand command, String eventId,
+                                          LocalDateTime now, AttackStatusEnum finalStatus) {
+        AttackPersonDO person = requirePerson(stationId, command.getPersonId());
+        if (AttackStatusEnum.fromCode(person.getStatus()) != AttackStatusEnum.IN
+                || person.getEnteredAt() == null) {
+            throw new BizException(ErrorCodeConstant.ATTACK_STATUS_INVALID, MSG_STATUS);
+        }
+        refreshRuntime(person, now);
+        int pauseSeconds = elapsedSeconds(person.getTimerPausedAt(), now);
+        person.setPausedSeconds(nz(person.getPausedSeconds()) + pauseSeconds);
+        person.setPressurePausedSeconds(nz(person.getPressurePausedSeconds()) + pauseSeconds);
+        person.setCurrentPressure(person.getRuntimePressure());
+        person.setManualPressureAt(now);
         person.setWithdrawnAt(now);
-        person.setStatus(AttackStatusEnum.OUT.getCode());
-        person.setRemainSec(null);
+        person.setTimerPausedAt(null);
+        person.setStatus(finalStatus.getCode());
         person.setClientEventId(eventId);
         person.setGmtModified(now);
         attackPersonMapper.update(person);
@@ -384,14 +472,23 @@ public class AttackServiceImpl implements AttackService {
                                List<ScbaCalibrationDO> calibrations) {
         ScbaEstimateResult result = scbaEstimateService.estimate(toEstimateQuery(person, now, profile, calibrations));
         AttackStatusEnum current = AttackStatusEnum.fromCode(person.getStatus());
-        AttackStatusEnum next = scbaEstimateService.resolveStatus(current, result.getCurrentPressure(),
-                result.getRemainSec(), now, person.getEnteredAt(), person.getWithdrawnAt());
+        AttackRiskStatusEnum risk = current == AttackStatusEnum.PENDING
+                ? null
+                : scbaEstimateService.resolveStatus(current, result.getCurrentPressure(), result.getRemainSec(),
+                now, person.getEnteredAt(), person.getWithdrawnAt());
+        person.setRuntimePressure(result.getCurrentPressure());
         person.setRemainSec(result.getRemainSec());
-        person.setStatus(next.getCode());
+        person.setRuntimeStatus(current == AttackStatusEnum.PENDING ? "pending"
+                : risk == null ? "out" : risk.getCode());
+        if (result.getRemainSec() != null) {
+            person.setRemainAnchorSec(result.getRemainSec());
+        }
     }
 
     private ScbaEstimateQuery toEstimateQuery(AttackPersonDO person, LocalDateTime now, ProfileDO profile,
                                               List<ScbaCalibrationDO> calibrations) {
+        LocalDateTime measuredAt = person.getManualPressureAt() == null
+                ? person.getGmtModified() : person.getManualPressureAt();
         return ScbaEstimateQuery.builder()
                 .pressure(person.getCurrentPressure())
                 .initPressure(person.getInitPressure())
@@ -404,7 +501,10 @@ public class AttackServiceImpl implements AttackService {
                 .age(profile == null ? null : profile.getAge())
                 .calibrations(calibrations)
                 .enteredAt(person.getEnteredAt())
-                .measuredAt(person.getGmtModified())
+                .measuredAt(measuredAt)
+                .timerPausedAt(person.getTimerPausedAt())
+                .pausedSeconds(person.getPausedSeconds())
+                .pressurePausedSeconds(person.getPressurePausedSeconds())
                 .now(now)
                 .build();
     }
@@ -520,33 +620,26 @@ public class AttackServiceImpl implements AttackService {
         StatusCounts counts = new StatusCounts();
         Set<String> groups = new LinkedHashSet<String>();
         for (AttackPersonDO person : persons) {
-            AttackStatusEnum status = AttackStatusEnum.fromCode(person.getStatus());
-            if (status == null) {
+            String lifecycle = person.getStatus();
+            String risk = person.getRuntimeStatus();
+            if (AttackStatusEnum.PENDING.getCode().equals(lifecycle)) {
+                counts.pendingCount++;
+                groups.add(attackViewTranslator.blankToUngrouped(person.getGroupName()));
                 continue;
             }
-            switch (status) {
-                case IN:
-                    counts.inCount++;
-                    groups.add(attackViewTranslator.blankToUngrouped(person.getGroupName()));
-                    break;
-                case WARN:
-                    counts.warnCount++;
-                    groups.add(attackViewTranslator.blankToUngrouped(person.getGroupName()));
-                    break;
-                case DANGER:
-                    counts.dangerCount++;
-                    groups.add(attackViewTranslator.blankToUngrouped(person.getGroupName()));
-                    break;
-                case OUT:
-                    counts.outCount++;
-                    break;
-                case PENDING:
-                    counts.pendingCount++;
-                    groups.add(attackViewTranslator.blankToUngrouped(person.getGroupName()));
-                    break;
-                default:
-                    break;
+            if (AttackStatusEnum.OUT.getCode().equals(lifecycle)
+                    || AttackStatusEnum.SCANOUT.getCode().equals(lifecycle)) {
+                counts.outCount++;
+                continue;
             }
+            if (AttackRiskStatusEnum.DANGER.getCode().equals(risk)) {
+                counts.dangerCount++;
+            } else if (AttackRiskStatusEnum.WARN.getCode().equals(risk)) {
+                counts.warnCount++;
+            } else {
+                counts.inCount++;
+            }
+            groups.add(attackViewTranslator.blankToUngrouped(person.getGroupName()));
         }
         counts.groupCount = groups.size();
         return counts;
@@ -608,6 +701,14 @@ public class AttackServiceImpl implements AttackService {
 
     private int nz(Integer value) {
         return value == null ? 0 : value;
+    }
+
+    private int elapsedSeconds(LocalDateTime start, LocalDateTime end) {
+        if (start == null || end == null || end.isBefore(start)) {
+            return 0;
+        }
+        long seconds = Duration.between(start, end).getSeconds();
+        return seconds > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) seconds;
     }
 
     private static final class StatusCounts {

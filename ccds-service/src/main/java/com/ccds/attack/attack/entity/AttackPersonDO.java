@@ -61,6 +61,11 @@ public class AttackPersonDO {
     private BigDecimal currentPressure;
 
     /**
+     * 最近确认压力的锚点时间。
+     */
+    private LocalDateTime manualPressureAt;
+
+    /**
      * 入场时间。
      */
     private LocalDateTime enteredAt;
@@ -69,6 +74,21 @@ public class AttackPersonDO {
      * 撤出时间。
      */
     private LocalDateTime withdrawnAt;
+
+    /**
+     * 暂停开始时间，空表示未暂停。
+     */
+    private LocalDateTime timerPausedAt;
+
+    /**
+     * 已累计暂停秒数。
+     */
+    private Integer pausedSeconds;
+
+    /**
+     * 最近压力锚点后的累计暂停秒数，用于避免复测后重复扣除历史暂停。
+     */
+    private Integer pressurePausedSeconds;
 
     /**
      * 作业强度。
@@ -89,6 +109,21 @@ public class AttackPersonDO {
      * 剩余秒。
      */
     private Integer remainSec;
+
+    /**
+     * 最近运行时剩余时间锚点秒数。
+     */
+    private Integer remainAnchorSec;
+
+    /**
+     * 当前请求计算出的压力，仅用于视图。
+     */
+    private BigDecimal runtimePressure;
+
+    /**
+     * 当前请求计算出的风险展示态，仅用于视图。
+     */
+    private String runtimeStatus;
 
     /**
      * 客户端事件幂等键。

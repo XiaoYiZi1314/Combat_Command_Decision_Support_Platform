@@ -18,7 +18,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * 内攻写事件。预录入 / 入场 / 复测 / 撤出 / 删除共用。
+ * 内攻写事件。预录入 / 入场 / 复测 / 更新场景强度 / 暂停 / 恢复 / 撤出 / 扫描撤出 / 删除共用。
  *
  * @author ccds
  * @since 0.1.0
@@ -37,10 +37,10 @@ public class AttackEventCommand {
     private String eventId;
 
     /**
-     * 事件类型：pre_add / enter / remeasure / withdraw / delete。
+     * 事件类型：pre_add / enter / remeasure / context / pause / resume / withdraw / scanout / delete。
      */
     @NotBlank
-    @Pattern(regexp = "^(pre_add|enter|remeasure|withdraw|delete)$")
+    @Pattern(regexp = "^(pre_add|enter|remeasure|context|pause|resume|withdraw|scanout|delete)$")
     private String type;
 
     /**

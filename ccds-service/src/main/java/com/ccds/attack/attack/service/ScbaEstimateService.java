@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import com.ccds.attack.attack.enums.AttackRiskStatusEnum;
 import com.ccds.attack.attack.enums.AttackStatusEnum;
 import com.ccds.attack.attack.model.ScbaEstimateQuery;
 import com.ccds.attack.attack.model.ScbaEstimateResult;
@@ -21,7 +22,7 @@ public interface ScbaEstimateService {
      * 先估当前压力，再按混合压降速率算剩余。预录入 / 已撤出剩余为空。
      *
      * @param query 估算入参，不能为空
-     * @return 估算结果，不会为 null
+     * @return 估算结果，不会为 null；预录入剩余秒为 0，已撤出剩余为空
      */
     ScbaEstimateResult estimate(ScbaEstimateQuery query);
 
@@ -44,6 +45,6 @@ public interface ScbaEstimateService {
      * @param withdrawnAt 撤出时间
      * @return 状态，不会为 null
      */
-    AttackStatusEnum resolveStatus(AttackStatusEnum current, BigDecimal pressure, Integer remainSec,
-                                   LocalDateTime now, LocalDateTime enteredAt, LocalDateTime withdrawnAt);
+    AttackRiskStatusEnum resolveStatus(AttackStatusEnum current, BigDecimal pressure, Integer remainSec,
+                                       LocalDateTime now, LocalDateTime enteredAt, LocalDateTime withdrawnAt);
 }

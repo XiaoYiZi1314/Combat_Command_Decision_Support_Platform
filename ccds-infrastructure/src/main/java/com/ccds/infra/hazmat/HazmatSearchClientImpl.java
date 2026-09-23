@@ -35,8 +35,6 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 public class HazmatSearchClientImpl implements HazmatSearchClient {
 
-    private static final String MSG_NOT_CONFIGURED = "hazmat search not configured";
-
     private static final String MSG_CALL_FAILED = "hazmat search failed";
 
     private final HazmatProperties hazmatProperties;
@@ -68,11 +66,11 @@ public class HazmatSearchClientImpl implements HazmatSearchClient {
      */
     @Override
     public HazmatSearchResultDTO search(String query, int limit) {
-        if (!hasText(hazmatProperties.getSearchUrl())) {
-            log.warn("危化品检索未配置外部库");
-            throw new IllegalStateException(MSG_NOT_CONFIGURED);
-        }
         int safeLimit = Math.min(Math.max(limit, 1), AssistRuleConstant.SEARCH_MAX_LIMIT);
+        if (!hasText(hazmatProperties.getSearchUrl())) {
+            log.warn("危化品检索未配置外部库，使用本地常见物质数据");
+            return fallback(query, safeLimit);
+        }
         String cacheKey = query.trim().toLowerCase(Locale.ROOT) + ":" + safeLimit;
         synchronized (cacheLock) {
             CacheEntry hit = cache.get(cacheKey);
@@ -80,7 +78,13 @@ public class HazmatSearchClientImpl implements HazmatSearchClient {
                 return hit.result;
             }
         }
-        HazmatSearchResultDTO result = fetchWithRetry(query.trim(), safeLimit);
+        HazmatSearchResultDTO result;
+        try {
+            result = fetchWithRetry(query.trim(), safeLimit);
+        } catch (IllegalStateException ex) {
+            log.warn("危化品检索上游不可用，使用本地常见物质数据", ex);
+            result = fallback(query.trim(), safeLimit);
+        }
         synchronized (cacheLock) {
             cache.put(cacheKey, new CacheEntry(result,
                     Instant.now().plusSeconds(AssistRuleConstant.SEARCH_CACHE_TTL_SECONDS)));
@@ -223,10 +227,45 @@ public class HazmatSearchClientImpl implements HazmatSearchClient {
         return null;
     }
 
-    private HazmatSearchResultDTO emptyResult(String query) {
+    private HazmatSearchResultDTO fallback(String query, int limit) {
+        String keyword = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+        List<HazmatSearchItemDTO> matched = fallbackItems().stream()
+                .filter(item -> contains(item.getName(), keyword)
+                        || contains(item.getAlias(), keyword)
+                        || contains(item.getUnNumber(), keyword)
+                        || contains(item.getCasNumber(), keyword))
+                .limit(limit)
+                .toList();
         return HazmatSearchResultDTO.builder()
                 .query(query)
-                .count(0)
+                .count(matched.size())
+                .items(matched)
+                .build();
+    }
+
+    private List<HazmatSearchItemDTO> fallbackItems() {
+        return List.of(
+                item("汽油", "车用汽油", "1203", "8006-61-9", "高度易燃液体，蒸气可与空气形成爆炸性混合物。", "切断火源，禁用非防爆设备；冷却容器并防止流入下水道。"),
+                item("柴油", "轻柴油", "1202", "68334-30-5", "可燃液体，受热产生可燃蒸气。", "隔离火源，使用泡沫或干粉灭火，吸附收集泄漏物。"),
+                item("液化石油气", "LPG", "1075", "68476-85-7", "极易燃压缩液化气体，受热容器有爆炸危险。", "上风向警戒，关闭阀门并持续冷却，严禁直接接触泄漏气体。"),
+                item("氯气", "液氯", "1017", "7782-50-5", "剧毒、强氧化性气体，吸入有致命危险。", "人员向上风向撤离，专业人员佩戴正压空气呼吸器处置。"),
+                item("氨", "液氨", "1005", "7664-41-7", "有毒、腐蚀性气体，具有刺激性气味。", "上风向疏散，水雾吸收蒸气，避免进入低洼和密闭空间。"),
+                item("盐酸", "氢氯酸", "1789", "7647-01-0", "腐蚀性液体，与金属反应产生氢气。", "佩戴防酸装备，使用惰性材料围堵，严禁与碱类混合。"),
+                item("硫酸", "浓硫酸", "1830", "7664-93-9", "强腐蚀性和强脱水性液体，与水混合剧烈放热。", "耐酸防护，少量多次沿器壁处理，严禁将水直接倒入酸中。"),
+                item("甲醇", "木醇", "1230", "67-56-1", "高度易燃且有毒，蒸气可造成中毒。", "切断火源并加强通风，使用抗溶性泡沫、干粉或二氧化碳灭火。"));
+    }
+
+    private HazmatSearchItemDTO item(String name, String alias, String un, String cas,
+                                     String hazard, String response) {
+        return HazmatSearchItemDTO.builder().name(name).alias(alias).unNumber(un).casNumber(cas)
+                .hazardSummary(hazard).responseHint(response).build();
+    }
+
+    private boolean contains(String value, String keyword) {
+        return value != null && !keyword.isEmpty() && value.toLowerCase(Locale.ROOT).contains(keyword);
+    }
+    private HazmatSearchResultDTO emptyResult(String query) {
+        return HazmatSearchResultDTO.builder()
                 .items(List.of())
                 .build();
     }

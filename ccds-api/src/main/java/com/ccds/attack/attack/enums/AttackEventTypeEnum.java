@@ -24,9 +24,29 @@ public enum AttackEventTypeEnum {
     REMEASURE("remeasure"),
 
     /**
+     * 暂停供气计时。
+     */
+    PAUSE("pause"),
+
+    /**
+     * 恢复供气计时。
+     */
+    RESUME("resume"),
+
+    /**
+     * 更新作业强度与场景。
+     */
+    CONTEXT("context"),
+
+    /**
      * 撤出。
      */
     WITHDRAW("withdraw"),
+
+    /**
+     * NFC 扫描撤出。
+     */
+    SCANOUT("scanout"),
 
     /**
      * 删除预录入或误录。

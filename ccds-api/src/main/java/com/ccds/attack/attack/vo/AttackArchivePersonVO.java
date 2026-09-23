@@ -45,6 +45,16 @@ public class AttackArchivePersonVO {
     private BigDecimal finalPressure;
 
     /**
+     * 撤出时估算剩余秒数。
+     */
+    private Integer remainSec;
+
+    /**
+     * 扣除暂停后的实际作业秒数。
+     */
+    private Integer elapsedSec;
+
+    /**
      * 入场时间。
      */
     private String enterTime;

@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 import com.ccds.attack.attack.constant.AttackRuleConstant;
 import com.ccds.attack.attack.entity.AttackPersonDO;
 import com.ccds.attack.attack.entity.StationSnapshotDO;
+import com.ccds.attack.attack.enums.AttackRiskStatusEnum;
 import com.ccds.attack.attack.enums.AttackStatusEnum;
 import com.ccds.attack.attack.vo.AttackPersonVO;
 import com.ccds.attack.attack.vo.AttackSnapshotVO;
@@ -61,8 +62,17 @@ public class AttackViewTranslator {
      */
     public AttackPersonVO toPersonVo(AttackPersonDO person, LocalDateTime now, boolean calibrated,
                                      BigDecimal personalK, ProfileDO profile) {
-        AttackStatusEnum status = AttackStatusEnum.fromCode(person.getStatus());
+        AttackStatusEnum lifecycle = AttackStatusEnum.fromCode(person.getStatus());
+        String riskStatus = person.getRuntimeStatus();
+        if (riskStatus == null) {
+            riskStatus = lifecycle == AttackStatusEnum.PENDING ? "pending"
+                    : lifecycle == AttackStatusEnum.OUT || lifecycle == AttackStatusEnum.SCANOUT ? "out" : "in";
+        }
+        BigDecimal pressure = person.getRuntimePressure() == null
+                ? person.getCurrentPressure() : person.getRuntimePressure();
         Integer elapsed = elapsedSec(person, now);
+        Integer remain = remainSecOf(riskStatus, person.getRemainSec());
+
         return AttackPersonVO.builder()
                 .id(person.getId())
                 .stationId(person.getStationId())
@@ -71,13 +81,21 @@ public class AttackViewTranslator {
                 .groupName(blankToUngrouped(person.getGroupName()))
                 .cylType(person.getCylType())
                 .initPressure(person.getInitPressure())
-                .currentPressure(person.getCurrentPressure())
+                .currentPressure(pressure)
+                .pressureAnchor(person.getCurrentPressure())
+                .manualPressureAt(person.getManualPressureAt())
                 .enteredAt(person.getEnteredAt())
                 .withdrawnAt(person.getWithdrawnAt())
+                .timerPausedAt(person.getTimerPausedAt())
+                .pausedSeconds(nz(person.getPausedSeconds()))
+                .pressurePausedSeconds(nz(person.getPressurePausedSeconds()))
                 .workLevel(person.getWorkLevel())
                 .scene(person.getScene())
-                .status(person.getStatus())
-                .remainSec(status != null && status.isInside() ? person.getRemainSec() : null)
+                .status(riskStatus)
+                .lifecycleStatus(person.getStatus())
+                .riskStatus(riskStatus)
+                .remainSec(remain)
+                .runtimeAt(now)
                 .elapsedSec(elapsed)
                 .temp(person.getProfileId() == null)
                 .calibrated(calibrated)
@@ -220,13 +238,21 @@ public class AttackViewTranslator {
         }
         LocalDateTime end = person.getWithdrawnAt() != null ? person.getWithdrawnAt() : now;
         long seconds = Duration.between(person.getEnteredAt(), end).getSeconds();
+        seconds -= nz(person.getPausedSeconds());
         if (seconds < 0L) {
             return 0;
         }
-        if (seconds > Integer.MAX_VALUE) {
-            return Integer.MAX_VALUE;
+        return seconds > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) seconds;
+    }
+
+    private Integer remainSecOf(String riskStatus, Integer remainSec) {
+        if ("pending".equals(riskStatus)) {
+            return Integer.valueOf(0);
         }
-        return (int) seconds;
+        if (AttackRiskStatusEnum.OUT.getCode().equals(riskStatus)) {
+            return null;
+        }
+        return remainSec;
     }
 
     private int nz(Integer value) {

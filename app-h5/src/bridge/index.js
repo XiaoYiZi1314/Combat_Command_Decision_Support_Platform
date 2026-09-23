@@ -7,6 +7,8 @@ const caps = {
   locate: false,
   heading: false,
   speak: false,
+  alarm: false,
+  vibrate: false,
   openUrl: false
 };
 
@@ -34,6 +36,8 @@ function applyCaps(next) {
   caps.locate = Boolean(src.locate);
   caps.heading = Boolean(src.heading);
   caps.speak = Boolean(src.speak);
+  caps.alarm = Boolean(src.alarm);
+  caps.vibrate = Boolean(src.vibrate);
   caps.openUrl = Boolean(src.openUrl);
   return caps;
 }
@@ -74,6 +78,10 @@ async function mockInvoke(method, payload) {
       return wrap(true, { lng: 123.95, lat: 47.35, source: 'mock' }, '');
     case 'speak':
       return wrap(true, { spoken: Boolean(payload && payload.text), source: 'mock' }, '');
+    case 'alarm':
+      return wrap(true, { played: true, source: 'mock' }, '');
+    case 'vibrate':
+      return wrap(true, { vibrated: true, source: 'mock' }, '');
     case 'openUrl':
       if (payload && payload.url) {
         window.open(payload.url, '_blank', 'noopener');
@@ -88,6 +96,8 @@ async function mockInvoke(method, payload) {
         locate: false,
         heading: false,
         speak: false,
+        alarm: false,
+        vibrate: false,
         openUrl: false,
         source: 'mock'
       }, '');
@@ -186,6 +196,12 @@ export const bridge = {
   },
   speak(text) {
     return invoke('speak', { text });
+  },
+  alarm(frequency, durationMs) {
+    return invoke('alarm', { frequency, durationMs });
+  },
+  vibrate(pattern) {
+    return invoke('vibrate', { pattern });
   },
   openUrl(url) {
     return invoke('openUrl', { url });

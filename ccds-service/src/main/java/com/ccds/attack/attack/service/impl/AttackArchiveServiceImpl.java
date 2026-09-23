@@ -1,5 +1,6 @@
 package com.ccds.attack.attack.service.impl;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -70,7 +71,7 @@ public class AttackArchiveServiceImpl implements AttackArchiveService {
     private static final List<String> EXPORT_HEADERS = List.of(
             "记录场次", "归档时间", "单位", "类型", "名称", "地点",
             "内攻组/编组", "姓名/编号", "入场时间", "入场空呼压力(MPa)",
-            "出场时间", "出场空呼压力(MPa)", "强度", "场景", "状态", "气瓶(L)");
+            "出场时间", "出场空呼压力(MPa)", "剩余时间(秒)", "已作业时间(秒)", "强度", "场景", "状态", "气瓶(L)");
 
     private static final List<String> STATS_HEADERS = List.of(
             "单位", "类型", "记录数", "累计人次");
@@ -103,7 +104,8 @@ public class AttackArchiveServiceImpl implements AttackArchiveService {
             throw new BizException(ErrorCodeConstant.ATTACK_ARCHIVE_INVALID, MSG_EMPTY);
         }
         for (AttackPersonDO person : persons) {
-            if (AttackStatusEnum.fromCode(person.getStatus()) != AttackStatusEnum.OUT) {
+            if (AttackStatusEnum.fromCode(person.getStatus()) != AttackStatusEnum.OUT
+                    && AttackStatusEnum.fromCode(person.getStatus()) != AttackStatusEnum.SCANOUT) {
                 throw new BizException(ErrorCodeConstant.ATTACK_ARCHIVE_NOT_WITHDRAWN, MSG_NOT_WITHDRAWN);
             }
         }
@@ -274,7 +276,7 @@ public class AttackArchiveServiceImpl implements AttackArchiveService {
         row.add(nz(archive.getEventName()));
         row.add(nz(archive.getLocation()));
         if (person == null) {
-            for (int i = 0; i < 10; i += 1) {
+            for (int i = 0; i < 12; i += 1) {
                 row.add("");
             }
             return row;
@@ -285,6 +287,8 @@ public class AttackArchiveServiceImpl implements AttackArchiveService {
         row.add(person.getInitPressure() == null ? "" : person.getInitPressure().toPlainString());
         row.add(nz(person.getExitTime()));
         row.add(person.getFinalPressure() == null ? "" : person.getFinalPressure().toPlainString());
+        row.add(person.getRemainSec() == null ? "" : String.valueOf(person.getRemainSec()));
+        row.add(person.getElapsedSec() == null ? "" : String.valueOf(person.getElapsedSec()));
         row.add(nz(person.getWorkLevel()));
         row.add(nz(person.getScene()));
         row.add(nz(person.getStatus()));
@@ -321,18 +325,34 @@ public class AttackArchiveServiceImpl implements AttackArchiveService {
     }
 
     private AttackArchivePersonVO toSnapshotPerson(AttackPersonDO person) {
+        int elapsedSec = elapsedSeconds(person.getEnteredAt(), person.getWithdrawnAt())
+                - nz(person.getPausedSeconds());
         return AttackArchivePersonVO.builder()
                 .name(person.getDisplayName())
                 .group(person.getGroupName())
                 .cylType(person.getCylType())
                 .initPressure(person.getInitPressure())
                 .finalPressure(person.getCurrentPressure())
+                .remainSec(person.getRemainSec())
+                .elapsedSec(Math.max(0, elapsedSec))
                 .enterTime(timeText(person.getEnteredAt()))
                 .exitTime(timeText(person.getWithdrawnAt()))
                 .workLevel(person.getWorkLevel())
                 .scene(person.getScene())
                 .status(person.getStatus())
                 .build();
+    }
+
+    private int elapsedSeconds(LocalDateTime start, LocalDateTime end) {
+        if (start == null || end == null || end.isBefore(start)) {
+            return 0;
+        }
+        long seconds = Duration.between(start, end).getSeconds();
+        return seconds > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) seconds;
+    }
+
+    private int nz(Integer value) {
+        return value == null ? 0 : value;
     }
 
     private AttackArchiveVO toVO(AttackArchiveDO archive, String stationName,

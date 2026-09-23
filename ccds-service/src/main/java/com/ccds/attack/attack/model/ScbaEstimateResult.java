@@ -25,7 +25,7 @@ public class ScbaEstimateResult {
     private BigDecimal currentPressure;
 
     /**
-     * 估算剩余秒。预录入 / 已撤出为空。
+     * 估算剩余秒。预录入为 0，已撤出为空。
      */
     private Integer remainSec;
 

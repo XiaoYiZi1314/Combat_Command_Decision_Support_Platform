@@ -50,6 +50,20 @@ function visibleStations() {
   return Array.isArray(me.visibleStations) ? me.visibleStations : [];
 }
 
+const WORK_LEVEL_OPTIONS = [
+  ['light', '低强度'],
+  ['moderate', '中强度'],
+  ['heavy', '高强度']
+];
+
+const SCENE_OPTIONS = [
+  ['flat', '平地'],
+  ['highrise', '高层'],
+  ['search', '搜救'],
+  ['large', '大跨度空间'],
+  ['dark', '黑暗']
+];
+
 function headSub(me, attack) {
   const stationName = (attack && attack.stationName) || me.stationName;
   const brigadeName = (attack && attack.brigadeName) || me.brigadeName;
@@ -84,7 +98,9 @@ export function renderAttackPage(root) {
     nfcReady: bridge.hasNfc(),
     syncing: false,
     flushPromise: null,
-    online: typeof navigator === 'undefined' ? true : navigator.onLine
+    online: typeof navigator === 'undefined' ? true : navigator.onLine,
+    riskInitialized: false,
+    riskAlertAt: {}
   };
 
   const head = el('div', 'attack-head');
@@ -125,13 +141,16 @@ export function renderAttackPage(root) {
   const quickBtn = el('button', 'btn-glass primary', '快速录入');
   const syncBtn = el('button', 'btn-glass accent', '云同步');
   const moreBtn = el('button', 'btn-glass', '更多功能');
+  const nfcBtn = el('button', 'btn-glass', state.nfcReady ? 'NFC扫描' : 'NFC不可用');
   const syncHint = el('div', 'sync-hint');
   quickBtn.type = 'button';
   syncBtn.type = 'button';
   moreBtn.type = 'button';
+  nfcBtn.type = 'button';
   actions.appendChild(quickBtn);
   actions.appendChild(syncBtn);
   actions.appendChild(moreBtn);
+  actions.appendChild(nfcBtn);
   page.appendChild(actions);
   page.appendChild(syncHint);
 
@@ -146,13 +165,18 @@ export function renderAttackPage(root) {
   page.appendChild(toast);
 
   const nfcBar = el('div', 'nfc-bar');
-  const nfcBtn = el('button', '', state.nfcReady ? '请进行NFC扫描' : '本机无 NFC，请用快速录入');
-  nfcBtn.type = 'button';
-  nfcBar.appendChild(nfcBtn);
-  const archiveBtn = el('button', 'nfc-archive-btn', '一键归档');
-  archiveBtn.type = 'button';
-  nfcBar.appendChild(archiveBtn);
+  const bulkWorkBtn = el('button', '', '全员强度');
+  const bulkSceneBtn = el('button', '', '全员场景');
+  const bulkEnterBtn = el('button', '', '全员入场');
+  const archiveBtn = el('button', '', '归档');
+  [bulkWorkBtn, bulkSceneBtn, bulkEnterBtn, archiveBtn].forEach((button) => {
+    button.type = 'button';
+    nfcBar.appendChild(button);
+  });
   page.appendChild(nfcBar);
+
+  const bulkPanel = el('div', 'bulk-panel');
+  page.appendChild(bulkPanel);
 
   /* buildDrawer 返回的 fragment 内含 .drawer-mask 与 aside.drawer，直接挂 page，避免双层嵌套 */
   const drawerRoot = el('div', 'drawer-root');
@@ -188,10 +212,12 @@ export function renderAttackPage(root) {
   }
 
   function renderCards() {
+    const persons = currentPersons();
+    announceRiskTransitions(persons);
     paintPeopleAndGroups({
       peoplePage,
       groupPage,
-      persons: currentPersons(),
+      persons,
       filter: state.filter,
       stationName: (state.attack && state.attack.stationName) || '本站',
       focusId: state.focusId,
@@ -199,8 +225,39 @@ export function renderAttackPage(root) {
     });
   }
 
+  function announceRiskTransitions(persons) {
+    const now = Date.now();
+    if (!state.riskInitialized) {
+      persons.forEach((person) => { state.riskAlertAt[String(person.id)] = person.liveStatus; });
+      state.riskInitialized = true;
+      return;
+    }
+    persons.forEach((person) => {
+      const id = String(person.id);
+      const previous = state.riskAlertAt[id];
+      state.riskAlertAt[id] = person.liveStatus;
+      if (!previous || previous === person.liveStatus
+          || (person.liveStatus !== 'warn' && person.liveStatus !== 'danger')) {
+        return;
+      }
+      const lastAlert = Number(state.riskAlertAt[`${id}:alertAt`] || 0);
+      if (now - lastAlert < 45000) {
+        return;
+      }
+      state.riskAlertAt[`${id}:alertAt`] = now;
+      const frequency = person.liveStatus === 'danger' ? 1800 : 1200;
+      bridge.alarm(frequency, 700).catch(() => {});
+      bridge.vibrate([0, 250, 120, 250]).catch(() => {});
+      if (getScbaSettings().voiceEnabled) {
+        bridge.speak(`${person.displayName || '内攻人员'}气瓶压力${person.liveStatus === 'danger' ? '危险' : '预警'}，当前${Number(person.livePressure || 0).toFixed(1)}兆帕`).catch(() => {});
+      }
+    });
+  }
   function renderCard(person) {
     const card = paintPersonCard(person, state.focusId);
+    if (person.liveStatus !== 'out') {
+      card.appendChild(contextControls(person));
+    }
     if (!writableStation) {
       return card;
     }
@@ -224,6 +281,16 @@ export function renderAttackPage(root) {
       actionsRow.appendChild(enter);
       actionsRow.appendChild(del);
     } else if (person.liveStatus !== 'out') {
+      const paused = Boolean(person.timerPausedAt);
+      const timerButton = el('button', 'btn-card btn-update', paused ? '恢复计时' : '暂停计时');
+      timerButton.type = 'button';
+      timerButton.addEventListener('click', () => submit({
+        eventId: newEventId(),
+        type: paused ? 'resume' : 'pause',
+        personId: person.id,
+        clientUpdatedAt: person.gmtModified || null
+      }, paused ? `${person.displayName} 已恢复计时` : `${person.displayName} 已暂停计时`));
+      actionsRow.appendChild(timerButton);
       const update = el('button', 'btn-card btn-update', '复测压力');
       update.type = 'button';
       update.addEventListener('click', () => {
@@ -250,6 +317,41 @@ export function renderAttackPage(root) {
       card.appendChild(updatePanel(person));
     }
     return card;
+  }
+
+  function contextControls(person) {
+    const row = el('div', 'work-context');
+    const work = selectControl('强度', WORK_LEVEL_OPTIONS,
+      person.workLevel || getScbaSettings().defaultWorkLevel);
+    const scene = selectControl('场景', SCENE_OPTIONS, person.scene || 'flat');
+    const changed = () => submit({
+      eventId: newEventId(),
+      type: 'context',
+      personId: person.id,
+      workLevel: work.input.value,
+      scene: scene.input.value,
+      clientUpdatedAt: person.gmtModified || null
+    }, `${person.displayName} 的作业参数已更新`);
+    work.input.addEventListener('change', changed);
+    scene.input.addEventListener('change', changed);
+    row.appendChild(work.row);
+    row.appendChild(scene.row);
+    return row;
+  }
+
+  function selectControl(label, options, value) {
+    const row = el('label', 'context-field');
+    row.appendChild(el('span', '', label));
+    const input = document.createElement('select');
+    options.forEach((item) => {
+      const option = el('option', '', item[1]);
+      option.value = item[0];
+      input.appendChild(option);
+    });
+    input.value = value;
+    input.disabled = !writableStation;
+    row.appendChild(input);
+    return { row, input };
   }
 
   function pressureControl(id, value) {
@@ -339,6 +441,99 @@ export function renderAttackPage(root) {
       return;
     }
     quick.classList.remove('show');
+  }
+
+  function setBulk(open, kind) {
+    if (!open) {
+      bulkPanel.classList.remove('show');
+      return;
+    }
+    renderBulk(kind);
+    bulkPanel.classList.add('show');
+  }
+
+  function renderBulk(kind) {
+    bulkPanel.innerHTML = '';
+    const head = el('div', 'bulk-head');
+    head.appendChild(el('h2', '', kind === 'work' ? '统一设置强度' : kind === 'scene' ? '统一设置场景' : '全员入场'));
+    const close = el('button', 'bulk-close', '×');
+    close.type = 'button';
+    close.addEventListener('click', () => setBulk(false));
+    head.appendChild(close);
+    bulkPanel.appendChild(head);
+    const body = el('div', 'bulk-body');
+    const people = currentPersons().filter((person) => person.liveStatus !== 'out');
+    const pending = people.filter((person) => person.liveStatus === 'pending');
+    if (kind === 'enter') {
+      body.appendChild(el('p', 'bulk-help', pending.length
+        ? `将让 ${pending.length} 名预录入人员按当前压力和参数入场`
+        : '当前没有可入场的预录入人员'));
+    } else {
+      const options = kind === 'work' ? WORK_LEVEL_OPTIONS : SCENE_OPTIONS;
+      const field = selectControl(kind === 'work' ? '统一强度' : '统一场景', options,
+        kind === 'work' ? getScbaSettings().defaultWorkLevel : 'flat');
+      body.appendChild(field.row);
+      body.appendChild(el('p', 'bulk-help', `将应用到 ${people.length} 名未撤出人员，包含预录入人员`));
+      const apply = el('button', 'bulk-confirm', '应用到全员');
+      apply.type = 'button';
+      apply.addEventListener('click', () => applyBulkContext(kind, field.input.value));
+      body.appendChild(apply);
+    }
+    if (kind === 'enter') {
+      const enter = el('button', 'bulk-confirm', '确认全员入场');
+      enter.type = 'button';
+      enter.disabled = pending.length === 0;
+      enter.addEventListener('click', enterAll);
+      body.appendChild(enter);
+    }
+    bulkPanel.appendChild(body);
+  }
+
+  async function applyBulkContext(kind, value) {
+    const people = currentPersons().filter((person) => person.liveStatus !== 'out');
+    if (!people.length) {
+      showToast('暂无可调整人员');
+      setBulk(false);
+      return;
+    }
+    for (const person of people) {
+      await submit({
+        eventId: newEventId(),
+        type: 'context',
+        personId: person.id,
+        workLevel: kind === 'work' ? value : (person.workLevel || getScbaSettings().defaultWorkLevel),
+        scene: kind === 'scene' ? value : (person.scene || 'flat'),
+        clientUpdatedAt: person.gmtModified || null
+      });
+    }
+    setBulk(false);
+    showToast(`已更新 ${people.length} 名人员的${kind === 'work' ? '强度' : '场景'}`);
+  }
+
+  async function enterAll() {
+    const pending = currentPersons().filter((person) => person.liveStatus === 'pending');
+    if (!pending.length) {
+      showToast('暂无预录入人员');
+      setBulk(false);
+      return;
+    }
+    if (!window.confirm(`确认让 ${pending.length} 名人员全部入场？`)) {
+      return;
+    }
+    for (const person of pending) {
+      await submit({
+        eventId: newEventId(),
+        type: 'enter',
+        personId: person.id,
+        pressure: Number(person.currentPressure || person.initPressure || SCBA.defaultPressure),
+        cylType: person.cylType || '6.8',
+        workLevel: person.workLevel || getScbaSettings().defaultWorkLevel,
+        scene: person.scene || 'flat',
+        clientUpdatedAt: person.gmtModified || null
+      });
+    }
+    setBulk(false);
+    showToast(`已让 ${pending.length} 名人员入场`);
   }
 
   function bindQuickHandle(handle) {
@@ -569,7 +764,13 @@ export function renderAttackPage(root) {
         workLevel: body.workLevel || getScbaSettings().defaultWorkLevel,
         scene: body.scene || 'flat',
         status: 'pending',
-        remainSec: null,
+        lifecycleStatus: 'pending',
+        pressureAnchor: body.pressure,
+        manualPressureAt: null,
+        timerPausedAt: null,
+        pausedSeconds: 0,
+        pressurePausedSeconds: 0,
+        remainSec: 0,
         elapsedSec: 0,
         temp: !body.profileId,
         calibrated: false,
@@ -588,16 +789,47 @@ export function renderAttackPage(root) {
     }
     const next = Object.assign({}, persons[idx]);
     if (body.type === 'enter') {
+      const enteredAt = new Date().toISOString();
       next.status = 'in';
-      next.enteredAt = new Date().toISOString();
+      next.lifecycleStatus = 'in';
+      next.enteredAt = enteredAt;
       next.currentPressure = body.pressure;
       next.initPressure = body.pressure;
+      next.pressureAnchor = body.pressure;
+      next.manualPressureAt = enteredAt;
+      next.timerPausedAt = null;
+      next.pausedSeconds = 0;
+      next.pressurePausedSeconds = 0;
+      next.workLevel = body.workLevel || next.workLevel || getScbaSettings().defaultWorkLevel;
+      next.scene = body.scene || next.scene || 'flat';
       next.cylType = body.cylType || next.cylType;
+    } else if (body.type === 'context') {
+      next.workLevel = body.workLevel || next.workLevel || getScbaSettings().defaultWorkLevel;
+      next.scene = body.scene || next.scene || 'flat';
+      next.gmtModified = new Date().toISOString();
     } else if (body.type === 'remeasure') {
       next.currentPressure = body.pressure;
+      next.pressureAnchor = body.pressure;
+      next.manualPressureAt = new Date().toISOString();
+      next.pressurePausedSeconds = 0;
       next.gmtModified = new Date().toISOString();
-    } else if (body.type === 'withdraw') {
+    } else if (body.type === 'pause') {
+      next.timerPausedAt = new Date().toISOString();
+    } else if (body.type === 'resume') {
+      const pausedAt = next.timerPausedAt ? new Date(next.timerPausedAt).getTime() : Date.now();
+      const pauseSeconds = Math.max(0, Math.floor((Date.now() - pausedAt) / 1000));
+      next.pausedSeconds = Number(next.pausedSeconds || 0) + pauseSeconds;
+      next.pressurePausedSeconds = Number(next.pressurePausedSeconds || 0) + pauseSeconds;
+      next.timerPausedAt = null;
+    } else if (body.type === 'withdraw' || body.type === 'scanout') {
+      const pausedAt = next.timerPausedAt ? new Date(next.timerPausedAt).getTime() : 0;
+      if (pausedAt) {
+        const pauseSeconds = Math.max(0, Math.floor((Date.now() - pausedAt) / 1000));
+        next.pausedSeconds = Number(next.pausedSeconds || 0) + pauseSeconds;
+        next.pressurePausedSeconds = Number(next.pressurePausedSeconds || 0) + pauseSeconds;
+      }
       next.status = 'out';
+      next.lifecycleStatus = body.type === 'scanout' ? 'scanout' : 'out';
       next.withdrawnAt = new Date().toISOString();
     } else if (body.type === 'delete') {
       persons.splice(idx, 1);
@@ -884,18 +1116,24 @@ export function renderAttackPage(root) {
       return;
     }
     const existing = currentPersons().find((p) => String(p.profileId) === String(matched.id) && p.liveStatus !== 'out');
-    if (existing && existing.liveStatus === 'pending') {
-      state.openEnterId = existing.id;
-      state.openUpdateId = '';
-      renderCards();
-      showToast(`${matched.name} 已预录入，请确认入场`);
-      return;
-    }
     if (existing) {
-      state.openUpdateId = existing.id;
-      state.openEnterId = '';
-      renderCards();
-      showToast(`${matched.name} 已在场，请复测`);
+      if (existing.liveStatus === 'pending') {
+        state.openEnterId = existing.id;
+        state.openUpdateId = '';
+        renderCards();
+        showToast(`${matched.name} 已预录入，请确认入场`);
+        return;
+      }
+      if (existing.liveStatus === 'out') {
+        return;
+      }
+      await submit({
+        eventId: newEventId(),
+        type: 'scanout',
+        personId: existing.id,
+        nfcTag: tag,
+        clientUpdatedAt: existing.gmtModified || null
+      }, `${matched.name} 已扫码撤出`);
       return;
     }
     const pressure = Number(matched.morningPressure || SCBA.defaultPressure);
@@ -930,6 +1168,22 @@ export function renderAttackPage(root) {
       pressure,
       cylType
     }, `${matched.name} 已预录入`);
+  });
+
+  bulkWorkBtn.addEventListener('click', () => {
+    if (writableStation) {
+      setBulk(true, 'work');
+    }
+  });
+  bulkSceneBtn.addEventListener('click', () => {
+    if (writableStation) {
+      setBulk(true, 'scene');
+    }
+  });
+  bulkEnterBtn.addEventListener('click', () => {
+    if (writableStation) {
+      setBulk(true, 'enter');
+    }
   });
 
   archiveBtn.addEventListener('click', async () => {
@@ -1007,6 +1261,7 @@ export function renderAttackPage(root) {
 
   if (!writableStation) {
     quickBtn.style.display = 'none';
+    nfcBtn.style.display = 'none';
     nfcBar.style.display = 'none';
   }
 
@@ -1055,6 +1310,10 @@ export function renderAttackPage(root) {
     }
     if (drawer.classList.contains('show')) {
       setDrawer(false);
+      return true;
+    }
+    if (bulkPanel.classList.contains('show')) {
+      setBulk(false);
       return true;
     }
     return !confirmLeaveMain();

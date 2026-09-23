@@ -9,6 +9,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 import com.ccds.attack.attack.constant.AttackRuleConstant;
+import com.ccds.attack.attack.enums.AttackRiskStatusEnum;
 import com.ccds.attack.attack.enums.AttackSceneEnum;
 import com.ccds.attack.attack.enums.AttackStatusEnum;
 import com.ccds.attack.attack.enums.WorkLevelEnum;
@@ -44,11 +45,11 @@ public class ScbaEstimateServiceImpl implements ScbaEstimateService {
         if (status == AttackStatusEnum.PENDING || safe.getEnteredAt() == null) {
             return ScbaEstimateResult.builder()
                     .currentPressure(measured)
-                    .remainSec(null)
+                    .remainSec(0)
                     .personalK(personalK)
                     .build();
         }
-        if (status == AttackStatusEnum.OUT) {
+        if (status == AttackStatusEnum.OUT || status == AttackStatusEnum.SCANOUT) {
             return ScbaEstimateResult.builder()
                     .currentPressure(measured)
                     .remainSec(null)
@@ -100,25 +101,25 @@ public class ScbaEstimateServiceImpl implements ScbaEstimateService {
      * {@inheritDoc}
      */
     @Override
-    public AttackStatusEnum resolveStatus(AttackStatusEnum current, BigDecimal pressure, Integer remainSec,
-                                          LocalDateTime now, LocalDateTime enteredAt, LocalDateTime withdrawnAt) {
-        if (withdrawnAt != null || current == AttackStatusEnum.OUT) {
-            return AttackStatusEnum.OUT;
+    public AttackRiskStatusEnum resolveStatus(AttackStatusEnum current, BigDecimal pressure, Integer remainSec,
+                                               LocalDateTime now, LocalDateTime enteredAt, LocalDateTime withdrawnAt) {
+        if (withdrawnAt != null || current == AttackStatusEnum.OUT || current == AttackStatusEnum.SCANOUT) {
+            return AttackRiskStatusEnum.OUT;
         }
         if (current == AttackStatusEnum.PENDING || enteredAt == null) {
-            return AttackStatusEnum.PENDING;
+            return AttackRiskStatusEnum.OUT;
         }
         BigDecimal currentPressure = pressure == null ? BigDecimal.ZERO : pressure;
         int remain = remainSec == null ? 0 : remainSec;
         if (currentPressure.compareTo(AttackRuleConstant.DANGER_PRESSURE) <= 0
                 || remain <= AttackRuleConstant.DANGER_TIME_SEC) {
-            return AttackStatusEnum.DANGER;
+            return AttackRiskStatusEnum.DANGER;
         }
         if (currentPressure.compareTo(AttackRuleConstant.WARN_PRESSURE) <= 0
                 || remain <= AttackRuleConstant.WARN_TIME_SEC) {
-            return AttackStatusEnum.WARN;
+            return AttackRiskStatusEnum.WARN;
         }
-        return AttackStatusEnum.IN;
+        return AttackRiskStatusEnum.IN;
     }
 
     private BigDecimal formulaRate(ScbaEstimateQuery query) {
@@ -296,7 +297,7 @@ public class ScbaEstimateServiceImpl implements ScbaEstimateService {
     }
 
     private BigDecimal elapsedMinutes(ScbaEstimateQuery query) {
-        LocalDateTime now = query.getNow();
+        LocalDateTime now = effectiveNow(query);
         LocalDateTime anchor = query.getMeasuredAt();
         if (anchor == null || (query.getEnteredAt() != null && query.getEnteredAt().isAfter(anchor))) {
             anchor = query.getEnteredAt();
@@ -308,7 +309,18 @@ public class ScbaEstimateServiceImpl implements ScbaEstimateService {
         if (millis <= 0L) {
             return BigDecimal.ZERO;
         }
-        return BigDecimal.valueOf(millis).divide(MILLIS_PER_MINUTE, SCALE, RoundingMode.HALF_UP);
+        BigDecimal elapsed = BigDecimal.valueOf(millis).divide(MILLIS_PER_MINUTE, SCALE, RoundingMode.HALF_UP);
+        BigDecimal paused = BigDecimal.valueOf(Math.max(0, query.getPressurePausedSeconds() == null
+                ? 0 : query.getPressurePausedSeconds())).divide(BigDecimal.valueOf(60), SCALE, RoundingMode.HALF_UP);
+        BigDecimal result = elapsed.subtract(paused);
+        return result.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : result;
+    }
+
+    private LocalDateTime effectiveNow(ScbaEstimateQuery query) {
+        if (query.getTimerPausedAt() != null) {
+            return query.getTimerPausedAt();
+        }
+        return query.getNow();
     }
 
     private BigDecimal cylVolume(String cylType) {

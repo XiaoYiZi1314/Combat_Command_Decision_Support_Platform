@@ -22,21 +22,32 @@ export function el(tag, className, text) {
 
 export function livePerson(person, nowMs) {
   const copy = Object.assign({}, person);
-  const entered = copy.enteredAt ? new Date(copy.enteredAt).getTime() : 0;
-  if (copy.status === 'out' || copy.status === 'pending' || !entered) {
-    copy.liveRemain = null;
+  const lifecycle = copy.lifecycleStatus || copy.status;
+  if (lifecycle === 'out' || lifecycle === 'scanout' || lifecycle === 'pending' || !copy.enteredAt) {
+    copy.liveRemain = lifecycle === 'pending' ? 0 : null;
     copy.liveElapsed = 0;
-    copy.livePressure = Number(copy.currentPressure || copy.initPressure || 0);
-    copy.liveStatus = copy.status || 'pending';
+    copy.livePressure = Number(copy.pressureAnchor != null
+      ? copy.pressureAnchor : (copy.currentPressure || copy.initPressure || 0));
+    copy.liveStatus = lifecycle === 'pending' ? 'pending' : 'out';
     return copy;
   }
-  const elapsedSec = Math.max(0, Math.floor((nowMs - entered) / 1000));
   const estimated = estimateNow(copy, nowMs);
-  copy.liveElapsed = elapsedSec;
+  copy.liveElapsed = Math.max(0, Math.floor(elapsedSeconds(copy, nowMs)));
   copy.livePressure = estimated.pressure;
   copy.liveRemain = estimated.remainSec;
-  copy.liveStatus = resolveStatus(copy.status, copy.livePressure, copy.liveRemain);
+  copy.liveStatus = resolveStatus('in', copy.livePressure, copy.liveRemain);
   return copy;
+}
+
+function elapsedSeconds(person, nowMs) {
+  const enteredMs = person.enteredAt ? new Date(person.enteredAt).getTime() : 0;
+  if (!Number.isFinite(enteredMs) || !enteredMs) {
+    return 0;
+  }
+  const pausedAtMs = person.timerPausedAt ? new Date(person.timerPausedAt).getTime() : 0;
+  const effectiveNow = pausedAtMs > 0 ? Math.min(nowMs, pausedAtMs) : nowMs;
+  const paused = Math.max(0, Number(person.pausedSeconds || 0));
+  return Math.max(0, (effectiveNow - enteredMs) / 1000 - paused);
 }
 
 export function livePersons(attack, nowMs) {
@@ -112,7 +123,7 @@ export function paintPersonCard(person, focusId) {
     ? 'c-danger'
     : (remain != null && remain <= settings.warnTimeMin * SCBA.secondsPerMinute ? 'c-warn' : 'c-ok');
   metrics.appendChild(metric('当前压力', pressure.toFixed(1), 'MPa', pCls));
-  metrics.appendChild(metric('剩余时间', person.liveStatus === 'pending' || person.liveStatus === 'out' ? '--' : fmtMinSec(remain), '', rCls));
+  metrics.appendChild(metric('剩余时间', person.liveStatus === 'out' ? '--' : fmtMinSec(remain), '', rCls));
   metrics.appendChild(metric('已作业', person.liveStatus === 'pending' ? '--' : fmtElapsed(person.liveElapsed), '', 'c-ok'));
   card.appendChild(metrics);
 

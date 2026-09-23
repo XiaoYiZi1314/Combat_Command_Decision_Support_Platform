@@ -12,12 +12,17 @@
         <result column="cyl_type" property="cylType"/>
         <result column="init_pressure" property="initPressure"/>
         <result column="current_pressure" property="currentPressure"/>
+        <result column="manual_pressure_at" property="manualPressureAt"/>
         <result column="entered_at" property="enteredAt"/>
         <result column="withdrawn_at" property="withdrawnAt"/>
+        <result column="timer_paused_at" property="timerPausedAt"/>
+        <result column="paused_seconds" property="pausedSeconds"/>
+        <result column="pressure_paused_seconds" property="pressurePausedSeconds"/>
         <result column="work_level" property="workLevel"/>
         <result column="scene" property="scene"/>
         <result column="status" property="status"/>
         <result column="remain_sec" property="remainSec"/>
+        <result column="remain_anchor_sec" property="remainAnchorSec"/>
         <result column="client_event_id" property="clientEventId"/>
         <result column="gmt_create" property="gmtCreate"/>
         <result column="gmt_modified" property="gmtModified"/>
@@ -25,7 +30,8 @@
 
     <sql id="AttackPersonColumns">
         id, station_id, profile_id, display_name, group_name, cyl_type, init_pressure, current_pressure,
-        entered_at, withdrawn_at, work_level, scene, status, remain_sec, client_event_id, gmt_create, gmt_modified
+        manual_pressure_at, entered_at, withdrawn_at, timer_paused_at, paused_seconds, pressure_paused_seconds, work_level, scene,
+        status, remain_sec, remain_anchor_sec, client_event_id, gmt_create, gmt_modified
     </sql>
 
     <select id="selectById" resultMap="AttackPersonResultMap">
@@ -50,10 +56,10 @@
         WHERE station_id = #{stationId}
         ORDER BY CASE WHEN withdrawn_at IS NULL THEN 0 ELSE 1 END ASC,
                  CASE status
-                     WHEN 'danger' THEN 0
-                     WHEN 'warn' THEN 1
-                     WHEN 'in' THEN 2
-                     WHEN 'pending' THEN 3
+                     WHEN 'in' THEN 0
+                     WHEN 'pending' THEN 1
+                     WHEN 'scanout' THEN 2
+                     WHEN 'out' THEN 3
                      ELSE 4
                  END ASC,
                  id ASC
@@ -83,10 +89,12 @@
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO ccds_attack_person
             (station_id, profile_id, display_name, group_name, cyl_type, init_pressure, current_pressure,
-             entered_at, withdrawn_at, work_level, scene, status, remain_sec, client_event_id, gmt_create, gmt_modified)
+             manual_pressure_at, entered_at, withdrawn_at, timer_paused_at, paused_seconds, pressure_paused_seconds, work_level, scene,
+             status, remain_sec, remain_anchor_sec, client_event_id, gmt_create, gmt_modified)
         VALUES
             (#{stationId}, #{profileId}, #{displayName}, #{groupName}, #{cylType}, #{initPressure}, #{currentPressure},
-             #{enteredAt}, #{withdrawnAt}, #{workLevel}, #{scene}, #{status}, #{remainSec}, #{clientEventId},
+             #{manualPressureAt}, #{enteredAt}, #{withdrawnAt}, #{timerPausedAt}, #{pausedSeconds}, #{pressurePausedSeconds}, #{workLevel},
+             #{scene}, #{status}, #{remainSec}, #{remainAnchorSec}, #{clientEventId},
              #{gmtCreate}, #{gmtModified})
     </insert>
 
@@ -95,12 +103,17 @@
         SET cyl_type = #{cylType},
             init_pressure = #{initPressure},
             current_pressure = #{currentPressure},
+            manual_pressure_at = #{manualPressureAt},
             entered_at = #{enteredAt},
             withdrawn_at = #{withdrawnAt},
+            timer_paused_at = #{timerPausedAt},
+            paused_seconds = #{pausedSeconds},
+            pressure_paused_seconds = #{pressurePausedSeconds},
             work_level = #{workLevel},
             scene = #{scene},
             status = #{status},
             remain_sec = #{remainSec},
+            remain_anchor_sec = #{remainAnchorSec},
             client_event_id = #{clientEventId},
             gmt_modified = #{gmtModified}
         WHERE id = #{id}

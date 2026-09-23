@@ -4,8 +4,14 @@ import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.location.Location;
+import android.media.AudioManager;
+import android.media.ToneGenerator;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.provider.MediaStore;
 import android.speech.tts.TextToSpeech;
 import android.webkit.JavascriptInterface;
@@ -113,6 +119,10 @@ public final class CcdsJsBridge {
                 return locate();
             case "speak":
                 return speak(payloadJson);
+            case "alarm":
+                return alarm(payloadJson);
+            case "vibrate":
+                return vibrate(payloadJson);
             case "openUrl":
                 return openUrl(payloadJson);
             case "getVersion":
@@ -134,6 +144,8 @@ public final class CcdsJsBridge {
         put(data, "locate", true);
         put(data, "heading", headingStore.available());
         put(data, "speak", true);
+        put(data, "alarm", true);
+        put(data, "vibrate", true);
         put(data, "openUrl", true);
         put(data, "source", "android");
         return data;
@@ -178,6 +190,47 @@ public final class CcdsJsBridge {
         put(data, "lat", loc.getLatitude());
         put(data, "source", "android");
         return BridgeJson.ok(data);
+    }
+
+    private String alarm(String payloadJson) {
+        int frequency = readInt(payloadJson, "frequency", 1200);
+        int durationMs = Math.max(100, Math.min(5000, readInt(payloadJson, "durationMs", 700)));
+        int tone = frequency >= 1600 ? ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD : ToneGenerator.TONE_PROP_BEEP;
+        ToneGenerator generator = new ToneGenerator(AudioManager.STREAM_ALARM, 90);
+        generator.startTone(tone, durationMs);
+        new Handler(Looper.getMainLooper()).postDelayed(generator::release, durationMs + 100L);
+        activity.runOnUiThread(() -> activity.getWindow().getDecorView().performHapticFeedback(
+                android.view.HapticFeedbackConstants.LONG_PRESS));
+        JSONObject data = new JSONObject();
+        put(data, "played", true);
+        put(data, "source", "android");
+        return BridgeJson.ok(data);
+    }
+
+    private String vibrate(String payloadJson) {
+        Vibrator vibrator = (Vibrator) activity.getSystemService(Activity.VIBRATOR_SERVICE);
+        if (vibrator == null || !vibrator.hasVibrator()) {
+            return BridgeJson.fail(UNSUPPORTED);
+        }
+        long durationMs = Math.max(50L, Math.min(5000L, readInt(payloadJson, "durationMs", 500)));
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator.vibrate(VibrationEffect.createOneShot(durationMs, VibrationEffect.DEFAULT_AMPLITUDE));
+        } else {
+            vibrator.vibrate(durationMs);
+        }
+        JSONObject data = new JSONObject();
+        put(data, "vibrated", true);
+        put(data, "source", "android");
+        return BridgeJson.ok(data);
+    }
+
+    private int readInt(String payloadJson, String key, int fallback) {
+        try {
+            JSONObject payload = payloadJson == null ? new JSONObject() : new JSONObject(payloadJson);
+            return payload.optInt(key, fallback);
+        } catch (JSONException ex) {
+            return fallback;
+        }
     }
 
     private String speak(String payloadJson) {
