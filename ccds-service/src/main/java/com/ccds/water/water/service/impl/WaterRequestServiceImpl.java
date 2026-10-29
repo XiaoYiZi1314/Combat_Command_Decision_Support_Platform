@@ -77,6 +77,8 @@ public class WaterRequestServiceImpl implements WaterRequestService {
 
     private static final String STATUS_REJECTED = "rejected";
 
+    private static final String MSG_OUTDATED = "水源已被修改或删除，请撤回旧申请并重新提交";
+
     private final AccountMapper accountMapper;
 
     private final WaterSourceMapper waterSourceMapper;
@@ -193,6 +195,17 @@ public class WaterRequestServiceImpl implements WaterRequestService {
             throw new BizException(ErrorCodeConstant.WATER_REQUEST_INVALID, MSG_REQUEST_PROCESSED);
         }
         boolean approve = Boolean.TRUE.equals(command.getApprove());
+        WaterSourceDO lockedWater = null;
+        if (approve && (ACTION_MODIFY.equals(request.getAction())
+                || ACTION_DELETE.equals(request.getAction()))) {
+            // 锁定行，比较提交申请时的原始快照；不能让旧审批覆盖新变更。
+            lockedWater = waterSourceMapper.selectAliveByIdForUpdate(request.getWaterId());
+            if (lockedWater == null || !stationId.equals(lockedWater.getStationId())
+                    || request.getBeforeJson() == null
+                    || !request.getBeforeJson().equals(writeJson(toCommand(lockedWater)))) {
+                throw new BizException(ErrorCodeConstant.WATER_REQUEST_INVALID, MSG_OUTDATED);
+            }
+        }
         LocalDateTime now = LocalDateTime.now();
         int affected = waterRequestMapper.reviewCas(requestId, STATUS_PENDING,
                 approve ? STATUS_APPROVED : STATUS_REJECTED,
@@ -201,7 +214,7 @@ public class WaterRequestServiceImpl implements WaterRequestService {
             throw new BizException(ErrorCodeConstant.WATER_REQUEST_INVALID, MSG_REQUEST_PROCESSED);
         }
         if (approve) {
-            applyApproved(request, account.getId());
+            applyApproved(request, account.getId(), lockedWater);
         }
         request.setStatus(approve ? STATUS_APPROVED : STATUS_REJECTED);
         request.setReviewerName(account.getUsername());
@@ -236,14 +249,11 @@ public class WaterRequestServiceImpl implements WaterRequestService {
      * @param request    申请
      * @param operatorId 审批人账号主键
      */
-    private void applyApproved(WaterRequestDO request, Long operatorId) {
+    private void applyApproved(WaterRequestDO request, Long operatorId, WaterSourceDO lockedWater) {
         Long stationId = request.getStationId();
         if (ACTION_DELETE.equals(request.getAction())) {
-            WaterSourceDO water = waterSourceMapper.selectAliveById(request.getWaterId());
-            if (water != null) {
-                waterService.softDeleteWithTombstone(water, operatorId,
-                        WaterServiceImpl.SOURCE_APPROVAL);
-            }
+            waterService.softDeleteWithTombstone(lockedWater, operatorId,
+                    WaterServiceImpl.SOURCE_APPROVAL);
             return;
         }
         WaterSaveCommand item = readJson(request.getItemJson());
@@ -252,12 +262,8 @@ public class WaterRequestServiceImpl implements WaterRequestService {
         }
         LocalDateTime now = LocalDateTime.now();
         if (ACTION_MODIFY.equals(request.getAction())) {
-            WaterSourceDO water = waterSourceMapper.selectAliveById(request.getWaterId());
-            if (water == null) {
-                throw new BizException(ErrorCodeConstant.WATER_NOT_FOUND, MSG_WATER_MISSING);
-            }
-            waterService.applyCommand(water, stationId, item, now);
-            waterSourceMapper.update(water);
+            waterService.applyCommand(lockedWater, stationId, item, now);
+            waterSourceMapper.update(lockedWater);
             return;
         }
         WaterSourceDO water = waterService.applyCommand(new WaterSourceDO(), stationId, item, now);

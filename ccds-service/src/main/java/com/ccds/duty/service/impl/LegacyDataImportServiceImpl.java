@@ -123,6 +123,8 @@ public class LegacyDataImportServiceImpl implements LegacyDataImportService {
 
     private static final Pattern NFC_PATTERN = Pattern.compile("^[0-9A-F]{8,32}$");
 
+    private static final Pattern NAME_TRIM = Pattern.compile("[\\s\\n\\r　]");
+
     private static final Set<String> WORK_LEVELS = Set.of("light", "moderate", "heavy");
 
     private static final Set<String> SCENES = Set.of("flat", "highrise", "dark", "large", "search");
@@ -282,6 +284,7 @@ public class LegacyDataImportServiceImpl implements LegacyDataImportService {
         loadExistingDutyDays(context);
         loadExistingCalibrations(context);
         loadExistingTombstones(context);
+        prepareProtectedProfiles(context, payload);
         importProfiles(context, payload);
         importGroups(context, payload);
         importDutyDays(context, payload);
@@ -329,11 +332,60 @@ public class LegacyDataImportServiceImpl implements LegacyDataImportService {
         for (ProfileTombstoneDO tombstone : profileTombstoneMapper.selectByStationId(context.stationId)) {
             if (tombstone.getLegacyProfileId() != null) {
                 context.tombstoneKeys.add(DELETED_KEY_ID_PREFIX + tombstone.getLegacyProfileId());
+                if (tombstone.getArchiveReleasedAt() == null) {
+                    context.protectedKeys.add(DELETED_KEY_ID_PREFIX + tombstone.getLegacyProfileId());
+                }
             }
             if (tombstone.getNfcNorm() != null) {
                 context.tombstoneKeys.add(DELETED_KEY_NFC_PREFIX + tombstone.getNfcNorm());
+                if (tombstone.getNfcReleasedAt() == null) {
+                    context.protectedKeys.add(DELETED_KEY_NFC_PREFIX + tombstone.getNfcNorm());
+                }
+            }
+            if (tombstone.getNameNorm() != null && tombstone.getNameReleasedAt() == null) {
+                context.protectedNames.add(normalizeLegacyName(tombstone.getNameNorm()));
             }
         }
+    }
+
+    private void prepareProtectedProfiles(StationContext context, LegacyStationPayload payload) {
+        for (String key : payload.deletedKeys == null ? List.<String>of() : payload.deletedKeys) {
+            if (key == null) {
+                continue;
+            }
+            if (key.startsWith(DELETED_KEY_ID_PREFIX)) {
+                context.protectedKeys.add(key.trim());
+            } else if (key.startsWith(DELETED_KEY_NFC_PREFIX)) {
+                String nfc = normalizeNfc(key.substring(DELETED_KEY_NFC_PREFIX.length()));
+                if (nfc != null) {
+                    context.protectedKeys.add(DELETED_KEY_NFC_PREFIX + nfc);
+                }
+            }
+        }
+        for (LegacyTransferPayload transfer : payload.transfers == null
+                ? List.<LegacyTransferPayload>of() : payload.transfers) {
+            if (transfer == null || !TRANSFER_STATUS_APPROVED.equalsIgnoreCase(transfer.status)) {
+                continue;
+            }
+            if (!isBlank(transfer.sourceProfileId)) {
+                context.protectedKeys.add(DELETED_KEY_ID_PREFIX + transfer.sourceProfileId.trim());
+            }
+            String name = normalizeLegacyName(transfer.name);
+            if (name != null) {
+                context.protectedNames.add(name);
+            }
+            String nfc = normalizeNfc(transfer.nfcTag);
+            if (nfc != null) {
+                context.protectedKeys.add(DELETED_KEY_NFC_PREFIX + nfc);
+            }
+        }
+    }
+
+    private String normalizeLegacyName(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        return NAME_TRIM.matcher(raw.trim()).replaceAll("");
     }
 
     private void importProfiles(StationContext context, LegacyStationPayload payload) {
@@ -363,6 +415,12 @@ public class LegacyDataImportServiceImpl implements LegacyDataImportService {
                 continue;
             }
             String nfc = normalizeNfc(item.nfcTag);
+            if (context.protectedNames.contains(normalizeLegacyName(name))
+                    || context.protectedKeys.contains(DELETED_KEY_ID_PREFIX + item.legacyId)
+                    || (nfc != null && context.protectedKeys.contains(DELETED_KEY_NFC_PREFIX + nfc))) {
+                context.counters.skippedProfiles++;
+                continue;
+            }
             if (nfc != null && !isValidNfcNorm(nfc)) {
                 nfc = null;
                 context.counters.nfcInvalid++;
@@ -1129,6 +1187,10 @@ public class LegacyDataImportServiceImpl implements LegacyDataImportService {
         private final Set<String> calibrationKeys = new HashSet<String>();
 
         private final Set<String> tombstoneKeys = new HashSet<String>();
+
+        private final Set<String> protectedKeys = new HashSet<String>();
+
+        private final Set<String> protectedNames = new HashSet<String>();
 
         private StationContext(Long stationId, boolean dryRun, ImportCounters counters) {
             this.stationId = stationId;

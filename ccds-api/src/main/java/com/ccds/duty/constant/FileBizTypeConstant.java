@@ -24,6 +24,11 @@ public final class FileBizTypeConstant {
     public static final String WATER_VIDEO = "water_video";
 
     /**
+     * 出水视频三帧（不混入水源普通照片列表）。
+     */
+    public static final String WATER_VIDEO_FRAME = "water_video_frame";
+
+    /**
      * 重点单位预案文件
      */
     public static final String KEYUNIT_PLAN = "keyunit_plan";

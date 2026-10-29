@@ -100,6 +100,8 @@ public class WaterLedgerServiceImpl implements WaterLedgerService {
                                             byte[] bytes) {
         AccountDO account = requireAccount(principal);
         waterAccessService.requireVisibleStation(account, stationId);
+        // Excel 直接写正式台账，不允许站级、大队账号借导入接口绕过审批。
+        waterAccessService.requireReviewer(account);
         if (bytes == null || bytes.length == 0 || bytes.length > WaterRuleConstant.IMPORT_MAX_BYTES) {
             throw new BizException(ErrorCodeConstant.WATER_IMPORT_INVALID,
                     bytes != null && bytes.length > WaterRuleConstant.IMPORT_MAX_BYTES
@@ -265,12 +267,23 @@ public class WaterLedgerServiceImpl implements WaterLedgerService {
         int warmthReasonIdx = WaterSpreadsheetSupport.findColumn(header,
                 WaterSpreadsheetSupport.HEADER_WARMTH_REASON, 22);
 
-        List<WaterSourceDO> existing = waterSourceMapper.selectAliveByStationId(stationId);
+        List<WaterSourceDO> existing = waterSourceMapper.selectAllByStationIncludingDeleted(stationId);
         Map<String, WaterSourceDO> byAddress = new LinkedHashMap<String, WaterSourceDO>();
+        Set<String> deletedKeys = new LinkedHashSet<String>();
         for (WaterSourceDO water : existing) {
-            byAddress.put(matchKey(water.getAddress(), water.getName()), water);
+            String key = importKey(water.getType(), water.getAddress(), water.getName());
+            if (water.getDeletedAt() != null) {
+                deletedKeys.add(key);
+            } else {
+                byAddress.put(key, water);
+            }
         }
         Set<String> deletedNos = new LinkedHashSet<String>(waterDeletedMapper.selectActiveNos(stationId));
+        for (com.ccds.water.water.entity.WaterDeletedDO deleted
+                : waterDeletedMapper.selectActiveByStationIds(List.of(stationId))) {
+            deletedKeys.add(importKey(deleted.getType(), null, deleted.getName()));
+        }
+        StationDO station = stationMapper.selectById(stationId);
 
         int added = 0;
         int updated = 0;
@@ -292,6 +305,16 @@ public class WaterLedgerServiceImpl implements WaterLedgerService {
             String setupRaw = WaterSpreadsheetSupport.cell(cols, setupIdx);
             String address = WaterSpreadsheetSupport.cell(cols, addressIdx);
             String typeRaw = WaterSpreadsheetSupport.cell(cols, typeIdx);
+            // 空位置不能用 Excel 行号生成名称，否则重排文件会创建重复卡片。
+            if (address.isBlank()) {
+                skipTypeInvalid++;
+                continue;
+            }
+            String rowStation = WaterSpreadsheetSupport.cell(cols, stationIdx);
+            if (station == null || (!rowStation.isBlank() && !rowStation.equals(station.getName()))) {
+                skipTypeInvalid++;
+                continue;
+            }
             WaterTypeEnum type = WaterTypeEnum.resolve(typeRaw, setupRaw, null, address);
             if (type == null) {
                 skipTypeInvalid++;
@@ -301,7 +324,13 @@ public class WaterLedgerServiceImpl implements WaterLedgerService {
             BigDecimal lat = parseDecimal(WaterSpreadsheetSupport.cell(cols, latIdx));
             String usableRaw = WaterSpreadsheetSupport.cell(cols, usableIdx);
             String repairRaw = WaterSpreadsheetSupport.cell(cols, repairIdx);
-            WaterSourceDO hit = byAddress.get(matchKey(address, type.getLabel()));
+            String key = importKey(type.getCode(), address, buildName(type, address, r));
+            WaterSourceDO hit = byAddress.get(key);
+            if (deletedKeys.contains(key)
+                    || deletedKeys.contains(importKey(type.getCode(), null, buildName(type, address, r)))) {
+                skipDeleted++;
+                continue;
+            }
             if (hit != null && hit.getWaterNo() != null && deletedNos.contains(hit.getWaterNo())) {
                 // 已删除编号即使出现在表里也不恢复
                 skipDeleted++;
@@ -323,6 +352,10 @@ public class WaterLedgerServiceImpl implements WaterLedgerService {
                 skipCoordMissing++;
                 continue;
             }
+            if (usableRaw.isBlank() && repairRaw.isBlank()) {
+                skipTypeInvalid++;
+                continue;
+            }
             WaterSourceDO created = new WaterSourceDO();
             applyRow(created, cols, type, setupRaw, address, lng, lat, usableRaw, repairRaw,
                     diameterIdx, pressureIdx, flowIdx, supplyIdx, heightIdx, reasonIdx, notesIdx,
@@ -334,8 +367,7 @@ public class WaterLedgerServiceImpl implements WaterLedgerService {
             created.setGmtCreate(now);
             created.setGmtModified(now);
             waterSourceMapper.insert(created);
-            byAddress.put(matchKey(address, created.getName()), created);
-            waterDeletedMapper.release(stationId, created.getWaterNo(), account.getId());
+            byAddress.put(importKey(type.getCode(), address, created.getName()), created);
             added++;
         }
         int totalSkipped = skipExample + skipTypeInvalid + skipCoordMissing + skipDeleted;
@@ -367,6 +399,12 @@ public class WaterLedgerServiceImpl implements WaterLedgerService {
 
         // 「只填泄水阀/保暖、没改使用状态」的行：只更新这 6 列，不动在用/报修
         boolean onlyAuxiliary = usableRaw.isEmpty() && repairRaw.isEmpty();
+        if (onlyAuxiliary) {
+            applyAuxiliaryColumns(water, cols, drainViewIdx, drainUsableIdx, drainReasonIdx,
+                    drainNotesIdx, warmthIdx, warmthReasonIdx);
+            water.setGmtModified(now);
+            return true;
+        }
         if (!onlyAuxiliary) {
             water.setStatus(status);
             water.setUsable(usable);
@@ -402,17 +440,28 @@ public class WaterLedgerServiceImpl implements WaterLedgerService {
             }
             water.setExtraJson(trimToNull(WaterSpreadsheetSupport.cell(cols, notesIdx)));
         }
+        applyAuxiliaryColumns(water, cols, drainViewIdx, drainUsableIdx, drainReasonIdx,
+                drainNotesIdx, warmthIdx, warmthReasonIdx);
+        if (water.getRetained() == null) {
+            water.setRetained(Integer.valueOf(0));
+        }
+        water.setGmtModified(now);
+        return true;
+    }
+
+    private void applyAuxiliaryColumns(WaterSourceDO water, List<String> cols,
+                                       int drainViewIdx, int drainUsableIdx, int drainReasonIdx,
+                                       int drainNotesIdx, int warmthIdx, int warmthReasonIdx) {
         water.setDrainViewable(resolveYesNo(WaterSpreadsheetSupport.cell(cols, drainViewIdx)));
         water.setDrainUsable(resolveUsableCode(WaterSpreadsheetSupport.cell(cols, drainUsableIdx)));
         water.setDrainReason(trimToNull(WaterSpreadsheetSupport.cell(cols, drainReasonIdx)));
         water.setDrainNotes(trimToNull(WaterSpreadsheetSupport.cell(cols, drainNotesIdx)));
         water.setWarmthMeasure(resolveFlag(WaterSpreadsheetSupport.cell(cols, warmthIdx)));
         water.setWarmthReason(trimToNull(WaterSpreadsheetSupport.cell(cols, warmthReasonIdx)));
-        if (water.getRetained() == null) {
-            water.setRetained(Integer.valueOf(0));
-        }
-        water.setGmtModified(now);
-        return true;
+    }
+
+    private String importKey(String type, String address, String name) {
+        return (type == null ? "" : type) + "|" + matchKey(address, name);
     }
 
     private String resolveUsable(String usableRaw, String repairRaw) {

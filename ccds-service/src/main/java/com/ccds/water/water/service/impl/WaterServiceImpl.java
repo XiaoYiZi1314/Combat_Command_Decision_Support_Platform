@@ -327,6 +327,7 @@ public class WaterServiceImpl implements WaterService {
         fileObjectService.deleteByBiz(FileBizTypeConstant.WATER_PHOTO, water.getId());
         fileObjectService.deleteByBiz(FileBizTypeConstant.WATER_DOC, water.getId());
         fileObjectService.deleteByBiz(FileBizTypeConstant.WATER_VIDEO, water.getId());
+        fileObjectService.deleteByBiz(FileBizTypeConstant.WATER_VIDEO_FRAME, water.getId());
         waterSourceMapper.softDelete(water.getId(), now, now);
         log.info("water deleted stationId={} waterId={} source={}",
                 water.getStationId(), water.getId(), source);

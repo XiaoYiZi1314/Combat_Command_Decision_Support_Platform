@@ -78,7 +78,9 @@ export async function submitWaterVideo(stationId, waterId, body) {
   return withRefresh(() => apiRequest(`/stations/${stationId}/waters/${waterId}/videos`, {
     method: 'POST',
     headers: authHeader(),
-    body
+    body,
+    // 服务端会顺序分析三张关键帧，不能沿用普通接口 15 秒超时。
+    timeoutMs: 120000
   }));
 }
 

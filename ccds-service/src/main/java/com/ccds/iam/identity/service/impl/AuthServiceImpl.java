@@ -89,6 +89,13 @@ public class AuthServiceImpl implements AuthService {
         accountMapper.clearLoginFailure(account.getId(), now);
         account.setFailedLoginCount(0);
         account.setLockedUntil(null);
+        // 兼容历史「账号 + 119」初始口令：允许登录后立刻改密，
+        // 但不允许凭可公开猜测的口令继续调用业务接口。
+        if (isPredictableInitialPassword(account, command.getPassword())) {
+            accountMapper.requirePasswordChange(account.getId(), now);
+            account.setMustChangePassword(Boolean.TRUE);
+            log.warn("predictable initial password requires rotation accountId={}", account.getId());
+        }
         return issueTokens(account, command.getDeviceHint());
     }
 
@@ -106,6 +113,10 @@ public class AuthServiceImpl implements AuthService {
         String newPassword = command.getNewPassword() == null ? "" : command.getNewPassword();
         if (newPassword.length() < AuthRuleConstant.MIN_PASSWORD_LENGTH) {
             throw new BizException(ErrorCodeConstant.AUTH_PASSWORD_INVALID, MSG_PASSWORD_INVALID);
+        }
+        if (newPassword.equals(command.getOldPassword())
+                || isPredictableInitialPassword(account, newPassword)) {
+            throw new BizException(ErrorCodeConstant.AUTH_PASSWORD_INVALID, "新密码不得与原密码或初始化口令相同");
         }
         LocalDateTime now = LocalDateTime.now();
         accountMapper.updatePassword(account.getId(), PasswordHashUtil.hash(newPassword), now);
@@ -257,6 +268,11 @@ public class AuthServiceImpl implements AuthService {
             return false;
         }
         return PasswordHashUtil.matches(rawPassword, passwordHash);
+    }
+
+    private boolean isPredictableInitialPassword(AccountDO account, String rawPassword) {
+        return account != null && account.getUsername() != null && rawPassword != null
+                && rawPassword.equalsIgnoreCase(account.getUsername() + "119");
     }
 
     private AccountDO requireAccount(Long accountId) {

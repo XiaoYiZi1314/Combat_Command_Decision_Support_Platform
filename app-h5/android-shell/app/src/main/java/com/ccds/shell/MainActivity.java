@@ -8,7 +8,9 @@ import android.net.http.SslCertificate;
 import android.net.http.SslError;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.webkit.SslErrorHandler;
+import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -29,6 +31,10 @@ import com.ccds.shell.sensor.LocationStore;
 
 import java.security.MessageDigest;
 import java.util.Collections;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import org.json.JSONObject;
 
@@ -41,6 +47,10 @@ import org.json.JSONObject;
 public class MainActivity extends AppCompatActivity {
 
     private static final int REQ_LOCATION = 32;
+
+    private static final int REQ_WEB_FILE = 72;
+
+    private static final int VIDEO_CAPTURE_LIMIT_SECONDS = 10;
 
     private static final String ASSET_URL = "https://appassets.androidplatform.net/assets/www/index.html";
 
@@ -57,6 +67,12 @@ public class MainActivity extends AppCompatActivity {
     private CcdsJsBridge bridge;
 
     private SecureSessionStore secureSessionStore;
+
+    private ValueCallback<Uri[]> webFileCallback;
+
+    /** NFC 读取与文件保存可能阻塞，不能占用 WebMessage 的主线程。 */
+    private final ThreadPoolExecutor bridgeWorker = new ThreadPoolExecutor(
+            1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>(8));
 
     /** 打包内置测试证书指纹，惰性初始化；仅 debug 构建使用。 */
     private byte[] packagedCertFingerprint;
@@ -91,13 +107,41 @@ public class MainActivity extends AppCompatActivity {
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
-        settings.setAllowFileAccess(true);
+        settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(false);
         settings.setAllowFileAccessFromFileURLs(false);
         settings.setAllowUniversalAccessFromFileURLs(false);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
-        webView.setWebChromeClient(new WebChromeClient());
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback,
+                                             FileChooserParams params) {
+                if (webFileCallback != null) {
+                    webFileCallback.onReceiveValue(null);
+                }
+                webFileCallback = callback;
+                Intent pick = new Intent(Intent.ACTION_GET_CONTENT);
+                pick.addCategory(Intent.CATEGORY_OPENABLE);
+                String[] accept = params.getAcceptTypes();
+                String mime = accept.length > 0 && accept[0] != null && !accept[0].isBlank()
+                        ? accept[0] : "*/*";
+                pick.setType(mime);
+                Intent chooser = Intent.createChooser(pick, "选择文件");
+                if (mime.contains("video")) {
+                    Intent record = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
+                    record.putExtra(MediaStore.EXTRA_DURATION_LIMIT, VIDEO_CAPTURE_LIMIT_SECONDS);
+                    chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS, new Intent[]{record});
+                }
+                try {
+                    startActivityForResult(chooser, REQ_WEB_FILE);
+                } catch (android.content.ActivityNotFoundException ex) {
+                    webFileCallback = null;
+                    callback.onReceiveValue(null);
+                }
+                return true;
+            }
+        });
         final androidx.webkit.WebViewAssetLoader assetLoader = new androidx.webkit.WebViewAssetLoader.Builder()
                 .addPathHandler("/assets/", new androidx.webkit.WebViewAssetLoader.AssetsPathHandler(this))
                 .build();
@@ -141,8 +185,61 @@ public class MainActivity extends AppCompatActivity {
                 handler.cancel();
             }
         });
-        webView.addJavascriptInterface(bridge, CcdsJsBridge.NAME);
+        // 不再使用 addJavascriptInterface：该 API 无法隔离第三方 HTTPS iframe，
+        // 可能将定位、NFC 等原生能力暴露给地图或其他远程子页面。
+        registerNativeMessages();
         registerSessionMessages();
+    }
+
+    private void registerNativeMessages() {
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
+            // 无法限制消息来源的 WebView 必须安全降级，绝不回退到全帧 JSBridge。
+            return;
+        }
+        WebViewCompat.addWebMessageListener(webView, CcdsJsBridge.NAME,
+                Collections.singleton("https://appassets.androidplatform.net"),
+                (view, message, sourceOrigin, isMainFrame, replyProxy) -> {
+                    if (!isTrustedMainFrame(isMainFrame, sourceOrigin)) {
+                        return;
+                    }
+                    try {
+                        JSONObject request = new JSONObject(message.getData());
+                        String method = request.optString("method");
+                        String payload = request.optString("payload", "{}");
+                        String requestId = request.optString("requestId");
+                        if ("nfcRead".equals(method) || "saveFile".equals(method)) {
+                            try {
+                                bridgeWorker.execute(() -> {
+                                    String response = invokeBridge(method, payload, requestId);
+                                    runOnUiThread(() -> replyProxy.postMessage(response));
+                                });
+                            } catch (RejectedExecutionException ex) {
+                                replyProxy.postMessage("{\"ok\":false,\"errorCode\":\"BUSY\"}");
+                            }
+                            return;
+                        }
+                        replyProxy.postMessage(invokeBridge(method, payload, requestId));
+                    } catch (Exception ex) {
+                        replyProxy.postMessage("{\"ok\":false,\"errorCode\":\"BAD_REQUEST\"}");
+                    }
+                });
+    }
+
+    private String invokeBridge(String method, String payload, String requestId) {
+        try {
+            JSONObject response = new JSONObject(bridge.invoke(method, payload));
+            response.put("requestId", requestId);
+            return response.toString();
+        } catch (Exception ex) {
+            return "{\"ok\":false,\"errorCode\":\"BRIDGE_ERROR\",\"requestId\":"
+                    + JSONObject.quote(requestId) + "}";
+        }
+    }
+
+    private boolean isTrustedMainFrame(boolean isMainFrame, Uri origin) {
+        return isMainFrame && origin != null
+                && "https".equals(origin.getScheme())
+                && "appassets.androidplatform.net".equals(origin.getHost());
     }
 
     private void registerSessionMessages() {
@@ -152,9 +249,7 @@ public class MainActivity extends AppCompatActivity {
         WebViewCompat.addWebMessageListener(webView, "CcdsSession",
                 Collections.singleton("https://appassets.androidplatform.net"),
                 (view, message, sourceOrigin, isMainFrame, replyProxy) -> {
-                    if (!isMainFrame || sourceOrigin == null
-                            || !"https".equals(sourceOrigin.getScheme())
-                            || !"appassets.androidplatform.net".equals(sourceOrigin.getHost())) {
+                    if (!isTrustedMainFrame(isMainFrame, sourceOrigin)) {
                         return;
                     }
                     try {
@@ -291,6 +386,14 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQ_WEB_FILE) {
+            ValueCallback<Uri[]> callback = webFileCallback;
+            webFileCallback = null;
+            if (callback != null) {
+                callback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode, data));
+            }
+            return;
+        }
         if (bridge != null) {
             bridge.onActivityResult(requestCode, resultCode, data);
         }
@@ -357,6 +460,11 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        if (webFileCallback != null) {
+            webFileCallback.onReceiveValue(null);
+            webFileCallback = null;
+        }
+        bridgeWorker.shutdownNow();
         if (bridge != null) {
             bridge.shutdown();
         }

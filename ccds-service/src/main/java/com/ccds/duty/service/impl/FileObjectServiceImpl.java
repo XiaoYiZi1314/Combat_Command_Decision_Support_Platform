@@ -396,7 +396,8 @@ public class FileObjectServiceImpl implements FileObjectService {
         }
         if (FileBizTypeConstant.WATER_PHOTO.equals(bizType)
                 || FileBizTypeConstant.WATER_DOC.equals(bizType)
-                || FileBizTypeConstant.WATER_VIDEO.equals(bizType)) {
+                || FileBizTypeConstant.WATER_VIDEO.equals(bizType)
+                || FileBizTypeConstant.WATER_VIDEO_FRAME.equals(bizType)) {
             WaterSourceDO water = waterSourceMapper.selectAliveById(bizId);
             if (water == null) {
                 throw new BizException(ErrorCodeConstant.FILE_BIZ_NOT_FOUND, MSG_BIZ_MISSING);

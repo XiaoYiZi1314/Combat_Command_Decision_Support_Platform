@@ -34,6 +34,14 @@ public interface WaterSourceMapper {
     WaterSourceDO selectAliveById(@Param("id") Long id);
 
     /**
+     * 审批事务内对当前水源加锁，避免并发修改覆盖更新。
+     *
+     * @param id 水源主键
+     * @return 在册水源，不存在返回 null
+     */
+    WaterSourceDO selectAliveByIdForUpdate(@Param("id") Long id);
+
+    /**
      * 本站按名称查在册水源。
      *
      * @param stationId 站主键

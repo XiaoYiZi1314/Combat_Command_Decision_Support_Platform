@@ -28,8 +28,10 @@ import com.ccds.infra.excel.SpreadsheetTable;
 import com.ccds.org.org.entity.StationDO;
 import com.ccds.org.org.service.OrgQueryService;
 import com.ccds.roster.roster.entity.BattleGroupDO;
+import com.ccds.roster.roster.entity.BattleGroupMemberDO;
 import com.ccds.roster.roster.entity.ProfileDO;
 import com.ccds.roster.roster.mapper.BattleGroupMapper;
+import com.ccds.roster.roster.mapper.BattleGroupMemberMapper;
 import com.ccds.roster.roster.mapper.ProfileMapper;
 
 import lombok.RequiredArgsConstructor;
@@ -60,6 +62,8 @@ public class DutyDayServiceImpl implements DutyDayService {
     private final ProfileMapper profileMapper;
 
     private final BattleGroupMapper battleGroupMapper;
+
+    private final BattleGroupMemberMapper battleGroupMemberMapper;
 
     private final OrgQueryService orgQueryService;
 
@@ -190,15 +194,16 @@ public class DutyDayServiceImpl implements DutyDayService {
         rows.add(List.of("单位", "值班日期", "编组名称", "成员", "主官", "副职"));
         if (!stationIds.isEmpty()) {
             for (DutyDayDO dutyDay : dutyDayMapper.selectLatestByStationIds(stationIds)) {
-                List<String> groupNames = parseGroupNames(dutyDay.getGroupSnapshotJson());
-                if (groupNames.isEmpty()) {
-                    // 该站没有编组快照时回退到当前花名册
-                    groupNames = currentGroupNames(dutyDay.getStationId());
+                Map<Long, String> names = officerNames(dutyDay.getStationId());
+                List<List<String>> groupRows = parseGroupRows(dutyDay.getGroupSnapshotJson());
+                if (groupRows.isEmpty()) {
+                    groupRows = currentGroupRows(dutyDay.getStationId(), names);
                 }
-                String officers = officerNames(dutyDay.getStationId()).toString();
-                for (String line : groupNames) {
+                for (List<String> line : groupRows) {
                     rows.add(List.of(stationNames.getOrDefault(dutyDay.getStationId(), ""),
-                            String.valueOf(dutyDay.getDutyDate()), line, line, officers, ""));
+                            String.valueOf(dutyDay.getDutyDate()), line.get(0), line.get(1),
+                            names.getOrDefault(dutyDay.getMainOfficerId(), ""),
+                            names.getOrDefault(dutyDay.getDeputyOfficerId(), "")));
                 }
             }
         }
@@ -206,8 +211,8 @@ public class DutyDayServiceImpl implements DutyDayService {
         return spreadsheetCodec.writeXlsx("战斗编组导出", SpreadsheetTable.builder().rows(rows).build());
     }
 
-    private List<String> parseGroupNames(String snapshotJson) {
-        List<String> out = new ArrayList<String>();
+    private List<List<String>> parseGroupRows(String snapshotJson) {
+        List<List<String>> out = new ArrayList<List<String>>();
         if (snapshotJson == null || snapshotJson.isBlank()) {
             return out;
         }
@@ -215,7 +220,15 @@ public class DutyDayServiceImpl implements DutyDayService {
             JsonNode root = OBJECT_MAPPER.readTree(snapshotJson);
             JsonNode groups = root.path("groups");
             for (JsonNode group : groups) {
-                out.add(group.path("name").asText("未命名编组"));
+                List<String> memberNames = new ArrayList<String>();
+                for (JsonNode member : group.path("members")) {
+                    String name = member.path("name").asText("").trim();
+                    if (!name.isEmpty()) {
+                        memberNames.add(name);
+                    }
+                }
+                out.add(List.of(group.path("name").asText("未命名编组"),
+                        String.join("、", memberNames)));
             }
         } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
             log.warn("duty group snapshot parse failed", ex);
@@ -223,10 +236,18 @@ public class DutyDayServiceImpl implements DutyDayService {
         return out;
     }
 
-    private List<String> currentGroupNames(Long stationId) {
-        List<String> out = new ArrayList<String>();
+    private List<List<String>> currentGroupRows(Long stationId, Map<Long, String> names) {
+        Map<Long, List<String>> namesByGroup = new HashMap<Long, List<String>>();
+        for (BattleGroupMemberDO member : battleGroupMemberMapper.selectByStationId(stationId)) {
+            String name = names.get(member.getProfileId());
+            if (name != null) {
+                namesByGroup.computeIfAbsent(member.getGroupId(), k -> new ArrayList<String>()).add(name);
+            }
+        }
+        List<List<String>> out = new ArrayList<List<String>>();
         for (BattleGroupDO group : battleGroupMapper.selectByStationId(stationId)) {
-            out.add(group.getName());
+            out.add(List.of(group.getName(),
+                    String.join("、", namesByGroup.getOrDefault(group.getId(), List.of()))));
         }
         return out;
     }

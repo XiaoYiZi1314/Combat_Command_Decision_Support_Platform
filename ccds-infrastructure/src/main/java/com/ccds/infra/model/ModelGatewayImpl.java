@@ -7,6 +7,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.ccds.assist.assist.constant.AssistRuleConstant;
@@ -36,6 +37,9 @@ public class ModelGatewayImpl implements ModelGateway {
     private final ObjectMapper objectMapper;
 
     private final HttpClient httpClient;
+
+    @Value("${ccds.vision.model-name:}")
+    private String visionModelName;
 
     /**
      * 构造模型网关。
@@ -130,7 +134,8 @@ public class ModelGatewayImpl implements ModelGateway {
     private String buildBody(String systemPrompt, String userPrompt, String imageBase64, String contentType)
             throws IOException {
         ObjectNode root = objectMapper.createObjectNode();
-        root.put("model", resolveModelName());
+        root.put("model", hasText(imageBase64) && hasText(visionModelName)
+                ? visionModelName.trim() : resolveModelName());
         ArrayNode messages = root.putArray("messages");
         ObjectNode systemNode = messages.addObject();
         systemNode.put("role", "system");

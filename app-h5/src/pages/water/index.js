@@ -10,6 +10,7 @@ import {
   fetchWater,
   fetchWaterRequests,
   fetchWaterSummary,
+  fetchWaterVideos,
   fetchWaters,
   importWaters,
   reviewWaterRequest,
@@ -18,8 +19,9 @@ import {
   updateWater,
   withdrawWaterRequest
 } from '../../api/water.js';
-import { deleteBizFile, uploadBizFile } from '../../api/files.js';
+import { deleteBizFile, fetchBizFile, uploadBizFile } from '../../api/files.js';
 import { pickLocalFile } from '../../api/file-transfer.js';
+import { inspectWaterVideo } from '../../lib/media.js';
 import {
   PART_OPTIONS,
   REASON_OPTIONS,
@@ -312,7 +314,7 @@ export function renderWaterPage(root) {
   actions.appendChild(exportBtn);
   actions.appendChild(templateBtn);
   actions.appendChild(summaryExportBtn);
-  if (me.role === 'station' || canDirectWrite(me)) {
+  if (canDirectWrite(me)) {
     actions.appendChild(importBtn);
   }
   body.appendChild(actions);
@@ -346,20 +348,43 @@ export function renderWaterPage(root) {
   function renderVideoGroup(water, writable) {
     const wrap = el('div', 'wf-video');
     wrap.appendChild(el('div', 'wf-files-label', '出水视频（限 10 秒）'));
+    const history = el('div', 'wf-files');
+    history.appendChild(el('div', 'wf-empty', '正在加载视频记录…'));
+    wrap.appendChild(history);
+    fetchWaterVideos(currentWaterStationId(), water.id).then((videos) => {
+      history.replaceChildren();
+      if (!videos || !videos.length) {
+        history.appendChild(el('div', 'wf-empty', '暂无出水视频'));
+        return;
+      }
+      const labels = { passed: '辅助判断出水', rejected: '辅助判断未见出水', failed: '无法确定' };
+      videos.forEach((video) => {
+        const row = el('div', 'wf-file');
+        row.appendChild(el('span', '', `${(video.durationMs / 1000).toFixed(1)}秒 · ${labels[video.checkStatus] || '未判定'}${video.checkReason ? ' · ' + video.checkReason : ''}`));
+        const open = el('button', '', '查看视频');
+        open.type = 'button';
+        open.addEventListener('click', async () => {
+          try {
+            const file = await fetchBizFile(video.fileId);
+            const url = file.previewUrl || file.downloadUrl;
+            if (!url) throw new Error('未获得视频访问地址');
+            window.open(url, '_blank', 'noopener,noreferrer');
+          } catch (err) {
+            setMsg(err.message || '视频打开失败', true);
+          }
+        });
+        row.appendChild(open);
+        history.appendChild(row);
+      });
+    }).catch((err) => {
+      history.replaceChildren(el('div', 'wf-empty', err.message || '视频记录加载失败'));
+    });
     if (!writable) {
       return wrap;
     }
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'video/mp4';
-    const durationInput = document.createElement('input');
-    durationInput.type = 'number';
-    durationInput.placeholder = '视频时长（秒）';
-    durationInput.step = '0.1';
-    const reasonInput = document.createElement('input');
-    reasonInput.type = 'text';
-    reasonInput.placeholder = '判定不通过原因（可选）';
-    reasonInput.maxLength = REASON_MAX;
     const upload = el('button', 'wf-upload', '上传出水视频');
     upload.type = 'button';
     upload.addEventListener('click', async () => {
@@ -368,25 +393,24 @@ export function renderWaterPage(root) {
         setMsg('请先选择视频', true);
         return;
       }
-      const seconds = Number(durationInput.value);
-      if (!Number.isFinite(seconds) || seconds <= 0) {
-        setMsg('请填写视频实际时长（秒）', true);
-        return;
-      }
-      if (seconds * 1000 > VIDEO_MAX_MS) {
-        setMsg(`出水视频限 10 秒，当前 ${Math.round(seconds)} 秒`, true);
-        return;
-      }
       upload.disabled = true;
       try {
+        setMsg('正在读取视频时长并提取三帧…');
+        const inspected = await inspectWaterVideo(file);
+        const frameIds = [];
+        for (const frame of inspected.frames) {
+          const frameObject = await uploadBizFile('water_video_frame', water.id, frame);
+          frameIds.push(frameObject.id);
+        }
+        setMsg('关键帧已提取，正在上传视频与辅助识别…');
         const uploaded = await uploadBizFile('water_video', water.id, file);
-        await submitWaterVideo(currentWaterStationId(), water.id, {
+        const result = await submitWaterVideo(currentWaterStationId(), water.id, {
           fileId: uploaded && uploaded.id ? uploaded.id : null,
-          durationMs: Math.round(seconds * 1000),
-          checkStatus: 'failed',
-          checkReason: reasonInput.value.trim() || '客户端未做画面判定'
+          durationMs: inspected.durationMs,
+          frameFileIds: frameIds.join(',')
         });
-        setMsg('出水视频已登记');
+        const statusText = { passed: '辅助判断有出水', rejected: '辅助判断未见出水', failed: '暂无法判断' };
+        setMsg(`出水视频已登记（${(inspected.durationMs / 1000).toFixed(1)}秒），${statusText[result.checkStatus] || '暂无法判断'}${result.checkReason ? '：' + result.checkReason : ''}`);
         onChanged();
       } catch (err) {
         setMsg(err.message || '上传失败', true);
@@ -396,8 +420,6 @@ export function renderWaterPage(root) {
     });
     const row = el('div', 'wf-upload-row');
     row.appendChild(input);
-    row.appendChild(durationInput);
-    row.appendChild(reasonInput);
     row.appendChild(upload);
     wrap.appendChild(row);
     return wrap;

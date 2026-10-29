@@ -1,6 +1,8 @@
 const UNSUPPORTED = 'UNSUPPORTED';
 const BAD_RESPONSE = 'BAD_RESPONSE';
 const MOCK_TAG = 'MOCK-NFC-0001';
+// 生产浏览器缺少原生壳时必须明确报告不支持，不能返回虚构的 NFC/定位。
+const ALLOW_DEV_MOCK = Boolean(import.meta.env && import.meta.env.DEV);
 
 const caps = {
   nfc: false,
@@ -43,7 +45,8 @@ function applyCaps(next) {
 }
 
 function resolveNativeBridge() {
-  if (window.CcdsNativeBridge && typeof window.CcdsNativeBridge.invoke === 'function') {
+  if (window.CcdsNativeBridge && (typeof window.CcdsNativeBridge.postMessage === 'function'
+      || typeof window.CcdsNativeBridge.invoke === 'function')) {
     return window.CcdsNativeBridge;
   }
   return null;
@@ -56,6 +59,25 @@ async function invoke(method, payload) {
   }
   try {
     const body = JSON.stringify(payload || {});
+    if (typeof native.postMessage === 'function') {
+      // Android scoped WebMessageListener：仅打包资源主 frame 能调用设备能力。
+      return await new Promise((resolve) => {
+        const requestId = `native_${Date.now()}_${Math.random()}`;
+        const timeout = setTimeout(() => {
+          window.removeEventListener('message', onReply);
+          resolve(wrap(false, null, 'TIMEOUT'));
+        }, 18000);
+        function onReply(event) {
+          const data = parseJson(event.data);
+          if (!data || data.requestId !== requestId) return;
+          clearTimeout(timeout);
+          window.removeEventListener('message', onReply);
+          resolve(typeof data.ok === 'boolean' ? data : wrap(false, null, BAD_RESPONSE));
+        }
+        window.addEventListener('message', onReply);
+        native.postMessage(JSON.stringify({ method, payload: body, requestId }));
+      });
+    }
     const result = native.invoke(method, body);
     const resolved = result && typeof result.then === 'function' ? await result : result;
     const parsed = parseJson(resolved);
@@ -69,6 +91,9 @@ async function invoke(method, payload) {
 }
 
 async function mockInvoke(method, payload) {
+  if (!ALLOW_DEV_MOCK) {
+    return wrap(false, null, UNSUPPORTED);
+  }
   switch (method) {
     case 'nfcRead':
       return wrap(true, { tag: MOCK_TAG, source: 'mock' }, '');
@@ -116,6 +141,9 @@ function readNativeCaps() {
   const native = resolveNativeBridge();
   if (!native) {
     return applyCaps({});
+  }
+  if (typeof native.postMessage === 'function') {
+    return caps;
   }
   if (typeof native.capabilities === 'function') {
     const parsed = parseJson(native.capabilities());

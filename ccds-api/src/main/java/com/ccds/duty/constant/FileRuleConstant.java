@@ -41,6 +41,7 @@ public final class FileRuleConstant {
             FileBizTypeConstant.WATER_PHOTO,
             FileBizTypeConstant.WATER_DOC,
             FileBizTypeConstant.WATER_VIDEO,
+            FileBizTypeConstant.WATER_VIDEO_FRAME,
             FileBizTypeConstant.KEYUNIT_PLAN,
             FileBizTypeConstant.KEYUNIT_FLOOR,
             FileBizTypeConstant.HAZMAT_IMAGE);
@@ -56,7 +57,8 @@ public final class FileRuleConstant {
             FileBizTypeConstant.KEYUNIT_FLOOR, Set.of("application/pdf", "image/jpeg", "image/png"),
             FileBizTypeConstant.HAZMAT_IMAGE, Set.of("image/jpeg", "image/png"),
             // 出水视频限 10 秒，只收 mp4
-            FileBizTypeConstant.WATER_VIDEO, Set.of("video/mp4"));
+            FileBizTypeConstant.WATER_VIDEO, Set.of("video/mp4"),
+            FileBizTypeConstant.WATER_VIDEO_FRAME, Set.of("image/jpeg", "image/png"));
 
     private FileRuleConstant() {
     }

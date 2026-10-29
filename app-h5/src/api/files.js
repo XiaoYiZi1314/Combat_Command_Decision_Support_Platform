@@ -1,5 +1,11 @@
 import { apiRequest, authHeader, withRefresh } from './client.js';
 
+export function fetchBizFile(fileId) {
+  return withRefresh(() => apiRequest(`/files/${fileId}`, {
+    headers: authHeader()
+  }));
+}
+
 export function deleteBizFile(fileId) {
   return withRefresh(() => apiRequest(`/files/${fileId}`, {
     method: 'DELETE',

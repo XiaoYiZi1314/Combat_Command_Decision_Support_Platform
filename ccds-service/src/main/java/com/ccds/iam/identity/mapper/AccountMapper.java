@@ -64,6 +64,16 @@ public interface AccountMapper {
     int clearLoginFailure(@Param("id") Long id, @Param("gmtModified") LocalDateTime gmtModified);
 
     /**
+     * 发现仍在使用公开规则的初始化口令时，重新启用强制改密。
+     *
+     * @param id 账号主键
+     * @param gmtModified 修改时间
+     * @return 影响行数
+     */
+    int requirePasswordChange(@Param("id") Long id,
+                              @Param("gmtModified") LocalDateTime gmtModified);
+
+    /**
      * 改密并取消强制改密标记。
      *
      * @param id           主键

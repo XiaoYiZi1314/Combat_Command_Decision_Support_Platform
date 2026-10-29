@@ -81,6 +81,15 @@
           AND w.deleted_at IS NULL
     </select>
 
+    <select id="selectAliveByIdForUpdate" resultMap="WaterResultMap">
+        SELECT
+        <include refid="WaterColumns"/>
+        FROM ccds_water_source w
+        WHERE w.id = #{id}
+          AND w.deleted_at IS NULL
+        FOR UPDATE
+    </select>
+
     <select id="selectAliveByStationAndName" resultMap="WaterResultMap">
         SELECT
         <include refid="WaterColumns"/>
