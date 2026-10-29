@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 
 /**
@@ -65,4 +66,21 @@ public class DutyDayDTO {
      * 当日战斗编组快照JSON
      */
     private String groupSnapshotJson;
+
+    /**
+     * 当日车辆快照JSON
+     */
+    @Size(max = 2000, message = "车辆快照最多2000字符")
+    private String vehicleSnapshotJson;
+
+    /**
+     * 编组写入模式：preserve 保持原快照 / replace 用本次提交覆盖。
+     * 历史日期服务端强制 preserve，防止用今天的花名册覆盖那一天。
+     */
+    private String groupSnapshotMode;
+
+    /**
+     * 是否保留原主官与副职（页面上没有对应选框时传 true，避免存成空）。
+     */
+    private Boolean keepOfficers;
 }

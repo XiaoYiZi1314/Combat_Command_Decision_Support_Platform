@@ -1,9 +1,11 @@
 import './styles/tokens.css';
+import './styles/outdoor.css';
+import { restoreOutdoor } from './lib/theme.js';
 import { currentHash, matchRoute } from './routes.js';
 import { renderBlankPage } from './pages/blank.js';
 import { renderLoginPage } from './pages/login/index.js';
 import { renderLegalPage } from './pages/legal/index.js';
-import { renderRosterPage } from './pages/roster/index.js';
+import { renderRosterPage, renderTransferApprovals } from './pages/roster/index.js';
 import { renderRosterEditPage } from './pages/roster/edit.js';
 import { renderAttackPage } from './pages/attack/index.js';
 import { renderHqPage } from './pages/hq/index.js';
@@ -21,6 +23,7 @@ import { renderKeyUnitEditPage, renderKeyUnitsPage } from './pages/key-units/ind
 import { renderSharePage } from './pages/share/index.js';
 import { renderScbaPage } from './pages/scba/index.js';
 import { renderVersionPage } from './pages/version/index.js';
+import { renderInstallGuidePage, renderOperationGuidePage } from './pages/guide/index.js';
 import { renderVehiclesPage } from './pages/vehicles/index.js';
 import { renderAttackHistoryPage } from './pages/attack-history/index.js';
 import { renderDocPage } from './pages/doc/index.js';
@@ -135,7 +138,8 @@ async function render() {
   }
 
   if (route.path === '/legal') {
-    if (isLegalAgreed()) {
+    // 5.2：已同意后仍允许从版本页重新打开免责声明（#/legal?view=1）
+    if (isLegalAgreed() && !queryFlag(hash, 'view')) {
       window.location.hash = hasSession() ? homeHashOf(getMe()) : '#/login';
       return;
     }
@@ -147,7 +151,8 @@ async function render() {
   if (!bootstrapped) {
     bootstrapped = true;
     const me = await restoreSession();
-    if (me && route.path === '/login' && !me.mustChangePassword) {
+    // 5.1：不再有首登强制改密这道门，账号密码正确后直接进对应首页
+    if (me && route.path === '/login') {
       window.location.hash = homeHashOf(me);
       return;
     }
@@ -155,8 +160,9 @@ async function render() {
 
   if (route.path === '/login') {
     app.innerHTML = '';
+    // 设置页的「修改密码」仍走改密表单，但登录本身不再强制改密
     renderLoginPage(app, {
-      mustChange: queryFlag(hash, 'change') || Boolean(getMe() && getMe().mustChangePassword),
+      mustChange: queryFlag(hash, 'change'),
       onMustChange() {
         render();
       }
@@ -170,10 +176,6 @@ async function render() {
   }
 
   const me = getMe();
-  if (me && me.mustChangePassword && route.path !== '/login') {
-    window.location.hash = '#/login?change=1';
-    return;
-  }
 
   if (route.path === '/attack' || route.path === '/attack/quick-add') {
     if (me && me.role !== 'station') {
@@ -187,6 +189,11 @@ async function render() {
   if (route.path === '/roster') {
     app.innerHTML = '';
     renderRosterPage(app);
+    return;
+  }
+  if (route.path === '/roster/transfer-approvals') {
+    app.innerHTML = '';
+    renderTransferApprovals(app);
     return;
   }
   if (route.path === '/roster/:id') {
@@ -272,6 +279,16 @@ async function render() {
     renderScbaPage(app);
     return;
   }
+  if (route.path === '/guide/install') {
+    app.innerHTML = '';
+    renderInstallGuidePage(app);
+    return;
+  }
+  if (route.path === '/guide/operation') {
+    app.innerHTML = '';
+    renderOperationGuidePage(app);
+    return;
+  }
   if (route.path === '/version') {
     app.innerHTML = '';
     renderVersionPage(app);
@@ -354,3 +371,6 @@ window.__ccdsFilePicked = function __ccdsFilePicked(payloadJson) {
 };
 
 probeBridge().then(() => initDeviceCompat(bridge)).catch(() => initDeviceCompat(bridge));
+
+// 冷启动恢复上次选择的户外模式（2.3）
+restoreOutdoor();

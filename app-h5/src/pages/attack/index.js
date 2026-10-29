@@ -4,11 +4,12 @@ import '../shared/drawer.css';
 import { getMe } from '../../stores/session.js';
 import { getScbaSettings } from '../../stores/settings.js';
 import { fetchRoster } from '../../api/roster.js';
-import { fetchStationAttack, submitAttackEvent } from '../../api/attack.js';
+import { fetchStationAttack, saveWorkMode, submitAttackEvent } from '../../api/attack.js';
 import { bridge } from '../../bridge/index.js';
 import { tagMatchesProfile } from '../../stores/nfc.js';
 import { archiveStation } from '../../api/archive.js';
 import { shouldDeferBackgroundPaint } from '../../lib/device-compat.js';
+import { buildOutdoorToggle } from '../../lib/theme.js';
 import { confirmLeaveMain, setPageBackHandler } from '../../lib/host.js';
 import {
   attackQueueLength,
@@ -100,7 +101,9 @@ export function renderAttackPage(root) {
     flushPromise: null,
     online: typeof navigator === 'undefined' ? true : navigator.onLine,
     riskInitialized: false,
-    riskAlertAt: {}
+    riskAlertAt: {},
+    // 2.2：站级作业模式，服务端下发后覆盖；默认测试模式
+    workMode: 'test'
   };
 
   const head = el('div', 'attack-head');
@@ -132,7 +135,51 @@ export function renderAttackPage(root) {
     window.location.hash = '#/settings';
   });
   head.appendChild(settingsBtn);
+  // 2.3：主界面顶栏的户外模式开关
+  head.appendChild(buildOutdoorToggle());
   page.appendChild(head);
+
+  // 2.2：站上主界面顶部模式开关，三项：测试模式 / 训练模式 / 出警模式，默认测试模式
+  const modeBar = el('div', 'work-mode-bar');
+  const modeButtons = {};
+  [['test', '测试模式'], ['training', '训练模式'], ['dispatch', '出警模式']].forEach(([value, label]) => {
+    const button = el('button', '', label);
+    button.type = 'button';
+    button.dataset.mode = value;
+    button.addEventListener('click', async () => {
+      if (state.workMode === value) {
+        return;
+      }
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        showToast('模式切换需在线，恢复网络后再试');
+        return;
+      }
+      const previous = state.workMode;
+      state.workMode = value;
+      paintWorkMode();
+      try {
+        await saveWorkMode(state.stationId, value);
+        showToast(`已切换到${label}`);
+      } catch (err) {
+        state.workMode = previous;
+        paintWorkMode();
+        showToast(err.message || '模式切换失败');
+      }
+    });
+    modeButtons[value] = button;
+    modeBar.appendChild(button);
+  });
+  if (writableStation) {
+    page.appendChild(modeBar);
+  }
+
+  function paintWorkMode() {
+    Object.keys(modeButtons).forEach((value) => {
+      modeButtons[value].className = state.workMode === value ? 'active' : '';
+    });
+  }
+
+  paintWorkMode();
 
   const stats = el('div', 'stats');
   page.appendChild(stats);
@@ -160,6 +207,58 @@ export function renderAttackPage(root) {
   list.appendChild(peoplePage);
   list.appendChild(groupPage);
   page.appendChild(list);
+
+  // 3.2：宽屏（约 760px 以上）才显示主屏 / 副屏切换，手机窄屏隐藏
+  const pagerNav = el('div', 'main-pager-nav');
+  const peopleNavBtn = el('button', 'active', '主屏');
+  const groupNavBtn = el('button', '', '副屏');
+  peopleNavBtn.type = 'button';
+  groupNavBtn.type = 'button';
+  pagerNav.appendChild(peopleNavBtn);
+  pagerNav.appendChild(groupNavBtn);
+  page.appendChild(pagerNav);
+
+  const wideQuery = typeof window.matchMedia === 'function'
+    ? window.matchMedia('(min-width: 760px)')
+    : null;
+
+  function syncPagerNavVisibility() {
+    const wide = wideQuery ? wideQuery.matches : true;
+    pagerNav.style.display = wide ? '' : 'none';
+    if (!wide) {
+      // 窄屏只显示人员卡片，避免小屏幕被切走
+      list.scrollLeft = 0;
+      peopleNavBtn.className = 'active';
+      groupNavBtn.className = '';
+    }
+  }
+
+  function goPage(index) {
+    if (!list) {
+      return;
+    }
+    // 正在输入位置时不硬拉回副屏，避免闪烁
+    const active = document.activeElement;
+    if (active && (active.tagName === 'INPUT' || active.tagName === 'SELECT' || active.tagName === 'TEXTAREA')) {
+      return;
+    }
+    list.scrollTo({ left: index * list.clientWidth, behavior: 'smooth' });
+    peopleNavBtn.className = index === 0 ? 'active' : '';
+    groupNavBtn.className = index === 1 ? 'active' : '';
+  }
+
+  peopleNavBtn.addEventListener('click', () => goPage(0));
+  groupNavBtn.addEventListener('click', () => goPage(1));
+  list.addEventListener('scroll', () => {
+    const width = list.clientWidth || 1;
+    const index = Math.round(list.scrollLeft / width);
+    peopleNavBtn.className = index === 0 ? 'active' : '';
+    groupNavBtn.className = index === 1 ? 'active' : '';
+  });
+  if (wideQuery && typeof wideQuery.addEventListener === 'function') {
+    wideQuery.addEventListener('change', syncPagerNavVisibility);
+  }
+  syncPagerNavVisibility();
 
   const toast = el('div', 'attack-toast');
   page.appendChild(toast);
@@ -956,6 +1055,11 @@ export function renderAttackPage(root) {
       title.textContent = next.stationName;
       sub.textContent = headSub(me, next);
     }
+    // 2.2：模式随实时状态一起下发，指挥端与站端读同一份，不自己猜
+    if (next && next.snapshot && next.snapshot.workMode) {
+      state.workMode = next.snapshot.workMode;
+      paintWorkMode();
+    }
     renderSyncHint().catch(ignoreBackground);
   }
 
@@ -1228,10 +1332,9 @@ export function renderAttackPage(root) {
       showToast(`仍有 ${active.length} 人未撤出，全部撤出后才能归档`);
       return;
     }
-    const kind = window.prompt('类型（drill=演练 / dispatch=出警）：', 'drill');
-    if (kind === null) {
-      return;
-    }
+    // 3.1：归档时把当前模式写进历史，不再让用户手动选类型
+    const currentMode = state.workMode || 'test';
+    const kind = currentMode === 'dispatch' ? 'dispatch' : 'training';
     const name = window.prompt('事件名称：', '');
     if (name === null) {
       return;
@@ -1248,9 +1351,10 @@ export function renderAttackPage(root) {
     }
     try {
       await archiveStation(state.stationId, {
-        eventKind: kind.trim() || 'drill',
+        eventKind: kind,
         eventName: name.trim(),
-        location: location.trim()
+        location: location.trim(),
+        mode: currentMode
       });
       showToast('本次内攻已归档，可在内攻历史中查看');
       await load();

@@ -57,4 +57,12 @@ public interface DutyDayMapper {
     List<DutyDayDO> selectByStationAndDateRange(@Param("stationId") Long stationId,
                                                   @Param("startDate") LocalDate startDate,
                                                   @Param("endDate") LocalDate endDate);
+
+    /**
+     * 取各站最新一天的值班记录（支队导出战斗编组用）。
+     *
+     * @param stationIds 站主键列表，不得为空
+     * @return 值班记录列表，不会为 null
+     */
+    List<DutyDayDO> selectLatestByStationIds(@Param("stationIds") List<Long> stationIds);
 }

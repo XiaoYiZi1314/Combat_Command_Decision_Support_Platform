@@ -39,4 +39,14 @@
         DELETE FROM ccds_battle_group_member
         WHERE profile_id = #{profileId}
     </delete>
+
+    <delete id="deleteById">
+        DELETE FROM ccds_battle_group_member
+        WHERE id = #{id}
+    </delete>
+
+    <delete id="deleteByGroupId">
+        DELETE FROM ccds_battle_group_member
+        WHERE group_id = #{groupId}
+    </delete>
 </mapper>

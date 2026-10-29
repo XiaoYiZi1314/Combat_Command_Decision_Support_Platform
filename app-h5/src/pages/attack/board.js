@@ -3,6 +3,7 @@ import {
   estimateNow,
   fmtElapsed,
   fmtMinSec,
+  normalizeThresholds,
   resolveStatus,
   statusLabel,
   worstStatus
@@ -35,7 +36,7 @@ export function livePerson(person, nowMs) {
   copy.liveElapsed = Math.max(0, Math.floor(elapsedSeconds(copy, nowMs)));
   copy.livePressure = estimated.pressure;
   copy.liveRemain = estimated.remainSec;
-  copy.liveStatus = resolveStatus('in', copy.livePressure, copy.liveRemain);
+  copy.liveStatus = resolveStatus('in', copy.livePressure, copy.liveRemain, copy.stationThresholds);
   return copy;
 }
 
@@ -50,8 +51,21 @@ function elapsedSeconds(person, nowMs) {
   return Math.max(0, (effectiveNow - enteredMs) / 1000 - paused);
 }
 
+/**
+ * 批量换算卡片，并把站级阈值挂到每张卡上。
+ *
+ * @param {object} attack 本站内攻数据
+ * @param {number} [nowMs] 当前毫秒
+ * @returns {Array} 卡片列表
+ */
 export function livePersons(attack, nowMs) {
-  return ((attack && attack.persons) || []).map((person) => livePerson(person, nowMs || Date.now()));
+  const thresholds = attack && attack.snapshot ? attack.snapshot.thresholds : null;
+  return ((attack && attack.persons) || []).map((person) => {
+    const withThresholds = thresholds
+      ? Object.assign({}, person, { stationThresholds: thresholds })
+      : person;
+    return livePerson(withThresholds, nowMs || Date.now());
+  });
 }
 
 export function countsOf(persons) {
@@ -116,7 +130,8 @@ export function paintPersonCard(person, focusId) {
   const metrics = el('div', 'metrics');
   const pressure = Number(person.livePressure != null ? person.livePressure : person.currentPressure || 0);
   const remain = person.liveRemain;
-  const settings = getScbaSettings();
+  // 3.3：优先用站级阈值（随快照下发），指挥端与本机设置都不再各算一套
+  const settings = normalizeThresholds(person.stationThresholds) || getScbaSettings();
   const pCls = pressure <= settings.dangerPressure
     ? 'c-danger' : (pressure <= settings.warnPressure ? 'c-warn' : 'c-ok');
   const rCls = remain != null && remain <= settings.dangerTimeMin * SCBA.secondsPerMinute

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ccds.attack.attack.mapper.StationWorkModeMapper">
+
+    <resultMap id="StationWorkModeResultMap" type="com.ccds.attack.attack.entity.StationWorkModeDO">
+        <id column="station_id" property="stationId"/>
+        <result column="work_mode" property="workMode"/>
+        <result column="updated_by" property="updatedBy"/>
+        <result column="gmt_create" property="gmtCreate"/>
+        <result column="gmt_modified" property="gmtModified"/>
+    </resultMap>
+
+    <sql id="WorkModeColumns">
+        station_id, work_mode, updated_by, gmt_create, gmt_modified
+    </sql>
+
+    <select id="selectByStationId" resultMap="StationWorkModeResultMap">
+        SELECT
+        <include refid="WorkModeColumns"/>
+        FROM ccds_station_work_mode
+        WHERE station_id = #{stationId}
+    </select>
+
+    <insert id="insertOrUpdate">
+        INSERT INTO ccds_station_work_mode
+            (station_id, work_mode, updated_by, gmt_create, gmt_modified)
+        VALUES
+            (#{stationId}, #{workMode}, #{updatedBy}, #{gmtCreate}, #{gmtModified})
+        ON DUPLICATE KEY UPDATE
+            work_mode = #{workMode},
+            updated_by = #{updatedBy},
+            gmt_modified = CURRENT_TIMESTAMP
+    </insert>
+    <select id="selectByStationIds" resultMap="StationWorkModeResultMap">
+        SELECT
+        <include refid="WorkModeColumns"/>
+        FROM ccds_station_work_mode
+        WHERE station_id IN
+        <foreach collection="stationIds" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </select>
+</mapper>

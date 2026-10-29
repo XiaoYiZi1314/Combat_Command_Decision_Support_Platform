@@ -36,6 +36,8 @@ public class ChatServiceImpl implements ChatService {
 
     private final ModelGateway modelGateway;
 
+    private final AssistImageValidator assistImageValidator;
+
     /**
      * {@inheritDoc}
      */
@@ -47,11 +49,22 @@ public class ChatServiceImpl implements ChatService {
         }
         String prompt = buildUserPrompt(command);
         try {
-            String answer = modelGateway.completeText(SYSTEM_PROMPT, prompt);
+            // 5.4：带图走视觉模型，无图仍走纯文本，文本链路零回归
+            String answer;
+            if (assistImageValidator.hasImage(command.getImageBase64())) {
+                String payload = assistImageValidator.validateAndStrip(command.getImageBase64(),
+                        command.getImageContentType(), assistImageValidator.assistBizType());
+                answer = modelGateway.completeVision(SYSTEM_PROMPT, prompt, payload,
+                        command.getImageContentType());
+            } else {
+                answer = modelGateway.completeText(SYSTEM_PROMPT, prompt);
+            }
             return ChatResultDTO.builder()
                     .answer(answer == null ? "" : answer.trim())
                     .disclaimer(AssistRuleConstant.AUXILIARY_DISCLAIMER)
                     .build();
+        } catch (BizException ex) {
+            throw ex;
         } catch (IllegalStateException ex) {
             log.error("AI 通用问答模型不可用", ex);
             throw new BizException(ErrorCodeConstant.ASSIST_MODEL_UNAVAILABLE,

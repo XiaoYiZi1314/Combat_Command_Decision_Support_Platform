@@ -113,4 +113,34 @@ public interface RosterService {
      * @return xlsx 字节
      */
     byte[] exportTemplate();
+
+    /**
+     * 本站仍生效的人员删除记录（已删除名单）。
+     *
+     * @param principal 当前身份
+     * @param stationId 站主键
+     * @return 删除记录列表，不会为 null
+     */
+    java.util.List<com.ccds.roster.roster.vo.ProfileTombstoneVO> listProfileTombstones(
+            AuthPrincipal principal, Long stationId);
+
+    /**
+     * 恢复已删除人员的姓名 / NFC 记录。
+     *
+     * @param principal 当前身份
+     * @param stationId 站主键
+     * @param scope     恢复范围 name / nfc / all
+     * @param name      姓名
+     * @param nfcTag    NFC 编号
+     */
+    void restoreProfileTombstone(AuthPrincipal principal, Long stationId, String scope,
+                                 String name, String nfcTag);
+
+    /**
+     * 支队导出所有单位人员档案。站级仍只导出本站。
+     *
+     * @param principal 当前身份
+     * @return xlsx 字节
+     */
+    byte[] exportAllProfiles(AuthPrincipal principal);
 }

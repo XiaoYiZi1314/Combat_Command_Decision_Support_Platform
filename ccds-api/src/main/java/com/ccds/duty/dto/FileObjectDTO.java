@@ -33,6 +33,11 @@ public class FileObjectDTO {
     private Long bizId;
 
     /**
+     * 原始文件名
+     */
+    private String originalName;
+
+    /**
      * MIME类型
      */
     private String contentType;

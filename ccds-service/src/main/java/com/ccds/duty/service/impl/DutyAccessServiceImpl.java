@@ -32,6 +32,8 @@ public class DutyAccessServiceImpl implements DutyAccessService {
 
     private static final String MSG_UNAUTHORIZED = "登录已失效，请重新登录";
 
+    private static final String MSG_REVIEW_FORBIDDEN = "仅支队账号可执行该操作";
+
     private final StationMapper stationMapper;
 
     private final AccountMapper accountMapper;
@@ -87,6 +89,29 @@ public class DutyAccessServiceImpl implements DutyAccessService {
         return role == AccountRoleEnum.STATION
                 && account.getStationId() != null
                 && account.getStationId().equals(stationId);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void requireReviewer(AccountDO account) {
+        AccountRoleEnum role = AccountRoleEnum.fromCode(account.getRole());
+        if (role != AccountRoleEnum.HQ && role != AccountRoleEnum.DEVELOPER) {
+            throw new BizException(ErrorCodeConstant.DUTY_STATION_FORBIDDEN, MSG_REVIEW_FORBIDDEN);
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean canReadPlainPhone(AccountDO account, Long stationId) {
+        StationDO station = stationMapper.selectById(stationId);
+        if (station == null) {
+            return false;
+        }
+        return canView(account, station);
     }
 
     private boolean canView(AccountDO account, StationDO station) {

@@ -240,6 +240,10 @@ public class HazmatSearchClientImpl implements HazmatSearchClient {
                 .query(query)
                 .count(matched.size())
                 .items(matched)
+                // 上游不可用或未配置：明确标注来源与降级，界面据此提示「已改用备用库」
+                .source(matched.isEmpty() ? "none" : "local")
+                .degraded(Boolean.TRUE)
+                .degradedNote("登记库暂不可用，已改用本机备用库")
                 .build();
     }
 
@@ -266,7 +270,11 @@ public class HazmatSearchClientImpl implements HazmatSearchClient {
     }
     private HazmatSearchResultDTO emptyResult(String query) {
         return HazmatSearchResultDTO.builder()
+                .query(query)
+                .count(Integer.valueOf(0))
                 .items(List.of())
+                .source("none")
+                .degraded(Boolean.FALSE)
                 .build();
     }
 

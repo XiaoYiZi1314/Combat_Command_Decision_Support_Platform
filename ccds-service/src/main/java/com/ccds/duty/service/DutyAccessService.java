@@ -46,4 +46,20 @@ public interface DutyAccessService {
      * @return 可写为 true
      */
     boolean isWritable(AccountDO account, Long stationId);
+
+    /**
+     * 要求审批人 / 全量导出权限：支队与开发者。
+     *
+     * @param account 账号
+     */
+    void requireReviewer(AccountDO account);
+
+    /**
+     * 是否可读电话明文（4.5 / 5.5）：站级本站、所属大队、支队、开发者可见。
+     *
+     * @param account   账号
+     * @param stationId 站主键
+     * @return 可读明文为 true
+     */
+    boolean canReadPlainPhone(AccountDO account, Long stationId);
 }

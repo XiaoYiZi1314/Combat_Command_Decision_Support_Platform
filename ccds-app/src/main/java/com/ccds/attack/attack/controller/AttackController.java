@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -15,8 +16,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.ccds.attack.attack.dto.AttackEventCommand;
 import com.ccds.attack.attack.service.AttackService;
+import com.ccds.attack.attack.service.StationStateService;
 import com.ccds.attack.attack.vo.AttackEventResultVO;
 import com.ccds.attack.attack.vo.AttackSnapshotVO;
+import com.ccds.attack.attack.vo.ScbaThresholdVO;
 import com.ccds.attack.attack.vo.StationAttackVO;
 import com.ccds.common.api.constant.ApiPathConstant;
 import com.ccds.common.api.vo.ApiResultVO;
@@ -37,6 +40,8 @@ import lombok.RequiredArgsConstructor;
 public class AttackController {
 
     private final AttackService attackService;
+
+    private final StationStateService stationStateService;
 
     /**
      * 本站卡片与快照。
@@ -77,6 +82,63 @@ public class AttackController {
             HttpServletRequest request,
             @RequestParam(value = "since", required = false) String since) {
         return ApiResultVO.ok(attackService.listSnapshots(current(request), since));
+    }
+
+    /**
+     * 读取站级作业模式。
+     *
+     * @param request   HTTP 请求
+     * @param stationId 站主键
+     * @return 模式 test/training/dispatch
+     */
+    @GetMapping(ApiPathConstant.STATION_WORK_MODE)
+    public ApiResultVO<String> workMode(HttpServletRequest request, @PathVariable Long stationId) {
+        stationStateService.requireVisible(current(request), stationId);
+        return ApiResultVO.ok(stationStateService.getWorkMode(stationId));
+    }
+
+    /**
+     * 站级改作业模式。指挥端只读，会返回 403。
+     *
+     * @param request   HTTP 请求
+     * @param stationId 站主键
+     * @param body      请求体，含 workMode
+     * @return 保存后的模式
+     */
+    @PutMapping(ApiPathConstant.STATION_WORK_MODE)
+    public ApiResultVO<String> updateWorkMode(HttpServletRequest request,
+                                              @PathVariable Long stationId,
+                                              @RequestBody java.util.Map<String, String> body) {
+        String mode = body == null ? null : body.get("workMode");
+        return ApiResultVO.ok(stationStateService.updateWorkMode(current(request), stationId, mode));
+    }
+
+    /**
+     * 读取站级空呼阈值。
+     *
+     * @param request   HTTP 请求
+     * @param stationId 站主键
+     * @return 阈值
+     */
+    @GetMapping(ApiPathConstant.STATION_SCBA_SETTINGS)
+    public ApiResultVO<ScbaThresholdVO> scbaSettings(HttpServletRequest request, @PathVariable Long stationId) {
+        stationStateService.requireVisible(current(request), stationId);
+        return ApiResultVO.ok(stationStateService.getThresholdVo(stationId));
+    }
+
+    /**
+     * 保存站级空呼阈值。指挥端只读，会返回 403。
+     *
+     * @param request   HTTP 请求
+     * @param stationId 站主键
+     * @param command   阈值
+     * @return 保存后的阈值
+     */
+    @PutMapping(ApiPathConstant.STATION_SCBA_SETTINGS)
+    public ApiResultVO<ScbaThresholdVO> saveScbaSettings(HttpServletRequest request,
+                                                         @PathVariable Long stationId,
+                                                         @Valid @RequestBody ScbaThresholdVO command) {
+        return ApiResultVO.ok(stationStateService.saveThresholds(current(request), stationId, command));
     }
 
     private AuthPrincipal current(HttpServletRequest request) {

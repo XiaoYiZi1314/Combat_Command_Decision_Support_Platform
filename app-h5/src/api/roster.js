@@ -110,3 +110,66 @@ export async function downloadRosterExcel(stationId, template) {
     await saveBlobFile(blob, name);
   });
 }
+
+export async function fetchProfileTombstones(stationId) {
+  return withRefresh(() => apiRequest(`/stations/${stationId}/profile-tombstones`, {
+    headers: authHeader()
+  }));
+}
+
+export async function restoreProfileTombstone(stationId, body) {
+  return withRefresh(() => apiRequest(`/stations/${stationId}/profile-tombstones/restore`, {
+    method: 'POST',
+    headers: authHeader(),
+    body
+  }));
+}
+
+export async function submitProfileTransfer(body) {
+  return withRefresh(() => apiRequest('/profile-transfers', {
+    method: 'POST',
+    headers: authHeader(),
+    body
+  }));
+}
+
+export async function fetchProfileTransfers(stationId, status) {
+  const query = new URLSearchParams();
+  if (stationId) {
+    query.set('stationId', String(stationId));
+  }
+  if (status) {
+    query.set('status', status);
+  }
+  const suffix = query.toString() ? `?${query}` : '';
+  return withRefresh(() => apiRequest(`/profile-transfers${suffix}`, { headers: authHeader() }));
+}
+
+export async function reviewProfileTransfer(transferId, body) {
+  return withRefresh(() => apiRequest(`/profile-transfers/${transferId}`, {
+    method: 'PUT',
+    headers: authHeader(),
+    body
+  }));
+}
+
+export async function downloadAllProfilesExcel() {
+  return withRefresh(async () => {
+    let response;
+    try {
+      response = await fetch(apiUrl('/profiles/export-all'), { headers: authHeader() });
+    } catch (err) {
+      const error = new Error('网络不可用，请检查连接');
+      error.code = 'NETWORK';
+      throw error;
+    }
+    if (!response.ok) {
+      const error = new Error('导出失败');
+      error.code = 'HTTP';
+      throw error;
+    }
+    const blob = await response.blob();
+    const stamp = new Date().toISOString().slice(0, 10);
+    await saveBlobFile(blob, `所有单位人员档案_${stamp}.xlsx`);
+  });
+}

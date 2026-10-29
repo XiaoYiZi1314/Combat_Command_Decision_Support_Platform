@@ -5,6 +5,8 @@ export const ROUTES = [
   { path: '/attack/quick-add', title: '快速录入', file: 'attack-quick-add' },
   { path: '/settings', title: '参数设置', file: 'settings' },
   { path: '/roster', title: '花名册', file: 'roster' },
+  // 必须排在 /roster/:id 之前，否则会被当成档案 id 匹配
+  { path: '/roster/transfer-approvals', title: '人员调动审批', file: 'roster-transfer' },
   { path: '/roster/:id', title: '编辑档案', file: 'roster-edit' },
   { path: '/weather', title: '天气与方位', file: 'weather' },
   { path: '/scba', title: '空呼时间计算器', file: 'scba' },
@@ -21,6 +23,8 @@ export const ROUTES = [
   { path: '/hq', title: '指挥汇总', file: 'hq' },
   { path: '/hq/station/:stationId', title: '单站态势', file: 'hq-station' },
   { path: '/version', title: '版本信息', file: 'version' },
+  { path: '/guide/install', title: '安装教程', file: 'guide-install' },
+  { path: '/guide/operation', title: '操作教程', file: 'guide-operation' },
   { path: '/nfc', title: 'NFC联动记录', file: 'nfc' },
   { path: '/vehicles', title: '车辆档案', file: 'vehicles' },
   { path: '/attack-history', title: '内攻历史', file: 'attack-history' },

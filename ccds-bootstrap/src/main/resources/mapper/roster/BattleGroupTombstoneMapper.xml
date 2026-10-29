@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ccds.roster.roster.mapper.BattleGroupTombstoneMapper">
+
+    <resultMap id="GroupTombstoneResultMap" type="com.ccds.roster.roster.entity.BattleGroupTombstoneDO">
+        <id column="id" property="id"/>
+        <result column="station_id" property="stationId"/>
+        <result column="group_name" property="groupName"/>
+        <result column="name_norm" property="nameNorm"/>
+        <result column="group_id" property="groupId"/>
+        <result column="slot_no" property="slotNo"/>
+        <result column="source" property="source"/>
+        <result column="released_at" property="releasedAt"/>
+        <result column="released_by" property="releasedBy"/>
+        <result column="created_by" property="createdBy"/>
+        <result column="gmt_create" property="gmtCreate"/>
+        <result column="gmt_modified" property="gmtModified"/>
+    </resultMap>
+
+    <sql id="GroupTombstoneColumns">
+        id, station_id, group_name, name_norm, group_id, slot_no, source, released_at,
+        released_by, created_by, gmt_create, gmt_modified
+    </sql>
+
+    <insert id="insertOrRevive" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ccds_battle_group_tombstone
+            (station_id, group_name, name_norm, group_id, slot_no, source, created_by)
+        VALUES
+            (#{stationId}, #{groupName}, #{nameNorm}, #{groupId}, #{slotNo}, #{source}, #{createdBy})
+        ON DUPLICATE KEY UPDATE
+            released_at = NULL,
+            released_by = NULL,
+            group_id = VALUES(group_id),
+            slot_no = VALUES(slot_no),
+            source = VALUES(source),
+            gmt_modified = CURRENT_TIMESTAMP
+    </insert>
+
+    <select id="selectActiveByStationId" resultMap="GroupTombstoneResultMap">
+        SELECT
+        <include refid="GroupTombstoneColumns"/>
+        FROM ccds_battle_group_tombstone
+        WHERE station_id = #{stationId}
+          AND released_at IS NULL
+        ORDER BY id ASC
+    </select>
+
+    <select id="countActiveByName" resultType="int">
+        SELECT COUNT(*) FROM ccds_battle_group_tombstone
+        WHERE station_id = #{stationId}
+          AND name_norm = #{nameNorm}
+          AND released_at IS NULL
+    </select>
+
+    <update id="releaseByName">
+        UPDATE ccds_battle_group_tombstone
+        SET released_at = CURRENT_TIMESTAMP,
+            released_by = #{releasedBy},
+            gmt_modified = CURRENT_TIMESTAMP
+        WHERE station_id = #{stationId}
+          AND name_norm = #{nameNorm}
+          AND released_at IS NULL
+    </update>
+
+    <delete id="purgeLegacyBug">
+        DELETE FROM ccds_battle_group_tombstone
+        WHERE station_id = #{stationId}
+          AND source = 'legacy_bug'
+          AND gmt_create &lt; #{before}
+    </delete>
+
+</mapper>

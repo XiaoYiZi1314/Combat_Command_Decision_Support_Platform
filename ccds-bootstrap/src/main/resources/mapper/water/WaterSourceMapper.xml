@@ -16,11 +16,52 @@
         <result column="deleted_at" property="deletedAt"/>
         <result column="gmt_create" property="gmtCreate"/>
         <result column="gmt_modified" property="gmtModified"/>
+        <result column="water_no" property="waterNo"/>
+        <result column="retained" property="retained"/>
+        <result column="base_no" property="baseNo"/>
+        <result column="setup" property="setup"/>
+        <result column="pipe_diameter" property="pipeDiameter"/>
+        <result column="pressure_mpa" property="pressureMpa"/>
+        <result column="flow_lps" property="flowLps"/>
+        <result column="supply_form" property="supplyForm"/>
+        <result column="add_height_m" property="addHeightM"/>
+        <result column="usable" property="usable"/>
+        <result column="reason_text" property="reasonText"/>
+        <result column="reason_code" property="reasonCode"/>
+        <result column="part_code" property="partCode"/>
+        <result column="is_repair" property="isRepair"/>
+        <result column="repair_reason" property="repairReason"/>
+        <result column="drain_viewable" property="drainViewable"/>
+        <result column="drain_usable" property="drainUsable"/>
+        <result column="drain_reason" property="drainReason"/>
+        <result column="drain_notes" property="drainNotes"/>
+        <result column="warmth_measure" property="warmthMeasure"/>
+        <result column="warmth_reason" property="warmthReason"/>
     </resultMap>
 
     <sql id="WaterColumns">
         w.id, w.station_id, w.name, w.type, w.status, w.address, w.lng, w.lat,
-        w.extra_json, w.deleted_at, w.gmt_create, w.gmt_modified
+        w.extra_json, w.deleted_at, w.gmt_create, w.gmt_modified,
+        w.water_no, w.retained, w.base_no, w.setup, w.pipe_diameter, w.pressure_mpa,
+        w.flow_lps, w.supply_form, w.add_height_m, w.usable, w.reason_text, w.reason_code,
+        w.part_code, w.is_repair, w.repair_reason, w.drain_viewable, w.drain_usable,
+        w.drain_reason, w.drain_notes, w.warmth_measure, w.warmth_reason
+    </sql>
+
+    <sql id="WaterInsertColumns">
+        (station_id, name, type, status, address, lng, lat, extra_json, water_no, retained, base_no,
+         setup, pipe_diameter, pressure_mpa, flow_lps, supply_form, add_height_m, usable,
+         reason_text, reason_code, part_code, is_repair, repair_reason,
+         drain_viewable, drain_usable, drain_reason, drain_notes, warmth_measure, warmth_reason,
+         gmt_create, gmt_modified)
+    </sql>
+
+    <sql id="WaterInsertValues">
+        (#{stationId}, #{name}, #{type}, #{status}, #{address}, #{lng}, #{lat}, #{extraJson},
+         #{waterNo}, #{retained}, #{baseNo}, #{setup}, #{pipeDiameter}, #{pressureMpa}, #{flowLps},
+         #{supplyForm}, #{addHeightM}, #{usable}, #{reasonText}, #{reasonCode}, #{partCode},
+         #{isRepair}, #{repairReason}, #{drainViewable}, #{drainUsable}, #{drainReason},
+         #{drainNotes}, #{warmthMeasure}, #{warmthReason}, #{gmtCreate}, #{gmtModified})
     </sql>
 
     <select id="selectAliveByStationId" resultMap="WaterResultMap">
@@ -50,12 +91,25 @@
         LIMIT 1
     </select>
 
+    <select id="selectAliveByStationAndNo" resultMap="WaterResultMap">
+        SELECT
+        <include refid="WaterColumns"/>
+        FROM ccds_water_source w
+        WHERE w.station_id = #{stationId}
+          AND w.water_no = #{waterNo}
+          AND w.deleted_at IS NULL
+        LIMIT 1
+    </select>
+
+    <!-- 附近水源只取好用卡：状态在用且可使用不是不好用且未标报修（与 WaterStatusResolver.isBad 同一口径） -->
     <select id="selectActiveAll" resultMap="WaterResultMap">
         SELECT
         <include refid="WaterColumns"/>
         FROM ccds_water_source w
         WHERE w.deleted_at IS NULL
           AND w.status = 'active'
+          AND (w.usable IS NULL OR w.usable &lt;&gt; 'bad')
+          AND (w.is_repair IS NULL OR w.is_repair &lt;&gt; 1)
           AND w.lng IS NOT NULL
           AND w.lat IS NOT NULL
         ORDER BY w.id ASC
@@ -70,21 +124,56 @@
         ORDER BY w.station_id ASC, w.id ASC
     </select>
 
+    <select id="selectAliveByStationIds" resultMap="WaterResultMap">
+        SELECT
+        <include refid="WaterColumns"/>
+        FROM ccds_water_source w
+        WHERE w.deleted_at IS NULL
+          AND w.station_id IN
+        <foreach collection="stationIds" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+        ORDER BY w.station_id ASC, w.id ASC
+    </select>
+
+    <select id="countAllByStation" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM ccds_water_source WHERE station_id = #{stationId}
+    </select>
+
+    <select id="selectAllByStationIncludingDeleted" resultMap="WaterResultMap">
+        SELECT
+        <include refid="WaterColumns"/>
+        FROM ccds_water_source w
+        WHERE w.station_id = #{stationId}
+        ORDER BY w.id ASC
+    </select>
+
+    <select id="selectMaxWaterNo" resultType="java.lang.String">
+        SELECT water_no FROM ccds_water_source
+        WHERE station_id = #{stationId}
+          AND water_no IS NOT NULL
+        ORDER BY water_no DESC
+        LIMIT 1
+    </select>
+
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO ccds_water_source
-            (station_id, name, type, status, address, lng, lat, extra_json, gmt_create, gmt_modified)
+        <include refid="WaterInsertColumns"/>
         VALUES
-            (#{stationId}, #{name}, #{type}, #{status}, #{address}, #{lng}, #{lat}, #{extraJson},
-             #{gmtCreate}, #{gmtModified})
+        <include refid="WaterInsertValues"/>
     </insert>
 
     <insert id="insertBatch">
         INSERT INTO ccds_water_source
-            (station_id, name, type, status, address, lng, lat, extra_json, gmt_create, gmt_modified)
+        <include refid="WaterInsertColumns"/>
         VALUES
         <foreach collection="waters" item="w" separator=",">
             (#{w.stationId}, #{w.name}, #{w.type}, #{w.status}, #{w.address}, #{w.lng}, #{w.lat},
-             #{w.extraJson}, #{w.gmtCreate}, #{w.gmtModified})
+             #{w.extraJson}, #{w.waterNo}, #{w.retained}, #{w.baseNo}, #{w.setup}, #{w.pipeDiameter},
+             #{w.pressureMpa}, #{w.flowLps}, #{w.supplyForm}, #{w.addHeightM}, #{w.usable},
+             #{w.reasonText}, #{w.reasonCode}, #{w.partCode}, #{w.isRepair}, #{w.repairReason},
+             #{w.drainViewable}, #{w.drainUsable}, #{w.drainReason}, #{w.drainNotes},
+             #{w.warmthMeasure}, #{w.warmthReason}, #{w.gmtCreate}, #{w.gmtModified})
         </foreach>
     </insert>
 
@@ -97,17 +186,52 @@
             lng = #{lng},
             lat = #{lat},
             extra_json = #{extraJson},
+            setup = #{setup},
+            pipe_diameter = #{pipeDiameter},
+            pressure_mpa = #{pressureMpa},
+            flow_lps = #{flowLps},
+            supply_form = #{supplyForm},
+            add_height_m = #{addHeightM},
+            usable = #{usable},
+            reason_text = #{reasonText},
+            reason_code = #{reasonCode},
+            part_code = #{partCode},
+            is_repair = #{isRepair},
+            repair_reason = #{repairReason},
+            drain_viewable = #{drainViewable},
+            drain_usable = #{drainUsable},
+            drain_reason = #{drainReason},
+            drain_notes = #{drainNotes},
+            warmth_measure = #{warmthMeasure},
+            warmth_reason = #{warmthReason},
+            retained = #{retained},
             gmt_modified = #{gmtModified}
         WHERE id = #{id}
           AND deleted_at IS NULL
     </update>
 
+    <!-- 软删仍改名以避开 uk_water_station_name；water_no 保留，供删除名单与「保留卡补回」按编号追踪 -->
     <update id="softDelete">
         UPDATE ccds_water_source
         SET deleted_at = #{deletedAt},
-            name = CONCAT(LEFT(name, 59 - CHAR_LENGTH(id)), '#DEL#', id),
+            name = CONCAT(LEFT(name, 40), '#DEL#', id),
             gmt_modified = #{gmtModified}
         WHERE id = #{id}
           AND deleted_at IS NULL
     </update>
+
+    <update id="undelete">
+        UPDATE ccds_water_source
+        SET deleted_at = NULL,
+            gmt_modified = #{gmtModified}
+        WHERE id = #{id}
+    </update>
+
+    <update id="restoreName">
+        UPDATE ccds_water_source
+        SET name = #{name},
+            gmt_modified = #{gmtModified}
+        WHERE id = #{id}
+    </update>
+
 </mapper>

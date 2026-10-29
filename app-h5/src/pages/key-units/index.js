@@ -34,6 +34,9 @@ function stationId() {
 }
 
 function fileName(file) {
+  if (file && file.originalName) {
+    return file.originalName;
+  }
   const type = file && file.contentType ? file.contentType : '文件';
   return `${type} #${file && file.id ? file.id : ''}`;
 }
@@ -146,7 +149,9 @@ export function renderKeyUnitsPage(root) {
     cardHead.appendChild(el('strong', '', unit.name || '未命名单位'));
     cardHead.appendChild(el('span', 'ku-category', unit.category || '未分类'));
     card.appendChild(cardHead);
-    const meta = [unit.address, unit.contact, unit.phoneMasked ? `电话 ${unit.phoneMasked}` : ''].filter(Boolean).join(' · ');
+    // 5.5：本站、所属大队、支队查看时显示完整联系电话，不是星号
+    const phoneText = unit.phone || unit.phoneMasked;
+    const meta = [unit.address, unit.contact, phoneText ? `电话 ${phoneText}` : ''].filter(Boolean).join(' · ');
     card.appendChild(el('div', 'ku-meta', meta || '暂无基础资料'));
     if (unit.notes) card.appendChild(el('div', 'ku-plan-preview', unit.notes));
     const actions = el('div', 'ku-card-actions');
@@ -257,7 +262,7 @@ export function renderKeyUnitEditPage(root, params) {
     renderFileList(planList, state.planFiles, '尚未上传预案文件');
     renderFileList(floorList, state.floorPlans, '尚未上传平面图');
   }
-  function fill(unit) { state.unit = unit; state.planFiles = unit.planFiles || []; state.floorPlans = unit.floorPlans || []; Object.keys(controls).forEach((key) => { controls[key].value = unit[key] || ''; }); renderFiles(); }
+  function fill(unit) { state.unit = unit; state.planFiles = unit.planFiles || []; state.floorPlans = unit.floorPlans || []; Object.keys(controls).forEach((key) => { controls[key].value = unit[key] || ''; }); if (!controls.phone.value && unit.phoneMasked) { controls.phone.value = unit.phoneMasked; } renderFiles(); }
   async function saveUnit(button) { if (!controls.name.value.trim()) { setMessage('单位名称不能为空', true); return; } button.disabled = true; try { const bodyData = { name: controls.name.value.trim(), address: controls.address.value.trim(), category: controls.category.value, contact: controls.contact.value.trim(), phone: controls.phone.value.trim(), notes: controls.notes.value.trim(), planText: controls.planText.value }; const saved = creating ? await createKeyUnit(state.stationId, bodyData) : await updateKeyUnit(state.stationId, state.id, bodyData); state.id = saved.id; state.planFiles = saved.planFiles || state.planFiles; setMessage('保存成功'); renderFiles(); if (creating) { window.history.replaceState({}, '', `#/key-units/${saved.id}`); } } catch (err) { setMessage(err.message || '保存失败', true); } finally { button.disabled = false; } }
   async function uploadFile(input, button, bizType, emptyText) {
     const file = input.files && input.files[0];

@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ccds.roster.roster.mapper.ProfileTombstoneMapper">
+
+    <resultMap id="ProfileTombstoneResultMap" type="com.ccds.roster.roster.entity.ProfileTombstoneDO">
+        <id column="id" property="id"/>
+        <result column="station_id" property="stationId"/>
+        <result column="profile_id" property="profileId"/>
+        <result column="legacy_profile_id" property="legacyProfileId"/>
+        <result column="archive_no" property="archiveNo"/>
+        <result column="name" property="name"/>
+        <result column="name_norm" property="nameNorm"/>
+        <result column="nfc_tag" property="nfcTag"/>
+        <result column="nfc_norm" property="nfcNorm"/>
+        <result column="source" property="source"/>
+        <result column="name_released_at" property="nameReleasedAt"/>
+        <result column="nfc_released_at" property="nfcReleasedAt"/>
+        <result column="archive_released_at" property="archiveReleasedAt"/>
+        <result column="released_by" property="releasedBy"/>
+        <result column="created_by" property="createdBy"/>
+        <result column="gmt_create" property="gmtCreate"/>
+        <result column="gmt_modified" property="gmtModified"/>
+    </resultMap>
+
+    <sql id="TombstoneColumns">
+        id, station_id, profile_id, legacy_profile_id, archive_no, name, name_norm, nfc_tag, nfc_norm,
+        source, name_released_at, nfc_released_at, archive_released_at, released_by, created_by,
+        gmt_create, gmt_modified
+    </sql>
+
+    <select id="selectByStationId" resultMap="ProfileTombstoneResultMap">
+        SELECT
+        <include refid="TombstoneColumns"/>
+        FROM ccds_profile_tombstone
+        WHERE station_id = #{stationId}
+        ORDER BY id ASC
+    </select>
+
+    <select id="countByStation" resultType="int">
+        SELECT COUNT(*)
+        FROM ccds_profile_tombstone
+        WHERE station_id = #{stationId}
+    </select>
+
+    <insert id="insertIgnore">
+        INSERT INTO ccds_profile_tombstone
+            (station_id, profile_id, legacy_profile_id, archive_no, name, name_norm, nfc_tag, nfc_norm,
+             source, name_released_at, nfc_released_at, archive_released_at, released_by, created_by)
+        VALUES
+            (#{stationId}, #{profileId}, #{legacyProfileId}, #{archiveNo}, #{name}, #{nameNorm},
+             #{nfcTag}, #{nfcNorm}, #{source}, #{nameReleasedAt}, #{nfcReleasedAt},
+             #{archiveReleasedAt}, #{releasedBy}, #{createdBy})
+        ON DUPLICATE KEY UPDATE gmt_modified = gmt_modified
+    </insert>
+
+    <!-- 删除记录只增不删：这里只允许「解除」，且必须按层级分开解除 -->
+    <select id="selectActiveByStationId" resultMap="ProfileTombstoneResultMap">
+        SELECT
+        <include refid="TombstoneColumns"/>
+        FROM ccds_profile_tombstone
+        WHERE station_id = #{stationId}
+          AND (name_released_at IS NULL OR nfc_released_at IS NULL OR archive_released_at IS NULL)
+        ORDER BY id ASC
+    </select>
+
+    <select id="countActiveByName" resultType="int">
+        SELECT COUNT(*)
+        FROM ccds_profile_tombstone
+        WHERE station_id = #{stationId}
+          AND name_norm = #{nameNorm}
+          AND name_released_at IS NULL
+    </select>
+
+    <select id="countActiveByNfc" resultType="int">
+        SELECT COUNT(*)
+        FROM ccds_profile_tombstone
+        WHERE station_id = #{stationId}
+          AND nfc_norm = #{nfcNorm}
+          AND nfc_released_at IS NULL
+    </select>
+
+    <select id="countActiveByArchiveNo" resultType="int">
+        SELECT COUNT(*)
+        FROM ccds_profile_tombstone
+        WHERE station_id = #{stationId}
+          AND archive_no = #{archiveNo}
+          AND archive_released_at IS NULL
+    </select>
+
+    <!-- 按姓名误删：只解姓名这一条，绝不动档案号与 NFC 记录 -->
+    <update id="releaseName">
+        UPDATE ccds_profile_tombstone
+        SET name_released_at = CURRENT_TIMESTAMP,
+            released_by = #{releasedBy},
+            gmt_modified = CURRENT_TIMESTAMP
+        WHERE station_id = #{stationId}
+          AND name_norm = #{nameNorm}
+          AND name_released_at IS NULL
+    </update>
+
+    <update id="releaseNfc">
+        UPDATE ccds_profile_tombstone
+        SET nfc_released_at = CURRENT_TIMESTAMP,
+            released_by = #{releasedBy},
+            gmt_modified = CURRENT_TIMESTAMP
+        WHERE station_id = #{stationId}
+          AND nfc_norm = #{nfcNorm}
+          AND nfc_released_at IS NULL
+    </update>
+
+    <update id="releaseAll">
+        UPDATE ccds_profile_tombstone
+        SET name_released_at = COALESCE(name_released_at, CURRENT_TIMESTAMP),
+            nfc_released_at = COALESCE(nfc_released_at, CURRENT_TIMESTAMP),
+            archive_released_at = COALESCE(archive_released_at, CURRENT_TIMESTAMP),
+            released_by = #{releasedBy},
+            gmt_modified = CURRENT_TIMESTAMP
+        WHERE station_id = #{stationId}
+          AND (name_norm = #{nameNorm}
+               OR (nfc_norm IS NOT NULL AND nfc_norm = #{nfcNorm}))
+    </update>
+</mapper>

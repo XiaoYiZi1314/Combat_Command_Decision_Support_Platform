@@ -275,3 +275,38 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ---- 值班表：可编辑编组 / 历史只读 ---- */
+.duty-groups-editable h3 {
+  font-size: 13px;
+  color: var(--dim);
+  margin-bottom: 6px;
+}
+
+.duty-group-edit {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  margin-bottom: 8px;
+}
+
+.duty-group-member,
+.duty-group-add {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.duty-group-member select,
+.duty-group-add select {
+  flex: 1 1 120px;
+  min-width: 100px;
+}
+
+.duty-help {
+  font-size: 11px;
+  color: var(--dim);
+  margin-top: 6px;
+}

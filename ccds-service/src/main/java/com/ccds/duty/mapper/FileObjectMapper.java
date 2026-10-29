@@ -43,6 +43,14 @@ public interface FileObjectMapper {
     FileObjectDO selectById(Long id);
 
     /**
+     * 根据对象键查询，用于导入幂等。
+     *
+     * @param cosKey 对象键
+     * @return 文件，不存在为 null
+     */
+    FileObjectDO selectByCosKey(@Param("cosKey") String cosKey);
+
+    /**
      * 根据业务类型和业务ID查询文件列表
      *
      * @param bizType 业务类型

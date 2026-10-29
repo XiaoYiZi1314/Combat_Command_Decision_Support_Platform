@@ -10,6 +10,59 @@ export const STATUS_OPTIONS = [
 ];
 
 /**
+ * 设置方式（1.1 编辑表字段）。
+ */
+export const SETUP_OPTIONS = [
+  { value: 'above', label: '地上' },
+  { value: 'under', label: '地下' }
+];
+
+/**
+ * 给水形式（1.1 编辑表字段）。
+ */
+export const SUPPLY_FORM_OPTIONS = [
+  { value: 'ring', label: '环状' },
+  { value: 'branch', label: '枝状' }
+];
+
+/**
+ * 可使用（1.1 编辑表字段）。不好用判定由「可使用 + 是否报修」派生状态，前端不再单独传状态。
+ */
+export const USABLE_OPTIONS = [
+  { value: 'good', label: '好用' },
+  { value: 'bad', label: '不好用' }
+];
+
+/**
+ * 九项不好用原因，一条卡只记一个主原因（1.3 口径）。
+ */
+export const REASON_OPTIONS = [
+  { value: 'no_water', label: '无水' },
+  { value: 'leak', label: '漏水' },
+  { value: 'low_pressure', label: '压力不足' },
+  { value: 'rust', label: '锈蚀' },
+  { value: 'buried', label: '埋压' },
+  { value: 'occupied', label: '圈占' },
+  { value: 'diverted', label: '挪用' },
+  { value: 'collapsed_well', label: '塌井' },
+  { value: 'damaged', label: '毁坏' }
+];
+
+/**
+ * 八项部件损坏，勾一项主部件（1.3 口径）。
+ */
+export const PART_OPTIONS = [
+  { value: 'pipe', label: '管网' },
+  { value: 'cover', label: '井盖' },
+  { value: 'blind_cover', label: '出水口闷盖' },
+  { value: 'valve', label: '闸阀' },
+  { value: 'drain_valve', label: '放水阀' },
+  { value: 'inlet_valve', label: '上水阀' },
+  { value: 'outlet', label: '出水口' },
+  { value: 'sign', label: '标志牌' }
+];
+
+/**
  * 火灾类型供水强度 L/(s·m²)，沿现网。
  */
 export const FIRE_INTENSITY = [
@@ -64,7 +117,7 @@ export function buildBaiduNavUrl(lat, lng, name) {
 }
 
 /**
- * 一期无车辆档案：按类型给保守默认泵量 L/s，界面需写明为默认值。
+ * 按车辆类型估算泵量 L/s。仅在车辆档案缺少水泵/水炮/泡沫炮流量时兜底使用。
  */
 export function defaultVehicleFlow(vehicleName) {
   const text = String(vehicleName || '');
@@ -105,4 +158,48 @@ export function typeLabel(code) {
 export function statusLabel(code) {
   const hit = STATUS_OPTIONS.find((item) => item.value === code);
   return hit ? hit.label : code;
+}
+
+/**
+ * 按选项表取标签。
+ */
+export function optionLabel(options, code) {
+  const hit = (options || []).find((item) => item.value === code);
+  return hit ? hit.label : '';
+}
+
+/**
+ * 不好用判定：与后端 WaterStatusResolver.isBad 同一口径。
+ * 状态=报修，或可使用=不好用，或是否报修=是。
+ */
+export function isWaterBad(water) {
+  if (!water) {
+    return false;
+  }
+  return water.bad === true
+    || water.status === 'repair'
+    || water.usable === 'bad'
+    || water.repair === true;
+}
+
+/**
+ * 水源卡片原因摘要：不好用的卡直接写原因、部件与备注，不能只写一个「报修」。
+ */
+export function waterBadSummary(water) {
+  if (!isWaterBad(water)) {
+    return '';
+  }
+  const parts = [];
+  const reason = water.reasonLabel || optionLabel(REASON_OPTIONS, water.reasonCode) || water.reasonText;
+  if (reason) {
+    parts.push(`原因：${reason}`);
+  }
+  const part = water.partLabel || optionLabel(PART_OPTIONS, water.partCode);
+  if (part) {
+    parts.push(`部件：${part}`);
+  }
+  if (water.notes) {
+    parts.push(`备注：${water.notes}`);
+  }
+  return parts.join(' · ');
 }

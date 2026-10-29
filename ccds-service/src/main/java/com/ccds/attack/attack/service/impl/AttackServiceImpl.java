@@ -38,7 +38,9 @@ import com.ccds.attack.attack.model.ScbaEstimateQuery;
 import com.ccds.attack.attack.model.ScbaEstimateResult;
 import com.ccds.attack.attack.service.AttackService;
 import com.ccds.attack.attack.service.CommandPushService;
+import com.ccds.attack.attack.model.ScbaThresholds;
 import com.ccds.attack.attack.service.ScbaEstimateService;
+import com.ccds.attack.attack.service.StationStateService;
 import com.ccds.attack.attack.vo.AttackEventResultVO;
 import com.ccds.attack.attack.vo.AttackPersonVO;
 import com.ccds.attack.attack.vo.AttackSnapshotVO;
@@ -126,6 +128,7 @@ public class AttackServiceImpl implements AttackService {
     private final ScbaEstimateService scbaEstimateService;
 
     private final AttackViewTranslator attackViewTranslator;
+    private final StationStateService stationStateService;
 
     private final AttackEventDedupStore attackEventDedupStore;
 
@@ -253,13 +256,24 @@ public class AttackServiceImpl implements AttackService {
         List<StationSnapshotDO> rows = since == null
                 ? stationSnapshotMapper.selectActive()
                 : stationSnapshotMapper.selectModifiedSince(since);
+        // 批量预取可见站的模式与阈值，避免快照列表逐站查库
+        List<Long> stationIds = new ArrayList<Long>();
+        for (StationSnapshotDO row : rows) {
+            if (visible.containsKey(row.getStationId())) {
+                stationIds.add(row.getStationId());
+            }
+        }
+        Map<Long, String> workModes = stationStateService.getWorkModes(stationIds);
+        Map<Long, com.ccds.attack.attack.vo.ScbaThresholdVO> thresholdVos =
+                stationStateService.getThresholdVos(stationIds);
         List<AttackSnapshotVO> result = new ArrayList<AttackSnapshotVO>();
         for (StationSnapshotDO row : rows) {
             StationDO station = visible.get(row.getStationId());
             if (station == null) {
                 continue;
             }
-            AttackSnapshotVO snapshot = attackViewTranslator.toSnapshotVo(row, station, now);
+            AttackSnapshotVO snapshot = attackViewTranslator.toSnapshotVo(row, station, now,
+                    workModes.get(row.getStationId()), thresholdVos.get(row.getStationId()));
             if (since == null && !attackViewTranslator.hasUnwithdrawn(snapshot)) {
                 continue;
             }
@@ -465,17 +479,33 @@ public class AttackServiceImpl implements AttackService {
 
     private void refreshRuntime(AttackPersonDO person, LocalDateTime now) {
         ProfileDO profile = person.getProfileId() == null ? null : profileMapper.selectAliveById(person.getProfileId());
-        applyEstimate(person, now, profile, calibrationsOf(person.getProfileId()));
+        applyEstimate(person, now, profile, calibrationsOf(person.getProfileId()),
+                stationStateService.getThresholds(person.getStationId()));
     }
 
     private void applyEstimate(AttackPersonDO person, LocalDateTime now, ProfileDO profile,
                                List<ScbaCalibrationDO> calibrations) {
+        applyEstimate(person, now, profile, calibrations,
+                stationStateService.getThresholds(person.getStationId()));
+    }
+
+    /**
+     * 按站级阈值估算。阈值由调用方按站查一次后传入，避免逐人查库。
+     *
+     * @param person       卡片
+     * @param now          当前时间
+     * @param profile      档案
+     * @param calibrations 标定
+     * @param thresholds   站级阈值
+     */
+    private void applyEstimate(AttackPersonDO person, LocalDateTime now, ProfileDO profile,
+                               List<ScbaCalibrationDO> calibrations, ScbaThresholds thresholds) {
         ScbaEstimateResult result = scbaEstimateService.estimate(toEstimateQuery(person, now, profile, calibrations));
         AttackStatusEnum current = AttackStatusEnum.fromCode(person.getStatus());
         AttackRiskStatusEnum risk = current == AttackStatusEnum.PENDING
                 ? null
                 : scbaEstimateService.resolveStatus(current, result.getCurrentPressure(), result.getRemainSec(),
-                now, person.getEnteredAt(), person.getWithdrawnAt());
+                person.getEnteredAt(), person.getWithdrawnAt(), thresholds);
         person.setRuntimePressure(result.getCurrentPressure());
         person.setRemainSec(result.getRemainSec());
         person.setRuntimeStatus(current == AttackStatusEnum.PENDING ? "pending"
@@ -581,9 +611,10 @@ public class AttackServiceImpl implements AttackService {
         List<AttackPersonDO> persons = attackPersonMapper.selectByStationId(stationId);
         Map<Long, ProfileDO> profiles = profileMap(stationId);
         Map<Long, List<ScbaCalibrationDO>> calibrations = calibrationMap(stationId);
+        ScbaThresholds thresholds = stationStateService.getThresholds(stationId);
         for (AttackPersonDO person : persons) {
             applyEstimate(person, now, profiles.get(person.getProfileId()),
-                    listOrEmpty(calibrations.get(person.getProfileId())));
+                    listOrEmpty(calibrations.get(person.getProfileId())), thresholds);
         }
         StatusCounts counts = countStatuses(persons);
         persistLiveSnapshot(stationId, counts, now);
@@ -727,10 +758,11 @@ public class AttackServiceImpl implements AttackService {
         List<Boolean> calibrated = new ArrayList<Boolean>();
         List<BigDecimal> personalKs = new ArrayList<BigDecimal>();
         List<AttackPersonDO> live = new ArrayList<AttackPersonDO>();
+        ScbaThresholds thresholds = stationStateService.getThresholds(station.getId());
         for (AttackPersonDO row : rows) {
             List<ScbaCalibrationDO> items = listOrEmpty(calibrations.get(row.getProfileId()));
             ProfileDO profile = row.getProfileId() == null ? null : profiles.get(row.getProfileId());
-            applyEstimate(row, now, profile, items);
+            applyEstimate(row, now, profile, items, thresholds);
             live.add(row);
             calibrated.add(Boolean.valueOf(!items.isEmpty()));
             personalKs.add(scbaEstimateService.personalK(items));

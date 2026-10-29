@@ -26,6 +26,10 @@ public class WaterAccessServiceImpl implements WaterAccessService {
 
     private static final String MSG_WRITE_FORBIDDEN = "仅本站账号可改水源";
 
+    private static final String MSG_REQUEST_FORBIDDEN = "仅本站或支队账号可提交水源申请";
+
+    private static final String MSG_REVIEW_FORBIDDEN = "仅支队账号可审批水源申请";
+
     private static final String MSG_STATION_MISSING = "单位不存在";
 
     private final StationMapper stationMapper;
@@ -66,6 +70,37 @@ public class WaterAccessServiceImpl implements WaterAccessService {
         return role == AccountRoleEnum.STATION
                 && account.getStationId() != null
                 && account.getStationId().equals(stationId);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean isDirectWriter(AccountDO account) {
+        AccountRoleEnum role = AccountRoleEnum.fromCode(account.getRole());
+        return role == AccountRoleEnum.HQ || role == AccountRoleEnum.DEVELOPER;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public StationDO requireRequestStation(AccountDO account, Long stationId) {
+        StationDO station = requireVisibleStation(account, stationId);
+        if (isDirectWriter(account) || isWritable(account, stationId)) {
+            return station;
+        }
+        throw new BizException(ErrorCodeConstant.WATER_WRITE_FORBIDDEN, MSG_REQUEST_FORBIDDEN);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void requireReviewer(AccountDO account) {
+        if (!isDirectWriter(account)) {
+            throw new BizException(ErrorCodeConstant.WATER_WRITE_FORBIDDEN, MSG_REVIEW_FORBIDDEN);
+        }
     }
 
     private boolean canView(AccountDO account, StationDO station) {

@@ -11,6 +11,7 @@ const ZONES = [
     items: [
       ['NFC联动记录', 'nfc.png', '#/nfc', true],
       ['人员档案', 'roster.png', '#/roster'],
+      ['人员调动审批', 'roster.png', '#/roster/transfer-approvals', false, true],
       ['值班表', 'duty.png', '#/duty'],
       ['空呼时间校准计算器', 'scba.png', '#/scba']
     ]
@@ -88,7 +89,11 @@ export function buildDrawer(onClose) {
       btn.appendChild(icon);
       btn.appendChild(el('span', 'drawer-tile-label', item[0]));
       /* 客户 APK：支队/汇总账号不开放 NFC 联动记录 */
+      /* item[3]：支队/汇总账号隐藏；item[4]：仅支队/汇总账号可见 */
       if (item[3] && me.role === 'hq') {
+        btn.classList.add('is-hidden');
+      }
+      if (item[4] && me.role !== 'hq' && me.role !== 'developer') {
         btn.classList.add('is-hidden');
       }
       btn.addEventListener('click', () => {

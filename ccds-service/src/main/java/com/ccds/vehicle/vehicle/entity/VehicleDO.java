@@ -85,6 +85,21 @@ public class VehicleDO {
     private String workHeight;
 
     /**
+     * 水泵流量 L/s。供水计算优先取本列。
+     */
+    private java.math.BigDecimal pumpFlow;
+
+    /**
+     * 水炮流量 L/s。
+     */
+    private java.math.BigDecimal waterCannonFlow;
+
+    /**
+     * 泡沫炮流量 L/s。
+     */
+    private java.math.BigDecimal foamCannonFlow;
+
+    /**
      * 发动机号。
      */
     private String engineNo;

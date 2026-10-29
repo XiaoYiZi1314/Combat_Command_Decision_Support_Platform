@@ -19,6 +19,11 @@ public final class FileBizTypeConstant {
     public static final String WATER_DOC = "water_doc";
 
     /**
+     * 水源出水视频（限 10 秒）
+     */
+    public static final String WATER_VIDEO = "water_video";
+
+    /**
      * 重点单位预案文件
      */
     public static final String KEYUNIT_PLAN = "keyunit_plan";

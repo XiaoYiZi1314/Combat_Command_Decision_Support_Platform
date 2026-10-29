@@ -5,6 +5,12 @@ export async function fetchWaters(stationId) {
   return withRefresh(() => apiRequest(`/stations/${stationId}/waters`, { headers: authHeader() }));
 }
 
+export async function fetchWater(stationId, waterId) {
+  return withRefresh(() => apiRequest(`/stations/${stationId}/waters/${waterId}`, {
+    headers: authHeader()
+  }));
+}
+
 export async function createWater(stationId, body) {
   return withRefresh(() => apiRequest(`/stations/${stationId}/waters`, {
     method: 'POST',
@@ -30,6 +36,56 @@ export async function deleteWater(stationId, waterId) {
 
 export async function fetchCityWaters() {
   return withRefresh(() => apiRequest('/waters/city', { headers: authHeader() }));
+}
+
+export async function fetchWaterSummary(month) {
+  const query = month ? `?month=${encodeURIComponent(month)}` : '';
+  return withRefresh(() => apiRequest(`/waters/summary${query}`, { headers: authHeader() }));
+}
+
+export async function fetchWaterRequests(stationId, status) {
+  const query = status ? `?status=${encodeURIComponent(status)}` : '';
+  const path = stationId
+    ? `/stations/${stationId}/water-requests${query}`
+    : `/water-requests${query}`;
+  return withRefresh(() => apiRequest(path, { headers: authHeader() }));
+}
+
+export async function submitWaterRequest(stationId, body) {
+  return withRefresh(() => apiRequest(`/stations/${stationId}/water-requests`, {
+    method: 'POST',
+    headers: authHeader(),
+    body
+  }));
+}
+
+export async function reviewWaterRequest(stationId, requestId, body) {
+  return withRefresh(() => apiRequest(`/stations/${stationId}/water-requests/${requestId}`, {
+    method: 'PUT',
+    headers: authHeader(),
+    body
+  }));
+}
+
+export async function withdrawWaterRequest(stationId, requestId) {
+  return withRefresh(() => apiRequest(`/stations/${stationId}/water-requests/${requestId}`, {
+    method: 'DELETE',
+    headers: authHeader()
+  }));
+}
+
+export async function submitWaterVideo(stationId, waterId, body) {
+  return withRefresh(() => apiRequest(`/stations/${stationId}/waters/${waterId}/videos`, {
+    method: 'POST',
+    headers: authHeader(),
+    body
+  }));
+}
+
+export async function fetchWaterVideos(stationId, waterId) {
+  return withRefresh(() => apiRequest(`/stations/${stationId}/waters/${waterId}/videos`, {
+    headers: authHeader()
+  }));
 }
 
 export async function fetchNearbyWaters(lng, lat, radiusM) {
@@ -104,5 +160,30 @@ export async function downloadWaterExcel(stationId, template) {
     const prefix = template ? '水源检查记录导入模板_' : '水源检查记录_';
     const name = `${prefix}${stamp}.xlsx`;
     await saveBlobFile(blob, name);
+  });
+}
+
+/**
+ * 导出水源汇总统计（多工作表）。
+ */
+export async function downloadWaterSummary(month) {
+  return withRefresh(async () => {
+    const query = month ? `?month=${encodeURIComponent(month)}` : '';
+    let response;
+    try {
+      response = await fetch(apiUrl(`/waters/summary/export${query}`), { headers: authHeader() });
+    } catch (err) {
+      const error = new Error('网络不可用，请检查连接');
+      error.code = 'NETWORK';
+      throw error;
+    }
+    if (!response.ok) {
+      const error = new Error('导出失败');
+      error.code = 'HTTP';
+      throw error;
+    }
+    const blob = await response.blob();
+    const stamp = new Date().toISOString().slice(0, 10);
+    await saveBlobFile(blob, `水源汇总统计_${stamp}.xlsx`);
   });
 }

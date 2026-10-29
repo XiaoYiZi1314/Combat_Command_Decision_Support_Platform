@@ -34,4 +34,16 @@ public class ChatCommand {
      */
     @Size(max = AssistRuleConstant.CHAT_CONTEXT_MAX_LENGTH)
     private String context;
+
+    /**
+     * 可选现场照片 base64（不含 data: 前缀也可）。与问题一起发送给本后端，不进对象存储。
+     */
+    @Size(max = AssistRuleConstant.IMAGE_BASE64_MAX_LENGTH)
+    private String imageBase64;
+
+    /**
+     * 现场照片 MIME 类型，如 image/jpeg。
+     */
+    @Size(max = 64)
+    private String imageContentType;
 }

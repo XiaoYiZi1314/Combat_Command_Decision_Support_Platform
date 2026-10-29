@@ -1,10 +1,14 @@
 package com.ccds.vehicle.vehicle.dto;
 
+import java.math.BigDecimal;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -96,6 +100,27 @@ public class VehicleDTO {
      */
     @Size(max = 20, message = "举高高度最多20字符")
     private String workHeight;
+
+    /**
+     * 水泵流量 L/s。供水计算优先取本值。
+     */
+    @DecimalMin(value = "0", message = "水泵流量不能为负")
+    @DecimalMax(value = "500", message = "水泵流量最多500")
+    private BigDecimal pumpFlow;
+
+    /**
+     * 水炮流量 L/s。
+     */
+    @DecimalMin(value = "0", message = "水炮流量不能为负")
+    @DecimalMax(value = "500", message = "水炮流量最多500")
+    private BigDecimal waterCannonFlow;
+
+    /**
+     * 泡沫炮流量 L/s。
+     */
+    @DecimalMin(value = "0", message = "泡沫炮流量不能为负")
+    @DecimalMax(value = "500", message = "泡沫炮流量最多500")
+    private BigDecimal foamCannonFlow;
 
     /**
      * 发动机号。

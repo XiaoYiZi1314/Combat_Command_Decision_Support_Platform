@@ -14,6 +14,7 @@ import com.ccds.attack.attack.enums.AttackSceneEnum;
 import com.ccds.attack.attack.enums.AttackStatusEnum;
 import com.ccds.attack.attack.enums.WorkLevelEnum;
 import com.ccds.attack.attack.model.ScbaEstimateQuery;
+import com.ccds.attack.attack.model.ScbaThresholds;
 import com.ccds.attack.attack.model.ScbaEstimateResult;
 import com.ccds.attack.attack.service.ScbaEstimateService;
 import com.ccds.roster.roster.constant.RosterRuleConstant;
@@ -103,20 +104,37 @@ public class ScbaEstimateServiceImpl implements ScbaEstimateService {
     @Override
     public AttackRiskStatusEnum resolveStatus(AttackStatusEnum current, BigDecimal pressure, Integer remainSec,
                                                LocalDateTime now, LocalDateTime enteredAt, LocalDateTime withdrawnAt) {
+        return resolveStatus(current, pressure, remainSec, enteredAt, withdrawnAt, (ScbaThresholds) null);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public AttackRiskStatusEnum resolveStatus(AttackStatusEnum current, BigDecimal pressure, Integer remainSec,
+                                               LocalDateTime enteredAt, LocalDateTime withdrawnAt,
+                                               ScbaThresholds thresholds) {
         if (withdrawnAt != null || current == AttackStatusEnum.OUT || current == AttackStatusEnum.SCANOUT) {
             return AttackRiskStatusEnum.OUT;
         }
         if (current == AttackStatusEnum.PENDING || enteredAt == null) {
             return AttackRiskStatusEnum.OUT;
         }
+        // 站上改过阈值就用站级值；未配置的站回落到一期默认常量
+        BigDecimal warnPressure = thresholds == null || thresholds.getWarnPressure() == null
+                ? AttackRuleConstant.WARN_PRESSURE : thresholds.getWarnPressure();
+        BigDecimal dangerPressure = thresholds == null || thresholds.getDangerPressure() == null
+                ? AttackRuleConstant.DANGER_PRESSURE : thresholds.getDangerPressure();
+        int warnTimeSec = thresholds == null || thresholds.getWarnTimeSec() == null
+                ? AttackRuleConstant.WARN_TIME_SEC : thresholds.getWarnTimeSec().intValue();
+        int dangerTimeSec = thresholds == null || thresholds.getDangerTimeSec() == null
+                ? AttackRuleConstant.DANGER_TIME_SEC : thresholds.getDangerTimeSec().intValue();
         BigDecimal currentPressure = pressure == null ? BigDecimal.ZERO : pressure;
         int remain = remainSec == null ? 0 : remainSec;
-        if (currentPressure.compareTo(AttackRuleConstant.DANGER_PRESSURE) <= 0
-                || remain <= AttackRuleConstant.DANGER_TIME_SEC) {
+        if (currentPressure.compareTo(dangerPressure) <= 0 || remain <= dangerTimeSec) {
             return AttackRiskStatusEnum.DANGER;
         }
-        if (currentPressure.compareTo(AttackRuleConstant.WARN_PRESSURE) <= 0
-                || remain <= AttackRuleConstant.WARN_TIME_SEC) {
+        if (currentPressure.compareTo(warnPressure) <= 0 || remain <= warnTimeSec) {
             return AttackRiskStatusEnum.WARN;
         }
         return AttackRiskStatusEnum.IN;

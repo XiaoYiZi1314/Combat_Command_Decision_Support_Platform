@@ -60,7 +60,7 @@ public class AttackArchiveServiceImpl implements AttackArchiveService {
 
     private static final String MSG_EMPTY = "暂无内攻人员卡片";
 
-    private static final String MSG_KIND_INVALID = "事件类型须为 drill 或 dispatch";
+    private static final String MSG_KIND_INVALID = "事件类型须为 training 或 dispatch（drill 作为旧端别名兼容）";
 
     private static final String MSG_NOT_FOUND = "归档记录不存在";
 
@@ -69,12 +69,12 @@ public class AttackArchiveServiceImpl implements AttackArchiveService {
     private static final String MSG_JSON = "归档快照序列化失败";
 
     private static final List<String> EXPORT_HEADERS = List.of(
-            "记录场次", "归档时间", "单位", "类型", "名称", "地点",
+            "记录场次", "归档时间", "单位", "类型", "作业模式", "名称", "地点",
             "内攻组/编组", "姓名/编号", "入场时间", "入场空呼压力(MPa)",
             "出场时间", "出场空呼压力(MPa)", "剩余时间(秒)", "已作业时间(秒)", "强度", "场景", "状态", "气瓶(L)");
 
     private static final List<String> STATS_HEADERS = List.of(
-            "单位", "类型", "记录数", "累计人次");
+            "单位", "类型", "作业模式", "记录数", "累计人次");
 
     private final AttackArchiveMapper attackArchiveMapper;
 
@@ -123,6 +123,8 @@ public class AttackArchiveServiceImpl implements AttackArchiveService {
                 .eventKind(kind)
                 .eventName(trimToNull(command == null ? null : command.getEventName()))
                 .location(trimToNull(command == null ? null : command.getLocation()))
+                // 3.1：把本次行动的作业模式一起记进历史
+                .mode(normalizeMode(command == null ? null : command.getMode()))
                 .startedAt(startedAt)
                 .finishedAt(finishedAt)
                 .personCount(snapshot.size())
@@ -252,7 +254,8 @@ public class AttackArchiveServiceImpl implements AttackArchiveService {
         Map<String, int[]> stats = new LinkedHashMap<String, int[]>();
         for (AttackArchiveVO archive : archives) {
             String key = (archive.getStationName() == null ? "" : archive.getStationName())
-                    + "|" + (archive.getEventKind() == null ? "" : archive.getEventKind());
+                    + "|" + (archive.getEventKind() == null ? "" : archive.getEventKind())
+                    + "|" + (archive.getMode() == null ? "" : archive.getMode());
             int[] cell = stats.computeIfAbsent(key, ignored -> new int[2]);
             cell[0] += 1;
             cell[1] += archive.getPersonCount() == null ? 0 : archive.getPersonCount();
@@ -260,8 +263,9 @@ public class AttackArchiveServiceImpl implements AttackArchiveService {
         List<List<String>> rows = new ArrayList<List<String>>();
         rows.add(new ArrayList<String>(STATS_HEADERS));
         stats.forEach((key, cell) -> {
-            String[] parts = key.split("\\|", 2);
+            String[] parts = key.split("\\|", 3);
             rows.add(List.of(parts[0], kindLabel(parts.length > 1 ? parts[1] : ""),
+                    modeLabel(parts.length > 2 ? parts[2] : ""),
                     String.valueOf(cell[0]), String.valueOf(cell[1])));
         });
         return spreadsheetCodec.writeXlsx("内攻历史统计",
@@ -273,6 +277,7 @@ public class AttackArchiveServiceImpl implements AttackArchiveService {
         row.add(nz(archive.getFinishedAt()));
         row.add(nz(archive.getStationName()));
         row.add(kindLabel(archive.getEventKind()));
+        row.add(modeLabel(archive.getMode()));
         row.add(nz(archive.getEventName()));
         row.add(nz(archive.getLocation()));
         if (person == null) {
@@ -361,7 +366,9 @@ public class AttackArchiveServiceImpl implements AttackArchiveService {
                 .id(archive.getId())
                 .stationId(archive.getStationId())
                 .stationName(stationName)
-                .eventKind(archive.getEventKind())
+                .eventKind(normalizeKind(archive.getEventKind()))
+                .mode(normalizeMode(archive.getMode()))
+                .modeLabel(modeLabel(archive.getMode()))
                 .eventName(archive.getEventName())
                 .location(archive.getLocation())
                 .startedAt(timeText(archive.getStartedAt()))
@@ -373,24 +380,68 @@ public class AttackArchiveServiceImpl implements AttackArchiveService {
 
     private String normalizeKind(String kind) {
         if (kind == null || kind.isEmpty()) {
-            return "drill";
+            return "training";
         }
         String value = kind.trim().toLowerCase(Locale.ROOT);
-        if (!"drill".equals(value) && !"dispatch".equals(value)) {
-            throw new BizException(ErrorCodeConstant.ATTACK_ARCHIVE_INVALID, MSG_KIND_INVALID);
+        // 3.1：类型与主界面模式同一个词；drill 作为旧端别名归一到 training
+        if ("drill".equals(value) || "training".equals(value) || "test".equals(value)) {
+            return "training";
         }
-        return value;
+        if ("dispatch".equals(value)) {
+            return "dispatch";
+        }
+        throw new BizException(ErrorCodeConstant.ATTACK_ARCHIVE_INVALID, MSG_KIND_INVALID);
     }
 
     private boolean kindMatches(AttackArchiveDO archive, String eventKind) {
         if (eventKind == null || eventKind.isEmpty() || "all".equals(eventKind)) {
             return true;
         }
-        return eventKind.equals(archive.getEventKind());
+        String wanted = normalizeKind(eventKind);
+        String actual = archive.getEventKind();
+        // 老归档可能是 drill，统一按 training 比对
+        String actualNorm = "drill".equalsIgnoreCase(actual == null ? "" : actual) ? "training" : actual;
+        return wanted.equalsIgnoreCase(actualNorm == null ? "" : actualNorm);
     }
 
     private String kindLabel(String kind) {
-        return "dispatch".equals(kind) ? "出警" : "演练";
+        return "dispatch".equalsIgnoreCase(kind) ? "出警" : "训练";
+    }
+
+    /**
+     * 归一归档作业模式：缺省按测试模式。
+     *
+     * @param mode 作业模式
+     * @return test / training / dispatch
+     */
+    private String normalizeMode(String mode) {
+        if (mode == null || mode.isBlank()) {
+            return "test";
+        }
+        String value = mode.trim().toLowerCase(Locale.ROOT);
+        if ("training".equals(value) || "dispatch".equals(value) || "test".equals(value)) {
+            return value;
+        }
+        return "test";
+    }
+
+    /**
+     * 作业模式展示名。
+     *
+     * @param mode 作业模式
+     * @return 展示名
+     */
+    private String modeLabel(String mode) {
+        String value = normalizeMode(mode);
+        switch (value) {
+            case "dispatch":
+                return "出警";
+            case "training":
+                return "训练";
+            case "test":
+            default:
+                return "测试";
+        }
     }
 
     private Map<Long, String> stationNameMap() {

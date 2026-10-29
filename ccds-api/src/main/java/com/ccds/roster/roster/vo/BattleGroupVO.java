@@ -40,6 +40,16 @@ public class BattleGroupVO {
     private Boolean commandGroup;
 
     /**
+     * 固定槽位：1 指挥员 / 2 安全员 / 3 通信员，作战组为空。
+     */
+    private Integer slotNo;
+
+    /**
+     * 是否固定编制卡（不可删除）。
+     */
+    private Boolean fixed;
+
+    /**
      * 成员。
      */
     private List<GroupMemberVO> members;

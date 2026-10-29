@@ -86,6 +86,16 @@
         ORDER BY gmt_modified DESC
     </select>
 
+    <select id="selectAliveByStationAndName" resultMap="BaseResultMap">
+        SELECT id, station_id, name, address, category, contact, phone_cipher,
+               notes, plan_text, gmt_create, gmt_modified, deleted_at
+        FROM ccds_key_unit
+        WHERE station_id = #{stationId}
+          AND name = #{name}
+          AND deleted_at IS NULL
+        LIMIT 1
+    </select>
+
     <select id="selectByStationAndCategory" resultMap="BaseResultMap">
         SELECT id, station_id, name, address, category, contact, phone_cipher,
                notes, plan_text, gmt_create, gmt_modified, deleted_at

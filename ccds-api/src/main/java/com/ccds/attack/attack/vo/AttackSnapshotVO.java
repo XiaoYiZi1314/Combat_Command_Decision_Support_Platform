@@ -83,4 +83,14 @@ public class AttackSnapshotVO {
      * 距最近事件的秒数。指挥端用来标琥珀 / 红。
      */
     private Integer staleSec;
+
+    /**
+     * 站级作业模式：test / training / dispatch。
+     */
+    private String workMode;
+
+    /**
+     * 站级空呼阈值，供共享页与指挥端按同一口径算安全/预警/危险。
+     */
+    private ScbaThresholdVO thresholds;
 }

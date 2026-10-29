@@ -40,6 +40,11 @@ public class FileObjectDO {
     private String cosKey;
 
     /**
+     * 原始文件名
+     */
+    private String originalName;
+
+    /**
      * MIME类型
      */
     private String contentType;

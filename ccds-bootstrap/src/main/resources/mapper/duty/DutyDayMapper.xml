@@ -10,26 +10,44 @@
         <result column="deputy_officer_id" property="deputyOfficerId"/>
         <result column="note" property="note"/>
         <result column="group_snapshot_json" property="groupSnapshotJson"/>
+        <result column="vehicle_snapshot_json" property="vehicleSnapshotJson"/>
         <result column="gmt_create" property="gmtCreate"/>
         <result column="gmt_modified" property="gmtModified"/>
     </resultMap>
 
+    <sql id="DutyColumns">
+        id, station_id, duty_date, main_officer_id, deputy_officer_id, note,
+        group_snapshot_json, vehicle_snapshot_json, gmt_create, gmt_modified
+    </sql>
+
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO ccds_duty_day (station_id, duty_date, main_officer_id, deputy_officer_id,
-                                    note, group_snapshot_json)
+                                    note, group_snapshot_json, vehicle_snapshot_json)
         VALUES (#{stationId}, #{dutyDate}, #{mainOfficerId}, #{deputyOfficerId},
-                #{note}, #{groupSnapshotJson})
+                #{note}, #{groupSnapshotJson}, #{vehicleSnapshotJson})
     </insert>
 
+    <!-- 选择性更新：未传的字段保持原值，避免历史日期被整行写空 -->
     <update id="updateById">
         UPDATE ccds_duty_day
-        SET station_id = #{stationId},
-            duty_date = #{dutyDate},
-            main_officer_id = #{mainOfficerId},
-            deputy_officer_id = #{deputyOfficerId},
-            note = #{note},
-            group_snapshot_json = #{groupSnapshotJson},
+        <set>
+            <if test="mainOfficerId != null">
+                main_officer_id = #{mainOfficerId},
+            </if>
+            <if test="deputyOfficerId != null">
+                deputy_officer_id = #{deputyOfficerId},
+            </if>
+            <if test="note != null">
+                note = #{note},
+            </if>
+            <if test="groupSnapshotJson != null">
+                group_snapshot_json = #{groupSnapshotJson},
+            </if>
+            <if test="vehicleSnapshotJson != null">
+                vehicle_snapshot_json = #{vehicleSnapshotJson},
+            </if>
             gmt_modified = CURRENT_TIMESTAMP
+        </set>
         WHERE id = #{id}
     </update>
 
@@ -38,27 +56,44 @@
     </delete>
 
     <select id="selectById" resultMap="BaseResultMap">
-        SELECT id, station_id, duty_date, main_officer_id, deputy_officer_id,
-               note, group_snapshot_json, gmt_create, gmt_modified
+        SELECT
+        <include refid="DutyColumns"/>
         FROM ccds_duty_day
         WHERE id = #{id}
     </select>
 
     <select id="selectByStationAndDate" resultMap="BaseResultMap">
-        SELECT id, station_id, duty_date, main_officer_id, deputy_officer_id,
-               note, group_snapshot_json, gmt_create, gmt_modified
+        SELECT
+        <include refid="DutyColumns"/>
         FROM ccds_duty_day
         WHERE station_id = #{stationId}
           AND duty_date = #{dutyDate}
     </select>
 
     <select id="selectByStationAndDateRange" resultMap="BaseResultMap">
-        SELECT id, station_id, duty_date, main_officer_id, deputy_officer_id,
-               note, group_snapshot_json, gmt_create, gmt_modified
+        SELECT
+        <include refid="DutyColumns"/>
         FROM ccds_duty_day
         WHERE station_id = #{stationId}
           AND duty_date BETWEEN #{startDate} AND #{endDate}
         ORDER BY duty_date ASC
+    </select>
+
+    <!-- 支队一键导出战斗编组：取各站最新一天的编组快照 -->
+    <select id="selectLatestByStationIds" resultMap="BaseResultMap">
+        SELECT d.id, d.station_id, d.duty_date, d.main_officer_id, d.deputy_officer_id, d.note,
+               d.group_snapshot_json, d.vehicle_snapshot_json, d.gmt_create, d.gmt_modified
+        FROM ccds_duty_day d
+        INNER JOIN (
+            SELECT station_id, MAX(duty_date) AS max_date
+            FROM ccds_duty_day
+            WHERE station_id IN
+            <foreach collection="stationIds" item="item" open="(" separator="," close=")">
+                #{item}
+            </foreach>
+            GROUP BY station_id
+        ) latest ON latest.station_id = d.station_id AND latest.max_date = d.duty_date
+        ORDER BY d.station_id ASC
     </select>
 
 </mapper>

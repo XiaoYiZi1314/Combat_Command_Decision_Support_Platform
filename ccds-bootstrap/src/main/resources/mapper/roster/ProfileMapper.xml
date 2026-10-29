@@ -6,6 +6,7 @@
     <resultMap id="ProfileResultMap" type="com.ccds.roster.roster.entity.ProfileDO">
         <id column="id" property="id"/>
         <result column="station_id" property="stationId"/>
+        <result column="archive_no" property="archiveNo"/>
         <result column="name" property="name"/>
         <result column="title" property="title"/>
         <result column="rank_name" property="rankName"/>
@@ -23,7 +24,7 @@
     </resultMap>
 
     <sql id="ProfileColumns">
-        p.id, p.station_id, p.name, p.title, p.rank_name, p.phone_cipher, p.cyl_type, p.nfc_tag,
+        p.id, p.station_id, p.archive_no, p.name, p.title, p.rank_name, p.phone_cipher, p.cyl_type, p.nfc_tag,
         p.height_cm, p.weight_kg, p.age, p.morning_pressure, p.deleted_at, p.gmt_create, p.gmt_modified
     </sql>
 
@@ -76,16 +77,17 @@
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO ccds_profile
-            (station_id, name, title, rank_name, phone_cipher, cyl_type, nfc_tag,
+            (station_id, archive_no, name, title, rank_name, phone_cipher, cyl_type, nfc_tag,
              height_cm, weight_kg, age, morning_pressure, gmt_create, gmt_modified)
         VALUES
-            (#{stationId}, #{name}, #{title}, #{rankName}, #{phoneCipher}, #{cylType}, #{nfcTag},
+            (#{stationId}, #{archiveNo}, #{name}, #{title}, #{rankName}, #{phoneCipher}, #{cylType}, #{nfcTag},
              #{heightCm}, #{weightKg}, #{age}, #{morningPressure}, #{gmtCreate}, #{gmtModified})
     </insert>
 
     <update id="update">
         UPDATE ccds_profile
-        SET name = #{name},
+        SET archive_no = #{archiveNo},
+            name = #{name},
             title = #{title},
             rank_name = #{rankName},
             phone_cipher = #{phoneCipher},

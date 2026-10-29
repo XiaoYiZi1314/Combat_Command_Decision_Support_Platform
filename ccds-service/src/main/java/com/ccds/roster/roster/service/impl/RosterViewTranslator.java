@@ -47,13 +47,32 @@ public class RosterViewTranslator {
      */
     public StationRosterVO toRoster(StationDO station, boolean writable, List<ProfileDO> profiles,
                                     List<BattleGroupDO> groups, List<BattleGroupMemberDO> members) {
+        return toRoster(station, writable, profiles, groups, members, writable);
+    }
+
+    /**
+     * 组装本站花名册，可单独指定是否下发电话明文。
+     *
+     * <p>4.5：本站、所属大队、支队都看完整电话，写权限仍由 writable 单独表达。</p>
+     *
+     * @param station     站
+     * @param writable    是否可写
+     * @param profiles    档案
+     * @param groups      编组
+     * @param members     成员
+     * @param exposePhone 是否下发电话明文
+     * @return 花名册
+     */
+    public StationRosterVO toRoster(StationDO station, boolean writable, List<ProfileDO> profiles,
+                                    List<BattleGroupDO> groups, List<BattleGroupMemberDO> members,
+                                    boolean exposePhone) {
         Map<Long, List<BattleGroupMemberDO>> membersByGroup = new LinkedHashMap<Long, List<BattleGroupMemberDO>>();
         for (BattleGroupMemberDO member : members) {
             membersByGroup.computeIfAbsent(member.getGroupId(), key -> new ArrayList<BattleGroupMemberDO>()).add(member);
         }
         List<ProfileVO> profileVos = new ArrayList<ProfileVO>();
         for (ProfileDO profile : profiles) {
-            profileVos.add(toProfileVo(profile, station.getName(), writable));
+            profileVos.add(toProfileVo(profile, station.getName(), exposePhone));
         }
         List<BattleGroupVO> groupVos = new ArrayList<BattleGroupVO>();
         for (BattleGroupDO group : groups) {
@@ -82,11 +101,13 @@ public class RosterViewTranslator {
                 .id(profile.getId())
                 .stationId(profile.getStationId())
                 .stationName(stationName)
+                .archiveNo(profile.getArchiveNo())
                 .name(profile.getName())
                 .title(profile.getTitle())
                 .rankName(profile.getRankName())
                 .phone(exposePhone ? phone : null)
                 .phoneMasked(SensitiveMaskUtil.maskPhone(phone))
+                .phoneVisible(Boolean.valueOf(exposePhone))
                 .cylType(profile.getCylType())
                 .nfcTag(profile.getNfcTag())
                 .heightCm(profile.getHeightCm())
@@ -136,6 +157,8 @@ public class RosterViewTranslator {
                 .name(group.getName())
                 .sortNo(group.getSortNo())
                 .commandGroup(isCommandGroupName(group.getName()))
+                .slotNo(group.getSlotNo())
+                .fixed(Boolean.valueOf(group.getIsFixed() != null && group.getIsFixed().intValue() == 1))
                 .members(memberVos)
                 .build();
     }

@@ -1,0 +1,485 @@
+/* 户外模式（改法明细 2.3）—— 浅色主题层
+ *
+ * 设计原则：
+ *   1. 只影响主界面（.attack-page）与指挥首页（.hq-page）两棵子树；
+ *      值班表、设置、水源、车辆等页面根节点不在子树内，保持原深色。
+ *   2. 以「重定义 CSS 变量」为主：绝大多数组件走 var()，换一套变量即可整体协调，
+ *      避免逐条打补丁造成局部跳色。
+ *   3. 少量硬编码的白色玻璃填充 rgba(255,255,255,x) 在浅底上会变成看不见的白块，
+ *      必须逐条替换为深色低透明度填充。
+ *   4. 浅色不追求纯白：底 #f5f7fa、面 #ffffff、弱面 #f2f4f7，
+ *      用细边框与柔和阴影分层，避免「白底 + 硬边框」的突兀感。
+ */
+
+/* ------------------------------------------------------------------ */
+/* 一、页面根节点：整套变量换成浅色                                     */
+/* ------------------------------------------------------------------ */
+.outdoor .attack-page,
+.outdoor .hq-page {
+  /* 底色与文本 */
+  --bg: #f5f7fa;
+  --card: #ffffff;
+  --border: rgba(16, 24, 40, 0.1);
+  --text: #0f172a;
+  --dim: #64748b;
+
+  /* 语义色：降低饱和度，浅底上更耐看 */
+  --blue: #2563eb;
+  --blue-bg: rgba(37, 99, 235, 0.1);
+  --amber: #b45309;
+  --amber-bg: rgba(180, 83, 9, 0.1);
+  --red: #dc2626;
+  --red-bg: rgba(220, 38, 38, 0.1);
+  --green: #15803d;
+  --green-bg: rgba(21, 128, 61, 0.1);
+  --safe-in: #2563eb;
+
+  /* 面与分隔：浅灰替代白色半透明 */
+  --glass: #f2f4f7;
+  --glass-border: rgba(16, 24, 40, 0.1);
+  --glass-fill: #ffffff;
+
+  /* 人员卡片：柔和色阶，不用高饱和渐变 */
+  --safe-card: linear-gradient(160deg, #eaf2ff 0%, #dbe8ff 100%);
+  --warn-card: linear-gradient(160deg, #fff8e6 0%, #ffefc2 100%);
+  --danger-card: linear-gradient(160deg, #fee9e7 0%, #fdd7d3 100%);
+
+  /* 顶栏改浅色 */
+  --header-from: #ffffff;
+  --header-to: #f7f9fb;
+
+  /* 主按钮渐变改深蓝，白字可读 */
+  --primary-cta: linear-gradient(135deg, #2563eb, #1d4ed8);
+
+  color: var(--text);
+  background-color: var(--bg);
+  /* 切换时不硬跳 */
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* body 的炫彩渐变底会透出浅底，必须显式关闭 */
+.outdoor body {
+  background-image: none;
+  background-color: #f5f7fa;
+  color: #0f172a;
+}
+
+/* ------------------------------------------------------------------ */
+/* 二、顶栏与状态条                                                     */
+/* ------------------------------------------------------------------ */
+.outdoor .attack-page .attack-head,
+.outdoor .hq-page .hq-head {
+  background: linear-gradient(180deg, #ffffff, #f7f9fb);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  color: var(--text);
+}
+
+.outdoor .attack-page .attack-head h1,
+.outdoor .hq-page .hq-head h1 {
+  color: var(--text);
+}
+
+/* 副标题原本是白色 55%，浅底上不可见 */
+.outdoor .attack-page .attack-head .sub,
+.outdoor .hq-page .hq-head .sub {
+  color: var(--dim);
+}
+
+.outdoor .attack-page .attack-head select {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+/* 顶栏圆形按钮 */
+.outdoor .attack-page .btn-icon,
+.outdoor .hq-page .btn-icon,
+.outdoor .hq-page .hq-head .btn-icon {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.outdoor .attack-page .hq-back-inline {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.outdoor .attack-page .hq-status,
+.outdoor .hq-page .hq-status {
+  background: #eef2f6;
+  border: 1px solid var(--border);
+  color: var(--dim);
+}
+
+.outdoor .attack-page .hq-status.live,
+.outdoor .hq-page .hq-status.live {
+  background: var(--green-bg);
+  border-color: rgba(21, 128, 61, 0.22);
+  color: var(--green);
+}
+
+/* ------------------------------------------------------------------ */
+/* 三、统计条                                                           */
+/* ------------------------------------------------------------------ */
+.outdoor .attack-page .stats .stat {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  color: var(--text);
+}
+
+.outdoor .attack-page .stats .stat .label {
+  color: var(--dim);
+}
+
+.outdoor .attack-page .stats .stat .num {
+  color: var(--text);
+}
+
+/* 选中态原本是白色 12% 叠加，浅底上完全看不出 */
+.outdoor .attack-page .stats .stat.active {
+  background: var(--blue-bg);
+  border-color: rgba(37, 99, 235, 0.32);
+  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.18);
+}
+
+.outdoor .attack-page .stats .stat.active .num,
+.outdoor .attack-page .stats .stat.active .label {
+  color: var(--blue);
+}
+
+/* ------------------------------------------------------------------ */
+/* 四、操作按钮                                                         */
+/* ------------------------------------------------------------------ */
+.outdoor .attack-page .btn-glass {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+.outdoor .attack-page .btn-glass.primary {
+  background: var(--primary-cta);
+  border-color: transparent;
+  color: #ffffff;
+}
+
+.outdoor .attack-page .btn-glass.accent {
+  background: var(--green-bg);
+  border-color: rgba(21, 128, 61, 0.24);
+  color: var(--green);
+}
+
+.outdoor .attack-page .sync-hint {
+  color: var(--dim);
+}
+
+/* 作业模式开关：选中态用实色，与浅底形成明确层级 */
+.outdoor .attack-page .work-mode-bar button {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  color: var(--dim);
+}
+
+.outdoor .attack-page .work-mode-bar button.active {
+  background: var(--red);
+  border-color: var(--red);
+  color: #ffffff;
+}
+
+/* 主屏 / 副屏切换 */
+.outdoor .attack-page .main-pager-nav button {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  color: var(--dim);
+}
+
+.outdoor .attack-page .main-pager-nav button.active {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #ffffff;
+}
+
+/* ------------------------------------------------------------------ */
+/* 五、人员卡片                                                         */
+/* ------------------------------------------------------------------ */
+.outdoor .attack-page .card {
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.06);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  color: var(--text);
+}
+
+/* 三种风险态用左侧色条 + 浅底，比整卡高饱和更克制 */
+.outdoor .attack-page .card.in {
+  border-left: 4px solid var(--blue);
+}
+
+.outdoor .attack-page .card.warn {
+  border-left: 4px solid #d97706;
+}
+
+.outdoor .attack-page .card.danger {
+  border-left: 4px solid var(--red);
+  /* 浅底上脉冲动画过于刺眼，关闭 */
+  animation: none;
+}
+
+.outdoor .attack-page .card.pending,
+.outdoor .attack-page .card.out {
+  border-left: 4px solid #cbd5e1;
+  opacity: 0.92;
+}
+
+.outdoor .attack-page .card .name {
+  color: var(--text);
+}
+
+/* 卡片指标：实际类名为 .val / .lbl */
+.outdoor .attack-page .card .metric .val {
+  color: var(--text);
+}
+
+.outdoor .attack-page .card .metric .lbl {
+  color: var(--dim);
+}
+
+/* 卡片内标签：原本白色 6%/12%，浅底不可见 */
+.outdoor .attack-page .card .cyl-tag,
+.outdoor .attack-page .card .group-tag,
+.outdoor .attack-page .card .temp-tag,
+.outdoor .attack-page .card .curve-tag {
+  background: rgba(16, 24, 40, 0.06);
+  border: 1px solid rgba(16, 24, 40, 0.08);
+  color: var(--dim);
+}
+
+/* 进度条底槽 */
+.outdoor .attack-page .card .bar {
+  background: rgba(16, 24, 40, 0.08);
+}
+
+.outdoor .attack-page .card.in .bar-fill {
+  background: var(--blue);
+}
+
+.outdoor .attack-page .card.warn .bar-fill {
+  background: #d97706;
+}
+
+.outdoor .attack-page .card.danger .bar-fill {
+  background: var(--red);
+}
+
+/* 状态文字 */
+.outdoor .attack-page .s-in {
+  background: var(--blue-bg);
+  color: var(--blue);
+}
+
+.outdoor .attack-page .s-warn {
+  background: var(--amber-bg);
+  color: var(--amber);
+}
+
+.outdoor .attack-page .s-danger {
+  background: var(--red-bg);
+  color: var(--red);
+}
+
+/* 已撤出 / 预录入：原本白色 5%/6% */
+.outdoor .attack-page .s-out,
+.outdoor .attack-page .s-pending {
+  background: rgba(16, 24, 40, 0.06);
+  color: var(--dim);
+}
+
+/* ------------------------------------------------------------------ */
+/* 六、卡片内的录入与编辑控件                                            */
+/* ------------------------------------------------------------------ */
+.outdoor .attack-page .pressure-control {
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.outdoor .attack-page .pressure-control button {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.outdoor .attack-page .enter-row,
+.outdoor .attack-page .upd-row,
+.outdoor .attack-page .work-context {
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.outdoor .attack-page .upd-row select,
+.outdoor .attack-page .context-field select,
+.outdoor .attack-page .input-row select,
+.outdoor .attack-page .temp-row input[type="text"],
+.outdoor .attack-page .enter-row input,
+.outdoor .attack-page .enter-row select,
+.outdoor .attack-page .upd-row input {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.outdoor .attack-page .roster-chip {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+/* ------------------------------------------------------------------ */
+/* 七、编组总览与主副屏                                                 */
+/* ------------------------------------------------------------------ */
+.outdoor .attack-page .group-overview-card {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  color: var(--text);
+}
+
+.outdoor .attack-page .group-overview-card .gc-name {
+  color: var(--text);
+}
+
+.outdoor .attack-page .group-overview-card .gc-counts {
+  color: var(--dim);
+}
+
+/* ------------------------------------------------------------------ */
+/* 八、空态与提示                                                       */
+/* ------------------------------------------------------------------ */
+.outdoor .attack-page .empty .station-badge {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #ffffff;
+}
+
+.outdoor .attack-page .empty .station {
+  color: var(--dim);
+}
+
+.outdoor .attack-page .attack-toast {
+  background: rgba(15, 23, 42, 0.92);
+  color: #ffffff;
+}
+
+/* ------------------------------------------------------------------ */
+/* 九、底部工具条 / 批量面板 / 快速录入 / 抽屉                           */
+/* ------------------------------------------------------------------ */
+.outdoor .attack-page .nfc-bar {
+  background: #ffffff;
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -1px 2px rgba(16, 24, 40, 0.04);
+}
+
+.outdoor .attack-page .nfc-bar button {
+  background: #f2f4f7;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.outdoor .attack-page .bulk-panel {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  box-shadow: 0 14px 40px rgba(16, 24, 40, 0.16);
+  color: var(--text);
+}
+
+.outdoor .attack-page .quick-panel {
+  background: #ffffff;
+  border-color: var(--border);
+}
+
+.outdoor .attack-page .qp-handle:before {
+  background: rgba(16, 24, 40, 0.2);
+}
+
+.outdoor .attack-page .qp-close {
+  background: #f2f4f7;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+/* 抽屉（更多功能） */
+.outdoor .attack-page .drawer,
+.outdoor .attack-page .hq-drawer-panel,
+.outdoor .hq-page .hq-drawer-panel {
+  background: #ffffff;
+  border-left: 1px solid var(--border);
+  color: var(--text);
+  box-shadow: -12px 0 40px rgba(16, 24, 40, 0.14);
+}
+
+.outdoor .attack-page .drawer-tile,
+.outdoor .hq-page .hq-drawer-panel .drawer-tile {
+  background: #f2f4f7;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.outdoor .attack-page .drawer-zone-title,
+.outdoor .hq-page .hq-drawer-panel .drawer-zone-title {
+  color: var(--dim);
+}
+
+.outdoor .attack-page .drawer-mask,
+.outdoor .hq-page .hq-drawer-panel .drawer-mask {
+  background: rgba(15, 23, 42, 0.28);
+}
+
+/* ------------------------------------------------------------------ */
+/* 十、指挥首页卡片                                                     */
+/* ------------------------------------------------------------------ */
+.outdoor .hq-page .hq-card {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.06);
+  color: var(--text);
+}
+
+.outdoor .hq-page .hq-card .name {
+  color: var(--text);
+}
+
+.outdoor .hq-page .hq-card .brigade,
+.outdoor .hq-page .hq-card .hq-meta,
+.outdoor .hq-page .hq-empty {
+  color: var(--dim);
+}
+
+.outdoor .hq-page .hq-counts .in {
+  color: var(--blue);
+}
+
+.outdoor .hq-page .hq-counts .warn {
+  color: var(--amber);
+}
+
+.outdoor .hq-page .hq-counts .danger {
+  color: var(--red);
+}
+
+/* 大队卡片用左侧色条区分层级，避免与站卡片混淆 */
+.outdoor .hq-page .hq-brigade-card {
+  border-left: 4px solid var(--blue);
+}
+
+/* 快照陈旧度：实际类名为 stale-amber / stale-red */
+.outdoor .hq-page .hq-card.stale-amber {
+  border-left-color: #d97706;
+}
+
+.outdoor .hq-page .hq-card.stale-red {
+  border-left-color: var(--red);
+}

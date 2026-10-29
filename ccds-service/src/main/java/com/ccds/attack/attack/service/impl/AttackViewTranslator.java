@@ -15,7 +15,9 @@ import com.ccds.attack.attack.entity.StationSnapshotDO;
 import com.ccds.attack.attack.enums.AttackRiskStatusEnum;
 import com.ccds.attack.attack.enums.AttackStatusEnum;
 import com.ccds.attack.attack.vo.AttackPersonVO;
+import com.ccds.attack.attack.service.StationStateService;
 import com.ccds.attack.attack.vo.AttackSnapshotVO;
+import com.ccds.attack.attack.vo.ScbaThresholdVO;
 import com.ccds.attack.attack.vo.StationAttackVO;
 import com.ccds.org.org.entity.StationDO;
 import com.ccds.roster.roster.entity.ProfileDO;
@@ -28,6 +30,17 @@ import com.ccds.roster.roster.entity.ProfileDO;
  */
 @Component
 public class AttackViewTranslator {
+
+    private final StationStateService stationStateService;
+
+    /**
+     * 构造视图转换器。
+     *
+     * @param stationStateService 站级模式与阈值
+     */
+    public AttackViewTranslator(StationStateService stationStateService) {
+        this.stationStateService = stationStateService;
+    }
 
     /**
      * 本站内攻视图。
@@ -128,6 +141,24 @@ public class AttackViewTranslator {
      * @return 视图
      */
     public AttackSnapshotVO toSnapshotVo(StationSnapshotDO snapshot, StationDO station, LocalDateTime now) {
+        // 单站场景：直接查这一站的模式与阈值
+        return toSnapshotVo(snapshot, station, now,
+                stationStateService.getWorkMode(station.getId()),
+                stationStateService.getThresholdVo(station.getId()));
+    }
+
+    /**
+     * 快照视图（调用方已批量预取模式与阈值，避免逐站查库）。
+     *
+     * @param snapshot   快照
+     * @param station    站
+     * @param now        当前时间
+     * @param workMode   站级作业模式，可空
+     * @param thresholds 站级阈值，可空
+     * @return 视图
+     */
+    public AttackSnapshotVO toSnapshotVo(StationSnapshotDO snapshot, StationDO station, LocalDateTime now,
+                                         String workMode, ScbaThresholdVO thresholds) {
         if (snapshot == null) {
             return AttackSnapshotVO.builder()
                     .stationId(station.getId())
@@ -141,6 +172,8 @@ public class AttackViewTranslator {
                     .pendingCount(0)
                     .groupCount(0)
                     .staleSec(null)
+                    .workMode(workMode)
+                    .thresholds(thresholds)
                     .build();
         }
         LocalDateTime lastEvent = snapshot.getLastEventAt();
@@ -158,6 +191,8 @@ public class AttackViewTranslator {
                 .lastEventAt(lastEvent)
                 .gmtModified(snapshot.getGmtModified())
                 .staleSec(staleSec(lastEvent, now))
+                .workMode(workMode)
+                .thresholds(thresholds)
                 .build();
     }
 
@@ -185,8 +220,11 @@ public class AttackViewTranslator {
         if (snapshot == null) {
             return false;
         }
-        return nz(snapshot.getInCount()) + nz(snapshot.getWarnCount()) + nz(snapshot.getDangerCount())
-                + nz(snapshot.getPendingCount()) > 0;
+        // 2.2：只有出警模式且已有人入场才上首页；预录入不算
+        if (snapshot.getWorkMode() != null && !"dispatch".equals(snapshot.getWorkMode())) {
+            return false;
+        }
+        return nz(snapshot.getInCount()) + nz(snapshot.getWarnCount()) + nz(snapshot.getDangerCount()) > 0;
     }
 
     /**

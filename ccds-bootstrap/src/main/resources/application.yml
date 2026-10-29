@@ -64,3 +64,13 @@ ccds:
     search-url: ${CCDS_HAZMAT_SEARCH_URL:}
   seed:
     password: ${CCDS_SEED_PASSWORD:}
+  app:
+    version-name: ${CCDS_APP_VERSION_NAME:0.1.1}
+    version-code: ${CCDS_APP_VERSION_CODE:2}
+    release-notes: ${CCDS_APP_RELEASE_NOTES:}
+    update-page-url: ${CCDS_APP_UPDATE_PAGE_URL:}
+    install-guide-url: ${CCDS_APP_INSTALL_GUIDE_URL:}
+    operation-guide-url: ${CCDS_APP_OPERATION_GUIDE_URL:}
+    force-update: ${CCDS_APP_FORCE_UPDATE:false}
+  vision:
+    model-name: ${CCDS_MODEL_VISION_NAME:qwen-vl-plus}

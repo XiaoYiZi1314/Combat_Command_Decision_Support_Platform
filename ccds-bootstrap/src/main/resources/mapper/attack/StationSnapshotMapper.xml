@@ -53,12 +53,12 @@
         WHERE station_id = #{stationId}
     </update>
 
+    <!-- 2.2：候选集只取「已有人入场」的站（不含预录入）；是否出警由 Service 按站级模式判定 -->
     <select id="selectActive" resultMap="StationSnapshotResultMap">
         SELECT
         <include refid="SnapshotColumns"/>
         FROM ccds_station_snapshot
-        WHERE (IFNULL(in_count, 0) + IFNULL(warn_count, 0) + IFNULL(danger_count, 0)
-            + IFNULL(pending_count, 0)) &gt; 0
+        WHERE (IFNULL(in_count, 0) + IFNULL(warn_count, 0) + IFNULL(danger_count, 0)) &gt; 0
         ORDER BY last_event_at DESC, station_id ASC
     </select>
 

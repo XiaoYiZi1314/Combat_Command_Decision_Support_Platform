@@ -2,22 +2,14 @@ import '../water/water.css';
 import { getMe, homeHashOf } from '../../stores/session.js';
 import { searchHazmat, visionHazmat } from '../../api/assist.js';
 import { el } from '../water/shared.js';
+import { compressImage } from '../../lib/image.js';
 
 const DISCLAIMER = '本结果仅作辅助参考，不替代现场指挥。';
+// 5.3：任何结果都必须写明判定依据
+const RULE_NOTE = '以现场侦检、运输单据、安全技术说明书和登记信息为准；认不准请说明不确定。';
 const MAX_TEXT = 500;
 
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = String(reader.result || '');
-      const comma = result.indexOf(',');
-      resolve(comma > 0 ? result.slice(comma + 1) : result);
-    };
-    reader.onerror = () => reject(new Error('图片读取失败'));
-    reader.readAsDataURL(file);
-  });
-}
+// 5.4：与 AI 助手共用同一套压缩实现，两处入口不合并，但底层一致
 
 export function renderHazmatPage(root) {
   root.innerHTML = '';
@@ -39,10 +31,11 @@ export function renderHazmatPage(root) {
   const searchForm = el('div', 'water-form');
   const queryInput = document.createElement('input');
   queryInput.type = 'search';
-  queryInput.placeholder = '名称 / 俗称 / UN / CAS';
+  // 5.3：检索框明确写成名称 / UN编号 / CAS号，示例用真实物质与 UN 编号
+  queryInput.placeholder = '危化品名称 / UN编号 / CAS号，如：液氨、汽油、LNG、UN1005';
   queryInput.maxLength = 64;
   searchForm.appendChild(row('检索', queryInput));
-  const searchBtn = el('button', 'wf-save', '检索');
+  const searchBtn = el('button', 'wf-save', '云端数据库搜索');
   searchBtn.type = 'button';
   searchForm.appendChild(searchBtn);
   body.appendChild(searchForm);
@@ -143,9 +136,14 @@ export function renderHazmatPage(root) {
     try {
       const data = await searchHazmat(query);
       const items = (data && data.items) || [];
+      // 5.3：降级时明确写明「已改用备用库」，不要空着
+      if (data && data.degraded && data.degradedNote) {
+        result.appendChild(el('div', 'supply-hint', data.degradedNote));
+      }
       if (!items.length) {
-        result.appendChild(el('div', 'water-empty', '未找到匹配条目'));
-        setMsg('');
+        result.appendChild(el('div', 'water-empty',
+          '登记库未命中。可再用下方拍照或文字研判辅助判断。'));
+        setMsg(data && data.degraded ? '已改用备用库，仍未命中' : '未找到匹配条目');
         return;
       }
       items.forEach((item) => {
@@ -186,8 +184,9 @@ export function renderHazmatPage(root) {
     try {
       const body = { text: text || undefined };
       if (file) {
-        body.imageContentType = file.type || 'image/jpeg';
-        body.imageBase64 = await fileToBase64(file);
+        const compressed = await compressImage(file);
+        body.imageContentType = compressed.contentType;
+        body.imageBase64 = compressed.base64;
       }
       const data = await visionHazmat(body);
       result.innerHTML = '';
@@ -200,7 +199,10 @@ export function renderHazmatPage(root) {
       if (data.advice) {
         result.appendChild(el('div', 'supply-line', data.advice));
       }
-      result.appendChild(el('div', 'supply-hint', data.disclaimer || DISCLAIMER));
+      // 5.3：结果里固定写明依据，认不准要说明不确定
+      result.appendChild(el('div', 'supply-hint',
+        data.disclaimer || DISCLAIMER));
+      result.appendChild(el('div', 'supply-hint', RULE_NOTE));
       setMsg('');
     } catch (err) {
       setMsg(err.message || '研判失败', true);

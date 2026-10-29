@@ -48,13 +48,26 @@ public class HazmatServiceImpl implements HazmatService {
     public HazmatSearchResultDTO search(AuthPrincipal principal, String query) {
         assistAccessService.requireAccount(principal);
         String keyword = normalizeQuery(query);
+        HazmatSearchResultDTO result;
         try {
-            return hazmatSearchClient.search(keyword, AssistRuleConstant.SEARCH_DEFAULT_LIMIT);
+            result = hazmatSearchClient.search(keyword, AssistRuleConstant.SEARCH_DEFAULT_LIMIT);
         } catch (IllegalStateException ex) {
-            log.error("危化品检索失败", ex);
-            throw new BizException(ErrorCodeConstant.HAZMAT_SEARCH_UNAVAILABLE,
-                    AssistRuleConstant.MSG_SEARCH_UNAVAILABLE, ex);
+            // 登记库整体失败时不再抛错到页面，给明确的失败说明，避免白屏
+            log.warn("危化品登记库检索失败，已降级", ex);
+            return HazmatSearchResultDTO.builder()
+                    .query(keyword)
+                    .count(Integer.valueOf(0))
+                    .items(java.util.List.of())
+                    .source("none")
+                    .degraded(Boolean.TRUE)
+                    .degradedNote("登记库与备用库均不可用，请改用文字研判或联系管理员")
+                    .build();
         }
+        if (result != null && result.getSource() == null) {
+            result.setSource("registry");
+            result.setDegraded(Boolean.FALSE);
+        }
+        return result;
     }
 
     /**

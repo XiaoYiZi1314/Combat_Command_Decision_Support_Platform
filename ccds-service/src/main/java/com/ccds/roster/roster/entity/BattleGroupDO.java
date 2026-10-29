@@ -40,6 +40,16 @@ public class BattleGroupDO {
     private Integer sortNo;
 
     /**
+     * 固定槽位：1 指挥员 / 2 安全员 / 3 通信员，作战组为空。
+     */
+    private Integer slotNo;
+
+    /**
+     * 是否固定编制卡。
+     */
+    private Integer isFixed;
+
+    /**
      * 创建时间。
      */
     private LocalDateTime gmtCreate;

@@ -29,6 +29,7 @@ public class FileContentValidatorImpl implements FileContentValidator {
     private static final String DOCX =
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
     private static final String TEXT = "text/plain";
+    private static final String MP4 = "video/mp4";
 
     private static final byte[] PDF_SIGNATURE = {'%', 'P', 'D', 'F', '-'};
     private static final byte[] PNG_SIGNATURE = {
@@ -59,6 +60,8 @@ public class FileContentValidatorImpl implements FileContentValidator {
             case PDF -> startsWith(content, PDF_SIGNATURE);
             case JPEG -> isJpeg(content);
             case PNG -> startsWith(content, PNG_SIGNATURE);
+            // 出水视频：MP4 的 ftyp box 出现在前 12 字节内
+            case MP4 -> isMp4(content);
             case DOC -> startsWith(content, DOC_SIGNATURE)
                     && contains(content, DOC_WORD_STREAM_NAME);
             case DOCX -> isDocx(content);
@@ -92,6 +95,25 @@ public class FileContentValidatorImpl implements FileContentValidator {
                 }
             }
             if (matched) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 是否为 MP4：前 12 字节内出现 ftyp box。
+     *
+     * @param content 文件头
+     * @return 是 MP4 为 true
+     */
+    private boolean isMp4(byte[] content) {
+        if (content.length < 12) {
+            return false;
+        }
+        for (int i = 0; i + 3 < Math.min(content.length, 12); i++) {
+            if (content[i] == 'f' && content[i + 1] == 't'
+                    && content[i + 2] == 'y' && content[i + 3] == 'p') {
                 return true;
             }
         }

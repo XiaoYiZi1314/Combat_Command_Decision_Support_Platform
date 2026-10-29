@@ -3,6 +3,7 @@ import { getMe, homeHashOf } from '../../stores/session.js';
 import { fetchAttackAdvice, fetchChatAnswer, fetchWeather } from '../../api/assist.js';
 import { fetchStationAttack } from '../../api/attack.js';
 import { el } from '../water/shared.js';
+import { base64Bytes, compressImage } from '../../lib/image.js';
 import { bridge } from '../../bridge/index.js';
 
 const DISCLAIMER = '本结果仅作辅助参考，不替代现场指挥。';
@@ -73,7 +74,52 @@ export function renderAiPage(root) {
   const chatButton = el('button', 'wf-save', '发送问题');
   chatButton.type = 'button';
   chatForm.appendChild(chatButton);
+
+  // 5.4：问答输入栏旁增加拍照 / 选图，图片和问题一起发送
+  const chatImageRow = el('div', 'water-actions');
+  const chatCamera = document.createElement('input');
+  chatCamera.type = 'file';
+  chatCamera.accept = 'image/jpeg,image/png';
+  chatCamera.capture = 'environment';
+  chatCamera.className = 'hidden-file';
+  const chatGallery = document.createElement('input');
+  chatGallery.type = 'file';
+  chatGallery.accept = 'image/jpeg,image/png';
+  chatGallery.className = 'hidden-file';
+  const chatCameraBtn = el('button', 'wf-cancel', '拍照');
+  const chatGalleryBtn = el('button', 'wf-cancel', '选图');
+  chatCameraBtn.type = 'button';
+  chatGalleryBtn.type = 'button';
+  chatCameraBtn.addEventListener('click', () => chatCamera.click());
+  chatGalleryBtn.addEventListener('click', () => chatGallery.click());
+  const chatImageHint = el('div', 'water-msg', '未选择图片');
+  chatImageRow.appendChild(chatCameraBtn);
+  chatImageRow.appendChild(chatGalleryBtn);
+  chatImageRow.appendChild(chatCamera);
+  chatImageRow.appendChild(chatGallery);
+  chatForm.appendChild(chatImageRow);
+  chatForm.appendChild(chatImageHint);
   body.appendChild(chatForm);
+
+  let chatImage = null;
+  function bindChatImage(input) {
+    input.addEventListener('change', async () => {
+      const file = input.files && input.files[0];
+      if (!file) {
+        return;
+      }
+      chatImageHint.textContent = '图片压缩中…';
+      try {
+        chatImage = await compressImage(file);
+        chatImageHint.textContent = `已选图片（约 ${Math.round(base64Bytes(chatImage.base64) / 1024)}KB）`;
+      } catch (err) {
+        chatImage = null;
+        chatImageHint.textContent = '图片读取失败，请重试';
+      }
+    });
+  }
+  bindChatImage(chatCamera);
+  bindChatImage(chatGallery);
 
   const chatMsg = el('div', 'water-msg');
   body.appendChild(chatMsg);
@@ -261,10 +307,15 @@ export function renderAiPage(root) {
     chatMsg.textContent = '回答生成中…';
     chatResult.innerHTML = '';
     try {
-      const data = await fetchChatAnswer({
+      const payloadBody = {
         question,
         context: chatContextInput.value.trim() || undefined
-      });
+      };
+      if (chatImage && chatImage.base64) {
+        payloadBody.imageBase64 = chatImage.base64;
+        payloadBody.imageContentType = chatImage.contentType;
+      }
+      const data = await fetchChatAnswer(payloadBody);
       chatResult.appendChild(el('div', 'supply-line', data.answer || '模型未返回回答'));
       chatResult.appendChild(el('div', 'supply-hint', data.disclaimer || DISCLAIMER));
       chatMsg.textContent = '';

@@ -7,6 +7,7 @@
         <result column="biz_type" property="bizType"/>
         <result column="biz_id" property="bizId"/>
         <result column="cos_key" property="cosKey"/>
+        <result column="original_name" property="originalName"/>
         <result column="content_type" property="contentType"/>
         <result column="size_bytes" property="sizeBytes"/>
         <result column="created_by" property="createdBy"/>
@@ -15,9 +16,9 @@
     </resultMap>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO ccds_file_object (biz_type, biz_id, cos_key, content_type,
+        INSERT INTO ccds_file_object (biz_type, biz_id, cos_key, original_name, content_type,
                                        size_bytes, created_by)
-        VALUES (#{bizType}, #{bizId}, #{cosKey}, #{contentType},
+        VALUES (#{bizType}, #{bizId}, #{cosKey}, #{originalName}, #{contentType},
                 #{sizeBytes}, #{createdBy})
     </insert>
 
@@ -34,14 +35,22 @@
     </update>
 
     <select id="selectById" resultMap="BaseResultMap">
-        SELECT id, biz_type, biz_id, cos_key, content_type,
+        SELECT id, biz_type, biz_id, cos_key, original_name, content_type,
                size_bytes, created_by, gmt_create, gmt_modified
         FROM ccds_file_object
         WHERE id = #{id}
     </select>
 
+    <select id="selectByCosKey" resultMap="BaseResultMap">
+        SELECT id, biz_type, biz_id, cos_key, original_name, content_type,
+               size_bytes, created_by, gmt_create, gmt_modified
+        FROM ccds_file_object
+        WHERE cos_key = #{cosKey}
+        LIMIT 1
+    </select>
+
     <select id="selectByBiz" resultMap="BaseResultMap">
-        SELECT id, biz_type, biz_id, cos_key, content_type,
+        SELECT id, biz_type, biz_id, cos_key, original_name, content_type,
                size_bytes, created_by, gmt_create, gmt_modified
         FROM ccds_file_object
         WHERE biz_type = #{bizType}

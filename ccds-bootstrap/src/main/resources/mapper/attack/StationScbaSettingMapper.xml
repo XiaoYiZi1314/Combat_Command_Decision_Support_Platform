@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ccds.attack.attack.mapper.StationScbaSettingMapper">
+
+    <resultMap id="StationScbaSettingResultMap" type="com.ccds.attack.attack.entity.StationScbaSettingDO">
+        <id column="station_id" property="stationId"/>
+        <result column="warn_pressure" property="warnPressure"/>
+        <result column="danger_pressure" property="dangerPressure"/>
+        <result column="warn_time_min" property="warnTimeMin"/>
+        <result column="danger_time_min" property="dangerTimeMin"/>
+        <result column="work_level" property="workLevel"/>
+        <result column="scene" property="scene"/>
+        <result column="voice_enabled" property="voiceEnabled"/>
+        <result column="updated_by" property="updatedBy"/>
+        <result column="gmt_create" property="gmtCreate"/>
+        <result column="gmt_modified" property="gmtModified"/>
+    </resultMap>
+
+    <sql id="SettingColumns">
+        station_id, warn_pressure, danger_pressure, warn_time_min, danger_time_min,
+        work_level, scene, voice_enabled, updated_by, gmt_create, gmt_modified
+    </sql>
+
+    <select id="selectByStationId" resultMap="StationScbaSettingResultMap">
+        SELECT
+        <include refid="SettingColumns"/>
+        FROM ccds_station_scba_setting
+        WHERE station_id = #{stationId}
+    </select>
+
+    <insert id="insertOrUpdate">
+        INSERT INTO ccds_station_scba_setting
+            (station_id, warn_pressure, danger_pressure, warn_time_min, danger_time_min,
+             work_level, scene, voice_enabled, updated_by, gmt_create, gmt_modified)
+        VALUES
+            (#{stationId}, #{warnPressure}, #{dangerPressure}, #{warnTimeMin}, #{dangerTimeMin},
+             #{workLevel}, #{scene}, #{voiceEnabled}, #{updatedBy}, #{gmtCreate}, #{gmtModified})
+        ON DUPLICATE KEY UPDATE
+            warn_pressure = #{warnPressure},
+            danger_pressure = #{dangerPressure},
+            warn_time_min = #{warnTimeMin},
+            danger_time_min = #{dangerTimeMin},
+            work_level = #{workLevel},
+            scene = #{scene},
+            voice_enabled = #{voiceEnabled},
+            updated_by = #{updatedBy},
+            gmt_modified = CURRENT_TIMESTAMP
+    </insert>
+    <select id="selectByStationIds" resultMap="StationScbaSettingResultMap">
+        SELECT
+        <include refid="SettingColumns"/>
+        FROM ccds_station_scba_setting
+        WHERE station_id IN
+        <foreach collection="stationIds" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </select>
+</mapper>

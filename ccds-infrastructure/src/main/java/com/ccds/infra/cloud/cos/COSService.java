@@ -28,6 +28,25 @@ public interface COSService {
     String generatePresignedDownloadUrl(String cosKey, int expireSec);
 
     /**
+     * 生成带下载文件名的预签名下载 URL。
+     *
+     * @param cosKey       对象键
+     * @param downloadName 下载展示名，可空
+     * @param expireSec    过期秒数
+     * @return 预签名 URL
+     */
+    String generatePresignedDownloadUrl(String cosKey, String downloadName, int expireSec);
+
+    /**
+     * 服务端上传对象。失败抛出非法状态，由业务转为错误码。
+     *
+     * @param cosKey      对象键
+     * @param contentType MIME 类型，可空
+     * @param content     对象内容，不会为 null
+     */
+    void putObject(String cosKey, String contentType, byte[] content);
+
+    /**
      * 删除对象。失败抛出非法状态，由业务转为错误码。
      *
      * @param cosKey 对象键

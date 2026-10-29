@@ -32,9 +32,15 @@ public final class FileRuleConstant {
      */
     public static final long MAX_SIZE_BYTES = 20L * 1024 * 1024;
 
+    /**
+     * 原始文件名最大长度。
+     */
+    public static final int ORIGINAL_NAME_MAX_LENGTH = 255;
+
     private static final Set<String> BIZ_TYPES = Set.of(
             FileBizTypeConstant.WATER_PHOTO,
             FileBizTypeConstant.WATER_DOC,
+            FileBizTypeConstant.WATER_VIDEO,
             FileBizTypeConstant.KEYUNIT_PLAN,
             FileBizTypeConstant.KEYUNIT_FLOOR,
             FileBizTypeConstant.HAZMAT_IMAGE);
@@ -48,7 +54,9 @@ public final class FileRuleConstant {
                     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     "text/plain"),
             FileBizTypeConstant.KEYUNIT_FLOOR, Set.of("application/pdf", "image/jpeg", "image/png"),
-            FileBizTypeConstant.HAZMAT_IMAGE, Set.of("image/jpeg", "image/png"));
+            FileBizTypeConstant.HAZMAT_IMAGE, Set.of("image/jpeg", "image/png"),
+            // 出水视频限 10 秒，只收 mp4
+            FileBizTypeConstant.WATER_VIDEO, Set.of("video/mp4"));
 
     private FileRuleConstant() {
     }

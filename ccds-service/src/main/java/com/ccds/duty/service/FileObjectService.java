@@ -77,4 +77,24 @@ public interface FileObjectService {
      * @param fileId    文件主键
      */
     void deleteById(AuthPrincipal principal, Long fileId);
+
+    /**
+     * 登记已在 COS 中的历史对象。对象必须已存在且大小、类型合法。
+     *
+     * @param createdBy    创建人账号
+     * @param bizType      业务类型
+     * @param bizId        业务主键
+     * @param originalName 原始文件名
+     * @param contentType  MIME
+     * @param cosKey       对象键
+     * @param sizeBytes    字节数
+     * @return 已登记文件，不含预览 URL
+     */
+    FileObjectDTO registerImportedObject(Long createdBy,
+                                         String bizType,
+                                         Long bizId,
+                                         String originalName,
+                                         String contentType,
+                                         String cosKey,
+                                         Long sizeBytes);
 }

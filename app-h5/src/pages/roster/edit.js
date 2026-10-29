@@ -70,7 +70,8 @@ export function renderRosterEditPage(root, params) {
     const name = field('姓名', 'peName', prof.name, 'text', !writable);
     const role = field('职务', 'peRole', prof.title, 'text', !writable);
     const rank = field('消防救援衔', 'peRank', prof.rankName, 'text', !writable);
-    const phone = field('电话号', 'pePhone', writable ? (prof.phone || '') : (prof.phoneMasked || ''), 'tel', !writable);
+    // 4.5：后端已下发完整电话时直接显示明文；只有真拿不到明文才回退打码值
+    const phone = field('电话号', 'pePhone', prof.phone || prof.phoneMasked || '', 'tel', !writable);
     const nfc = field('NFC', 'peNfcTag', prof.nfcTag, 'text', !writable);
     const cyl = field('气瓶', 'peCyl', prof.cylType, 'select', !writable);
     const morning = field('早检压力', 'peMorningPressure', prof.morningPressure, 'number', !writable);
@@ -79,6 +80,9 @@ export function renderRosterEditPage(root, params) {
     const weight = field('体重kg', 'peWeight', prof.weightKg, 'number', !writable);
     const age = field('年龄', 'peAge', prof.age, 'number', !writable);
     [name, role, rank, phone, nfc, cyl, morning, height, weight, age].forEach((item) => form.appendChild(item.row));
+    if (prof.archiveNo) {
+      form.appendChild(field('档案号', 'peArchiveNo', prof.archiveNo, 'text', true).row);
+    }
     if (!writable && prof.stationName) {
       form.appendChild(field('所属单位', 'peStation', prof.stationName, 'text', true).row);
     }

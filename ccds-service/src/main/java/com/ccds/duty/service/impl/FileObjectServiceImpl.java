@@ -98,6 +98,7 @@ public class FileObjectServiceImpl implements FileObjectService {
                 .bizType(FileRuleConstant.pendingBizType(actualBizType))
                 .bizId(request.getBizId())
                 .cosKey(cosKey)
+                .originalName(trimOriginalName(request.getFileName()))
                 .contentType(request.getContentType().trim().toLowerCase())
                 .sizeBytes(request.getSizeBytes())
                 .createdBy(account.getId())
@@ -228,6 +229,57 @@ public class FileObjectServiceImpl implements FileObjectService {
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public FileObjectDTO registerImportedObject(Long createdBy,
+                                                String bizType,
+                                                Long bizId,
+                                                String originalName,
+                                                String contentType,
+                                                String cosKey,
+                                                Long sizeBytes) {
+        if (createdBy == null || cosKey == null || cosKey.isBlank()) {
+            throw new BizException(ErrorCodeConstant.PARAM_INVALID, MSG_NAME);
+        }
+        FileObjectDO existing = fileObjectMapper.selectByCosKey(cosKey);
+        if (existing != null) {
+            return convertToDTO(existing, false);
+        }
+        String normalizedName = trimOriginalName(originalName);
+        if (normalizedName == null || normalizedName.isBlank()) {
+            throw new BizException(ErrorCodeConstant.PARAM_INVALID, MSG_NAME);
+        }
+        FilePresignRequestDTO request = FilePresignRequestDTO.builder()
+                .bizType(bizType)
+                .bizId(bizId)
+                .fileName(normalizedName)
+                .contentType(contentType)
+                .sizeBytes(sizeBytes)
+                .build();
+        validateUpload(request);
+        requireBizStationId(bizType, bizId);
+        Long actualSize = cosService.getObjectSize(cosKey);
+        if (actualSize == null || !actualSize.equals(sizeBytes)) {
+            throw new BizException(ErrorCodeConstant.FILE_UPLOAD_CONFIRM_INVALID, MSG_CONFIRM);
+        }
+        FileObjectDO fileObject = FileObjectDO.builder()
+                .bizType(bizType)
+                .bizId(bizId)
+                .cosKey(cosKey)
+                .originalName(trimOriginalName(originalName))
+                .contentType(contentType.trim().toLowerCase())
+                .sizeBytes(sizeBytes)
+                .createdBy(createdBy)
+                .build();
+        fileObjectMapper.insert(fileObject);
+        log.info("登记历史文件：fileId={}, bizType={}, bizId={}",
+                fileObject.getId(), bizType, bizId);
+        return convertToDTO(fileObject, false);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void deleteById(AuthPrincipal principal, Long fileId) {
         AccountDO account = dutyAccessService.requireAccount(principal);
         FileObjectDO fileObject = requireFile(fileId);
@@ -312,6 +364,9 @@ public class FileObjectServiceImpl implements FileObjectService {
         if (fileName.contains("/") || fileName.contains("\\") || fileName.contains("..")) {
             throw new BizException(ErrorCodeConstant.PARAM_INVALID, MSG_NAME);
         }
+        if (fileName.length() > FileRuleConstant.ORIGINAL_NAME_MAX_LENGTH) {
+            throw new BizException(ErrorCodeConstant.PARAM_INVALID, MSG_NAME);
+        }
     }
 
     private void requireFileOwner(AccountDO account, FileObjectDO fileObject) {
@@ -340,7 +395,8 @@ public class FileObjectServiceImpl implements FileObjectService {
             return keyUnit.getStationId();
         }
         if (FileBizTypeConstant.WATER_PHOTO.equals(bizType)
-                || FileBizTypeConstant.WATER_DOC.equals(bizType)) {
+                || FileBizTypeConstant.WATER_DOC.equals(bizType)
+                || FileBizTypeConstant.WATER_VIDEO.equals(bizType)) {
             WaterSourceDO water = waterSourceMapper.selectAliveById(bizId);
             if (water == null) {
                 throw new BizException(ErrorCodeConstant.FILE_BIZ_NOT_FOUND, MSG_BIZ_MISSING);
@@ -356,12 +412,40 @@ public class FileObjectServiceImpl implements FileObjectService {
     private String generateCOSKey(String bizType, String fileName) {
         String date = LocalDateTime.now().format(DATE_FORMATTER);
         String uuid = UUID.randomUUID().toString().replace("-", "");
-        String extension = "";
-        int dotIndex = fileName.lastIndexOf('.');
-        if (dotIndex > 0 && dotIndex < fileName.length() - 1) {
-            extension = fileName.substring(dotIndex);
+        String safeName = sanitizeOriginalName(fileName);
+        return String.format("%s/%s/%s/%s", bizType, date, uuid, safeName);
+    }
+
+    private String sanitizeOriginalName(String fileName) {
+        String trimmed = trimOriginalName(fileName);
+        if (trimmed == null || trimmed.isBlank()) {
+            return "file";
         }
-        return String.format("%s/%s/%s%s", bizType, date, uuid, extension);
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < trimmed.length(); i++) {
+            char ch = trimmed.charAt(i);
+            if (ch == '/' || ch == '\\' || ch == ':' || ch < 32) {
+                builder.append('_');
+            } else {
+                builder.append(ch);
+            }
+        }
+        String safe = builder.toString().replace("..", "_");
+        if (safe.isBlank()) {
+            return "file";
+        }
+        return safe;
+    }
+
+    private String trimOriginalName(String fileName) {
+        if (fileName == null) {
+            return null;
+        }
+        String trimmed = fileName.trim();
+        if (trimmed.length() <= FileRuleConstant.ORIGINAL_NAME_MAX_LENGTH) {
+            return trimmed;
+        }
+        return trimmed.substring(trimmed.length() - FileRuleConstant.ORIGINAL_NAME_MAX_LENGTH);
     }
 
     private FileObjectDTO convertToDTO(FileObjectDO fileObject, boolean withPreview) {
@@ -369,6 +453,7 @@ public class FileObjectServiceImpl implements FileObjectService {
                 .id(fileObject.getId())
                 .bizType(fileObject.getBizType())
                 .bizId(fileObject.getBizId())
+                .originalName(fileObject.getOriginalName())
                 .contentType(fileObject.getContentType())
                 .sizeBytes(fileObject.getSizeBytes())
                 .build();
@@ -377,7 +462,9 @@ public class FileObjectServiceImpl implements FileObjectService {
         }
         try {
             String url = cosService.generatePresignedDownloadUrl(
-                    fileObject.getCosKey(), FileRuleConstant.PRESIGN_EXPIRE_SECONDS);
+                    fileObject.getCosKey(),
+                    fileObject.getOriginalName(),
+                    FileRuleConstant.PRESIGN_EXPIRE_SECONDS);
             dto.setPreviewUrl(url);
             dto.setDownloadUrl(url);
         } catch (IllegalStateException ex) {

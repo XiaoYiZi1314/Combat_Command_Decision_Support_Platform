@@ -1,4 +1,4 @@
-import { getScbaSettings } from '../stores/settings.js';
+import { DEFAULT_SCBA_SETTINGS, getScbaSettings } from '../stores/settings.js';
 
 export const SCBA = {
   warnPressure: 10,
@@ -290,14 +290,24 @@ export function calibrationPreview(input) {
   };
 }
 
-export function resolveStatus(status, pressure, remainSec) {
+/**
+ * 判定安全 / 预警 / 危险。
+ *
+ * @param {string} status 生命周期状态
+ * @param {number} pressure 当前压力
+ * @param {number} remainSec 剩余秒
+ * @param {object} [stationThresholds] 站级阈值（随快照下发）；为空时回落本机设置
+ * @returns {string} in / warn / danger / out / pending
+ */
+export function resolveStatus(status, pressure, remainSec, stationThresholds) {
   if (status === 'out' || status === 'scanout') {
     return 'out';
   }
   if (status === 'pending' || !status) {
     return 'pending';
   }
-  const settings = getScbaSettings();
+  // 3.3：站上保存过阈值就以站级阈值为准，指挥端不再用自己设备的设置重算
+  const settings = normalizeThresholds(stationThresholds) || getScbaSettings();
   const p = Number(pressure) || 0;
   const rem = remainSec == null ? 0 : Number(remainSec);
   if (p <= settings.dangerPressure
@@ -309,6 +319,33 @@ export function resolveStatus(status, pressure, remainSec) {
     return 'warn';
   }
   return 'in';
+}
+
+/**
+ * 把服务端下发的阈值换算成与 settings 同形状。
+ *
+ * @param {object} thresholds 站级阈值
+ * @returns {object|null} 设置形状，非法时返回 null
+ */
+export function normalizeThresholds(thresholds) {
+  if (!thresholds) {
+    return null;
+  }
+  const warnPressure = Number(thresholds.warnPressure);
+  const dangerPressure = Number(thresholds.dangerPressure);
+  const warnTimeMin = Number(thresholds.warnTimeMin);
+  const dangerTimeMin = Number(thresholds.dangerTimeMin);
+  if (!Number.isFinite(warnPressure) || !Number.isFinite(dangerPressure)) {
+    return null;
+  }
+  return {
+    warnPressure,
+    dangerPressure,
+    warnTimeMin: Number.isFinite(warnTimeMin) ? warnTimeMin : DEFAULT_SCBA_SETTINGS.warnTimeMin,
+    dangerTimeMin: Number.isFinite(dangerTimeMin) ? dangerTimeMin : DEFAULT_SCBA_SETTINGS.dangerTimeMin,
+    defaultWorkLevel: thresholds.defaultWorkLevel || DEFAULT_SCBA_SETTINGS.defaultWorkLevel,
+    voiceEnabled: thresholds.voiceEnabled !== false
+  };
 }
 
 export function fmtMinSec(totalSec) {

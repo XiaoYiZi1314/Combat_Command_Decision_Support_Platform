@@ -90,6 +90,32 @@ public final class ApiPathConstant {
     public static final String STATION_PROFILE_TEMPLATE = "/stations/{stationId}/profiles/template";
 
     /**
+     * 人员删除记录（已删除名单）。
+     */
+    public static final String STATION_PROFILE_TOMBSTONES = "/stations/{stationId}/profile-tombstones";
+
+    /**
+     * 恢复已删除人员的姓名 / NFC 记录。
+     */
+    public static final String STATION_PROFILE_TOMBSTONE_RESTORE =
+            "/stations/{stationId}/profile-tombstones/restore";
+
+    /**
+     * 人员跨站调动申请。
+     */
+    public static final String PROFILE_TRANSFERS = "/profile-transfers";
+
+    /**
+     * 单条人员调动申请（审批）。
+     */
+    public static final String PROFILE_TRANSFER = "/profile-transfers/{transferId}";
+
+    /**
+     * 支队导出所有单位人员档案。
+     */
+    public static final String PROFILES_EXPORT_ALL = "/profiles/export-all";
+
+    /**
      * 本站内攻卡片与快照。
      */
     public static final String STATION_ATTACK = "/stations/{stationId}/attack";
@@ -98,6 +124,21 @@ public final class ApiPathConstant {
      * 本站内攻事件（预录入/入场/复测/撤出/删除）。
      */
     public static final String STATION_ATTACK_EVENTS = "/stations/{stationId}/attack/events";
+
+    /**
+     * 站级作业模式（测试/训练/出警）。
+     */
+    public static final String STATION_WORK_MODE = "/stations/{stationId}/work-mode";
+
+    /**
+     * 版本与更新信息。
+     */
+    public static final String APP_VERSION = "/app/version";
+
+    /**
+     * 站级空呼阈值。
+     */
+    public static final String STATION_SCBA_SETTINGS = "/stations/{stationId}/scba-settings";
 
     /**
      * 指挥端站快照列表。
@@ -150,6 +191,36 @@ public final class ApiPathConstant {
     public static final String WATERS_CITY = "/waters/city";
 
     /**
+     * 水源汇总统计。
+     */
+    public static final String WATERS_SUMMARY = "/waters/summary";
+
+    /**
+     * 水源汇总统计导出。
+     */
+    public static final String WATERS_SUMMARY_EXPORT = "/waters/summary/export";
+
+    /**
+     * 站级水源变更申请。
+     */
+    public static final String STATION_WATER_REQUESTS = "/stations/{stationId}/water-requests";
+
+    /**
+     * 单条水源变更申请（审批 / 撤回）。
+     */
+    public static final String STATION_WATER_REQUEST = "/stations/{stationId}/water-requests/{requestId}";
+
+    /**
+     * 可见范围内的水源变更申请（支队审批列表）。
+     */
+    public static final String WATER_REQUESTS_ALL = "/water-requests";
+
+    /**
+     * 水源出水视频登记。
+     */
+    public static final String STATION_WATER_VIDEO = "/stations/{stationId}/waters/{waterId}/videos";
+
+    /**
      * 百度地图浏览器端凭证。
      */
     public static final String MAPS_BAIDU_TOKEN = "/maps/baidu-token";
@@ -163,6 +234,11 @@ public final class ApiPathConstant {
      * 月度值班列表。
      */
     public static final String STATION_DUTY_MONTH = "/stations/{stationId}/duty/month";
+
+    /**
+     * 支队一键导出战斗编组。
+     */
+    public static final String DUTY_BATTLE_GROUPS_EXPORT = "/duty/battle-groups/export";
 
     /**
      * 站级重点单位列表与新建。

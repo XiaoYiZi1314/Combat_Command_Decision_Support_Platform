@@ -119,6 +119,61 @@ public final class RosterRuleConstant {
     public static final String COMMAND_UNIT_NAME = "指挥单元";
 
     /**
+     * 固定编制卡：指挥员。占槽位 1。
+     */
+    public static final String FIXED_GROUP_COMMANDER = "指挥员";
+
+    /**
+     * 固定编制卡：安全员。占槽位 2。
+     */
+    public static final String FIXED_GROUP_SAFETY = "安全员";
+
+    /**
+     * 固定编制卡：通信员。占槽位 3。
+     */
+    public static final String FIXED_GROUP_SIGNAL = "通信员";
+
+    /**
+     * 固定槽位：指挥员。
+     */
+    public static final int SLOT_COMMANDER = 1;
+
+    /**
+     * 固定槽位：安全员。
+     */
+    public static final int SLOT_SAFETY = 2;
+
+    /**
+     * 固定槽位：通信员。
+     */
+    public static final int SLOT_SIGNAL = 3;
+
+    /**
+     * 档案号前缀。
+     */
+    public static final String ARCHIVE_NO_PREFIX = "P";
+
+    /**
+     * 档案号序号位数。
+     */
+    public static final int ARCHIVE_NO_PAD = 8;
+
+    /**
+     * 删除记录来源：用户删除。
+     */
+    public static final String TOMBSTONE_SOURCE_USER = "user_delete";
+
+    /**
+     * 删除记录来源：调动调出。
+     */
+    public static final String TOMBSTONE_SOURCE_TRANSFER = "transfer_out";
+
+    /**
+     * 编组删除记录来源：旧版误伤，可自动清理。
+     */
+    public static final String GROUP_TOMBSTONE_LEGACY_BUG = "legacy_bug";
+
+    /**
      * 模板示例姓名，导入时跳过。
      */
     public static final String TEMPLATE_EXAMPLE_NAME = "张三";
@@ -142,6 +197,11 @@ public final class RosterRuleConstant {
      * 本站花名册导出名。
      */
     public static final String EXPORT_FILE_PREFIX = "人员档案_战斗编组_";
+
+    /**
+     * 支队全量人员档案导出名。
+     */
+    public static final String EXPORT_ALL_FILE_PREFIX = "所有单位人员档案_";
 
     /**
      * 空模板导出名。

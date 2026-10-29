@@ -16,3 +16,27 @@ export async function fetchAttackSnapshots(since) {
   const query = since ? `?since=${encodeURIComponent(since)}` : '';
   return withRefresh(() => apiRequest(`/attack/snapshots${query}`, { headers: authHeader() }));
 }
+
+export async function fetchWorkMode(stationId) {
+  return withRefresh(() => apiRequest(`/stations/${stationId}/work-mode`, { headers: authHeader() }));
+}
+
+export async function saveWorkMode(stationId, workMode) {
+  return withRefresh(() => apiRequest(`/stations/${stationId}/work-mode`, {
+    method: 'PUT',
+    headers: authHeader(),
+    body: { workMode }
+  }));
+}
+
+export async function fetchScbaSettings(stationId) {
+  return withRefresh(() => apiRequest(`/stations/${stationId}/scba-settings`, { headers: authHeader() }));
+}
+
+export async function saveScbaSettings(stationId, body) {
+  return withRefresh(() => apiRequest(`/stations/${stationId}/scba-settings`, {
+    method: 'PUT',
+    headers: authHeader(),
+    body
+  }));
+}

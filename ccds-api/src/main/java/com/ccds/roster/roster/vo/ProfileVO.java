@@ -64,6 +64,16 @@ public class ProfileVO {
     private String phoneMasked;
 
     /**
+     * 是否已下发电话明文（4.5：本站、所属大队、支队均可见完整电话）。
+     */
+    private Boolean phoneVisible;
+
+    /**
+     * 档案号，站内唯一。
+     */
+    private String archiveNo;
+
+    /**
      * 气瓶规格。
      */
     private String cylType;

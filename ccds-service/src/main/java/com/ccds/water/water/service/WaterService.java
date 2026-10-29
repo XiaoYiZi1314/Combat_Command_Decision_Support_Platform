@@ -5,12 +5,11 @@ import java.util.List;
 import com.ccds.iam.identity.model.AuthPrincipal;
 import com.ccds.water.water.dto.WaterSaveCommand;
 import com.ccds.water.water.vo.StationWaterVO;
-import com.ccds.water.water.vo.WaterImportResultVO;
 import com.ccds.water.water.vo.WaterNearbyResultVO;
 import com.ccds.water.water.vo.WaterVO;
 
 /**
- * 水源档案：CRUD、表格导入导出、附近水源。
+ * 水源档案：CRUD、附近水源与保留卡补回。
  *
  * @author ccds
  * @since 0.1.0
@@ -27,10 +26,10 @@ public interface WaterService {
     StationWaterVO getWaters(AuthPrincipal principal, Long stationId);
 
     /**
-     * 全市水源（登录可读，站级「全市」浏览用）。
+     * 全市水源，按账号可见范围返回。
      *
      * @param principal 登录主体
-     * @return 全市水源，不会为 null
+     * @return 水源列表，不会为 null
      */
     List<WaterVO> listCityWaters(AuthPrincipal principal);
 
@@ -45,7 +44,7 @@ public interface WaterService {
     WaterVO getWater(AuthPrincipal principal, Long stationId, Long waterId);
 
     /**
-     * 新建水源。
+     * 新建水源。仅支队/开发者可直写，站级须走审批申请。
      *
      * @param principal 登录主体
      * @param stationId 站主键
@@ -55,7 +54,7 @@ public interface WaterService {
     WaterVO createWater(AuthPrincipal principal, Long stationId, WaterSaveCommand command);
 
     /**
-     * 更新水源。
+     * 更新水源。仅支队/开发者可直写，站级须走审批申请。
      *
      * @param principal 登录主体
      * @param stationId 站主键
@@ -66,7 +65,7 @@ public interface WaterService {
     WaterVO updateWater(AuthPrincipal principal, Long stationId, Long waterId, WaterSaveCommand command);
 
     /**
-     * 软删水源。
+     * 删除水源（写删除记录后软删）。仅支队/开发者可直写，站级须走审批申请。
      *
      * @param principal 登录主体
      * @param stationId 站主键
@@ -75,34 +74,7 @@ public interface WaterService {
     void deleteWater(AuthPrincipal principal, Long stationId, Long waterId);
 
     /**
-     * 导入现网检查记录表。
-     *
-     * @param principal 登录主体
-     * @param stationId 站主键
-     * @param fileName  文件名
-     * @param bytes     文件字节
-     * @return 导入结果
-     */
-    WaterImportResultVO importWaters(AuthPrincipal principal, Long stationId, String fileName, byte[] bytes);
-
-    /**
-     * 导出本站表格。
-     *
-     * @param principal 登录主体
-     * @param stationId 站主键
-     * @return xlsx
-     */
-    byte[] exportWaters(AuthPrincipal principal, Long stationId);
-
-    /**
-     * 导出空模板。
-     *
-     * @return xlsx
-     */
-    byte[] exportTemplate();
-
-    /**
-     * 附近水源：全市在用，半径内按距离升序。
+     * 附近水源：全市好用卡，半径内按距离升序。
      *
      * @param principal 登录主体
      * @param lng       经度
@@ -113,4 +85,12 @@ public interface WaterService {
      */
     WaterNearbyResultVO nearby(AuthPrincipal principal, java.math.BigDecimal lng, java.math.BigDecimal lat,
                                Integer radiusM, Integer limit);
+
+    /**
+     * 按原编号补回本站「明确要求保留」的卡。
+     *
+     * @param stationId 站主键
+     * @return 补回条数
+     */
+    int restoreRetained(Long stationId);
 }

@@ -19,6 +19,8 @@ import lombok.NoArgsConstructor;
 /**
  * 新建或更新水源档案。
  *
+ * <p>状态不再由前端传入：服务端按「可使用 / 是否报修」派生，避免出现「状态=在用 + 可使用=不好用」这类矛盾值。</p>
+ *
  * @author ccds
  * @since 0.1.0
  */
@@ -65,9 +67,8 @@ public class WaterSaveCommand {
     private BigDecimal lat;
 
     /**
-     * 状态码：active / repair。
+     * 状态码：active / repair。可选，传了也会被服务端按可使用与是否报修覆盖。
      */
-    @NotBlank
     @Pattern(regexp = "^(active|repair)$")
     private String status;
 
@@ -76,4 +77,99 @@ public class WaterSaveCommand {
      */
     @Size(max = WaterRuleConstant.NOTES_MAX_LENGTH)
     private String notes;
+
+    /**
+     * 设置方式：above / under。
+     */
+    @Pattern(regexp = "^(above|under)$")
+    private String setup;
+
+    /**
+     * 管网直径 mm。
+     */
+    private Integer pipeDiameter;
+
+    /**
+     * 管网压力 MPa。
+     */
+    private BigDecimal pressureMpa;
+
+    /**
+     * 管网流量 L/s。
+     */
+    private BigDecimal flowLps;
+
+    /**
+     * 给水形式：ring / branch。
+     */
+    @Pattern(regexp = "^(ring|branch)$")
+    private String supplyForm;
+
+    /**
+     * 加水高度 m。
+     */
+    private BigDecimal addHeightM;
+
+    /**
+     * 可使用：good / bad。
+     */
+    @Pattern(regexp = "^(good|bad)$")
+    private String usable;
+
+    /**
+     * 无法出水原因原文。原因码由服务端按九原因口径归类，不接受前端直接传。
+     */
+    @Size(max = WaterRuleConstant.REASON_MAX_LENGTH)
+    private String reasonText;
+
+    /**
+     * 是否报修。
+     */
+    private Boolean isRepair;
+
+    /**
+     * 报修原因说明。
+     */
+    @Size(max = WaterRuleConstant.REASON_MAX_LENGTH)
+    private String repairReason;
+
+    /**
+     * 明确要求保留。
+     */
+    private Boolean retained;
+
+    /**
+     * 泄水阀是否可查看：yes / no。
+     */
+    @Pattern(regexp = "^(yes|no)$")
+    private String drainViewable;
+
+    /**
+     * 泄水阀好用情况：good / bad。
+     */
+    @Pattern(regexp = "^(good|bad)$")
+    private String drainUsable;
+
+    /**
+     * 无法查看泄水阀原因。
+     */
+    @Size(max = WaterRuleConstant.REASON_MAX_LENGTH)
+    private String drainReason;
+
+    /**
+     * 泄水阀备注。
+     */
+    @Size(max = WaterRuleConstant.REASON_MAX_LENGTH)
+    private String drainNotes;
+
+    /**
+     * 是否有保暖措施。
+     */
+    private Boolean warmthMeasure;
+
+    /**
+     * 无保暖措施原因。
+     */
+    @Size(max = WaterRuleConstant.REASON_MAX_LENGTH)
+    private String warmthReason;
 }

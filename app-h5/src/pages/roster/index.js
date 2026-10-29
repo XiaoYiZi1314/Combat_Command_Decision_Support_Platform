@@ -2,10 +2,16 @@ import './roster.css';
 import { getMe, homeHashOf } from '../../stores/session.js';
 import {
   deleteProfile,
+  downloadAllProfilesExcel,
   downloadRosterExcel,
+  fetchProfileTombstones,
+  fetchProfileTransfers,
   fetchRoster,
   importRoster,
-  saveGroups
+  restoreProfileTombstone,
+  reviewProfileTransfer,
+  saveGroups,
+  submitProfileTransfer
 } from '../../api/roster.js';
 import { pickLocalFile } from '../../api/file-transfer.js';
 
@@ -95,11 +101,28 @@ export function renderRosterPage(root) {
   const exportBtn = el('button', '', '导出本站');
   const templateBtn = el('button', '', '导出模板');
   const importBtn = el('button', '', '导入表格');
+  const transferBtn = el('button', '', '人员调动');
+  const tombstoneBtn = el('button', '', '已删除名单');
   actions.appendChild(exportBtn);
   actions.appendChild(templateBtn);
   if (me.role === 'station') {
     actions.appendChild(importBtn);
+    actions.appendChild(transferBtn);
   }
+  if (me.role === 'hq' || me.role === 'developer') {
+    const exportAllBtn = el('button', '', '导出所有单位');
+    exportAllBtn.type = 'button';
+    exportAllBtn.addEventListener('click', async () => {
+      try {
+        await downloadAllProfilesExcel();
+        setMsg(msg, '已导出到系统下载目录');
+      } catch (err) {
+        setMsg(msg, err.message || '导出失败', true);
+      }
+    });
+    actions.appendChild(exportAllBtn);
+  }
+  actions.appendChild(tombstoneBtn);
   body.appendChild(actions);
   const msg = el('div', 'roster-msg');
   body.appendChild(msg);
@@ -107,6 +130,15 @@ export function renderRosterPage(root) {
   body.appendChild(list);
   page.appendChild(body);
   root.appendChild(page);
+
+  transferBtn.type = 'button';
+  transferBtn.addEventListener('click', () => {
+    renderTransferForm(list, msg, load);
+  });
+  tombstoneBtn.type = 'button';
+  tombstoneBtn.addEventListener('click', () => {
+    renderTombstones(list, msg, currentRosterStationId());
+  });
 
   exportBtn.addEventListener('click', async () => {
     try {
@@ -172,7 +204,12 @@ function renderList(root, data, reload, msg) {
   profiles.forEach((prof) => {
     const card = el('div', 'profile-card');
     const name = el('div', 'pc-name', prof.name || '');
-    const info = el('span', 'pc-info', `${prof.title || ''} / ${prof.cylType || '6.8'}L${prof.phoneMasked ? ` / 电话 ${prof.phoneMasked}` : ''}${prof.nfcTag ? ` / NFC ${prof.nfcTag}` : ''}`);
+    // 4.5：本站、所属大队、支队都显示完整电话，不再只给打码值
+    const phoneText = prof.phone || prof.phoneMasked;
+    const info = el('span', 'pc-info', `${prof.title || ''} / ${prof.cylType || '6.8'}L`
+      + `${phoneText ? ` / 电话 ${phoneText}` : ''}`
+      + `${prof.archiveNo ? ` / 档案号 ${prof.archiveNo}` : ''}`
+      + `${prof.nfcTag ? ` / NFC ${prof.nfcTag}` : ''}`);
     name.appendChild(info);
     card.appendChild(name);
     card.appendChild(el('div', 'pc-points', `${prof.calibrationCount || 0}条空呼校准`));
@@ -361,4 +398,251 @@ function toGroupPayload(group) {
       roleInGroup: member.roleInGroup || ''
     }))
   };
+}
+
+/**
+ * 人员调动表单：选人员、调出站、调入站，提交后由支队审批。
+ */
+function renderTransferForm(list, msg, reload) {
+  const me = getMe() || {};
+  const stations = visibleStations();
+  list.innerHTML = '';
+  const form = el('div', 'roster-form');
+  form.appendChild(el('h3', '', '人员调动'));
+  form.appendChild(el('div', 'roster-help',
+    '提交后由支队审批，通过后才落档。调入站会分配新的档案号，不会沿用调出站的档案号。'));
+
+  const profileSelect = document.createElement('select');
+  const toSelect = document.createElement('select');
+  stations.forEach((station) => {
+    const opt = document.createElement('option');
+    opt.value = String(station.id);
+    opt.textContent = station.name;
+    toSelect.appendChild(opt);
+  });
+  if (me.stationId) {
+    toSelect.value = String(me.stationId);
+  }
+
+  const reasonInput = document.createElement('input');
+  reasonInput.type = 'text';
+  reasonInput.placeholder = '调动原因';
+  reasonInput.maxLength = 255;
+
+  const row = (label, input) => {
+    const wrap = el('div', 'wf-row');
+    wrap.appendChild(el('label', '', label));
+    wrap.appendChild(input);
+    return wrap;
+  };
+
+  const submit = el('button', 'wf-save', '提交调动申请');
+  submit.type = 'button';
+  const cancel = el('button', 'wf-cancel', '取消');
+  cancel.type = 'button';
+  cancel.addEventListener('click', () => reload());
+
+  form.appendChild(row('调出人员', profileSelect));
+  form.appendChild(row('调入站', toSelect));
+  form.appendChild(row('调动原因', reasonInput));
+  form.appendChild(submit);
+  form.appendChild(cancel);
+  list.appendChild(form);
+
+  fetchRoster(currentRosterStationId()).then((data) => {
+    (data.profiles || []).forEach((profile) => {
+      const opt = document.createElement('option');
+      opt.value = String(profile.id);
+      opt.textContent = profile.archiveNo
+        ? `${profile.name}（${profile.archiveNo}）` : profile.name;
+      profileSelect.appendChild(opt);
+    });
+  }).catch((err) => {
+    setMsg(msg, err.message || '花名册加载失败', true);
+  });
+
+  submit.addEventListener('click', async () => {
+    if (!profileSelect.value || !toSelect.value || !reasonInput.value.trim()) {
+      setMsg(msg, '请选择人员、调入站并填写原因', true);
+      return;
+    }
+    try {
+      await submitProfileTransfer({
+        fromStationId: Number(currentRosterStationId()),
+        toStationId: Number(toSelect.value),
+        profileId: Number(profileSelect.value),
+        reason: reasonInput.value.trim(),
+        clientRequestId: `xfer-${profileSelect.value}-${Date.now()}`
+      });
+      setMsg(msg, '已提交调动申请，待支队审批');
+      reload();
+    } catch (err) {
+      setMsg(msg, err.message || '提交失败', true);
+    }
+  });
+}
+
+/**
+ * 已删除名单：删除记录长期有效，只有用户显式恢复才解开。
+ */
+function renderTombstones(list, msg, stationId) {
+  list.innerHTML = '';
+  const head = el('div', 'section-title', '已删除名单');
+  list.appendChild(head);
+  fetchProfileTombstones(stationId).then((rows) => {
+    if (!rows || !rows.length) {
+      list.appendChild(el('div', 'pc-points', '没有已删除记录'));
+      return;
+    }
+    rows.forEach((row) => {
+      const card = el('div', 'profile-card');
+      const name = el('div', 'pc-name', row.name || '');
+      name.appendChild(el('span', 'pc-info',
+        `${row.archiveNo || ''}${row.nfcTag ? ` / NFC ${row.nfcTag}` : ''}`));
+      card.appendChild(name);
+      const flags = [];
+      if (row.nameBlocked) {
+        flags.push('姓名拦截中');
+      }
+      if (row.nfcBlocked) {
+        flags.push('NFC 拦截中');
+      }
+      if (row.archiveBlocked) {
+        flags.push('档案号拦截中');
+      }
+      card.appendChild(el('div', 'pc-points', flags.join(' · ') || '已全部解除'));
+      const btns = el('div', 'pc-btns');
+      if (row.nameBlocked) {
+        const restoreName = el('button', 'pc-edit', '恢复姓名');
+        restoreName.type = 'button';
+        restoreName.addEventListener('click', async () => {
+          try {
+            await restoreProfileTombstone(stationId, { scope: 'name', name: row.name });
+            setMsg(msg, '已恢复姓名记录');
+            renderTombstones(list, msg, stationId);
+          } catch (err) {
+            setMsg(msg, err.message || '恢复失败', true);
+          }
+        });
+        btns.appendChild(restoreName);
+      }
+      if (row.nfcBlocked && row.nfcTag) {
+        const restoreNfc = el('button', 'pc-del', '解除 NFC');
+        restoreNfc.type = 'button';
+        restoreNfc.addEventListener('click', async () => {
+          if (!window.confirm(`确认解除 NFC ${row.nfcTag} 的删除记录？`)) {
+            return;
+          }
+          try {
+            await restoreProfileTombstone(stationId, {
+              scope: 'nfc', name: row.name, nfcTag: row.nfcTag
+            });
+            setMsg(msg, '已解除 NFC 记录');
+            renderTombstones(list, msg, stationId);
+          } catch (err) {
+            setMsg(msg, err.message || '解除失败', true);
+          }
+        });
+        btns.appendChild(restoreNfc);
+      }
+      if (btns.childNodes.length) {
+        card.appendChild(btns);
+      }
+      list.appendChild(card);
+    });
+  }).catch((err) => {
+    list.textContent = err.message || '加载失败';
+  });
+}
+
+/**
+ * 支队审批调动申请。
+ */
+export function renderTransferApprovals(root) {
+  root.innerHTML = '';
+  const page = el('div', 'roster-page');
+  const head = el('div', 'roster-head');
+  head.appendChild(el('h2', '', '人员调动审批'));
+  const back = el('button', 'roster-back', '返回');
+  back.type = 'button';
+  back.addEventListener('click', () => {
+    window.location.hash = homeHashOf(getMe());
+  });
+  head.appendChild(back);
+  page.appendChild(head);
+  const body = el('div', 'roster-body');
+  const msg = el('div', 'roster-msg');
+  body.appendChild(msg);
+  const list = el('div');
+  body.appendChild(list);
+  page.appendChild(body);
+  root.appendChild(page);
+
+  function paint() {
+    fetchProfileTransfers(null, null).then((rows) => {
+      list.innerHTML = '';
+      if (!rows || !rows.length) {
+        list.appendChild(el('div', 'pc-points', '暂无调动申请'));
+        return;
+      }
+      rows.forEach((item) => {
+        const card = el('div', 'profile-card');
+        card.appendChild(el('div', 'pc-name',
+          `${item.profileName || ''}：${item.fromStationName || ''} → ${item.toStationName || ''}`));
+        card.appendChild(el('div', 'pc-points',
+          `${transferStatusLabel(item.status)} · ${item.sourceArchiveNo || '无档案号'}`
+          + (item.newArchiveNo ? ` → ${item.newArchiveNo}` : '')));
+        if (item.reason) {
+          card.appendChild(el('div', 'pc-points', `原因：${item.reason}`));
+        }
+        if (item.status === 'pending') {
+          const btns = el('div', 'pc-btns');
+          const pass = el('button', 'pc-edit', '通过');
+          pass.type = 'button';
+          pass.addEventListener('click', async () => {
+            try {
+              await reviewProfileTransfer(item.id, { approve: true, reviewReason: '同意' });
+              setMsg(msg, '已通过');
+              paint();
+            } catch (err) {
+              setMsg(msg, err.message || '审批失败', true);
+            }
+          });
+          const reject = el('button', 'pc-del', '驳回');
+          reject.type = 'button';
+          reject.addEventListener('click', async () => {
+            const reason = window.prompt('驳回原因', '材料不足');
+            if (reason === null) {
+              return;
+            }
+            try {
+              await reviewProfileTransfer(item.id, { approve: false, reviewReason: reason });
+              setMsg(msg, '已驳回');
+              paint();
+            } catch (err) {
+              setMsg(msg, err.message || '审批失败', true);
+            }
+          });
+          btns.appendChild(pass);
+          btns.appendChild(reject);
+          card.appendChild(btns);
+        }
+        list.appendChild(card);
+      });
+    }).catch((err) => {
+      list.textContent = err.message || '加载失败';
+    });
+  }
+
+  paint();
+}
+
+function transferStatusLabel(status) {
+  if (status === 'approved') {
+    return '已通过';
+  }
+  if (status === 'rejected') {
+    return '已驳回';
+  }
+  return '待审批';
 }

@@ -47,4 +47,20 @@ public interface BattleGroupMemberMapper {
      * @return 影响行数
      */
     int deleteByProfileId(@Param("profileId") Long profileId);
+
+    /**
+     * 删除单个成员关系。
+     *
+     * @param id 成员主键
+     * @return 影响行数
+     */
+    int deleteById(@Param("id") Long id);
+
+    /**
+     * 删除某个编组的全部成员。
+     *
+     * @param groupId 编组主键
+     * @return 影响行数
+     */
+    int deleteByGroupId(@Param("groupId") Long groupId);
 }

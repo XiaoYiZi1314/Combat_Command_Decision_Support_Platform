@@ -26,6 +26,8 @@ public class RosterAccessServiceImpl implements RosterAccessService {
 
     private static final String MSG_WRITE_FORBIDDEN = "仅本站账号可改花名册";
 
+    private static final String MSG_REVIEW_FORBIDDEN = "仅支队账号可审批人员调动";
+
     private static final String MSG_STATION_MISSING = "单位不存在";
 
     private final StationMapper stationMapper;
@@ -66,6 +68,29 @@ public class RosterAccessServiceImpl implements RosterAccessService {
         return role == AccountRoleEnum.STATION
                 && account.getStationId() != null
                 && account.getStationId().equals(stationId);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void requireReviewer(AccountDO account) {
+        AccountRoleEnum role = AccountRoleEnum.fromCode(account.getRole());
+        if (role != AccountRoleEnum.HQ && role != AccountRoleEnum.DEVELOPER) {
+            throw new BizException(ErrorCodeConstant.ROSTER_WRITE_FORBIDDEN, MSG_REVIEW_FORBIDDEN);
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean canSubmitTransfer(AccountDO account, Long stationId) {
+        AccountRoleEnum role = AccountRoleEnum.fromCode(account.getRole());
+        if (role == AccountRoleEnum.HQ || role == AccountRoleEnum.DEVELOPER) {
+            return true;
+        }
+        return isWritable(account, stationId);
     }
 
     private boolean canView(AccountDO account, StationDO station) {

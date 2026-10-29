@@ -47,4 +47,19 @@ public interface ScbaEstimateService {
      */
     AttackRiskStatusEnum resolveStatus(AttackStatusEnum current, BigDecimal pressure, Integer remainSec,
                                        LocalDateTime now, LocalDateTime enteredAt, LocalDateTime withdrawnAt);
+
+    /**
+     * 按站级阈值判定状态。站上改过阈值后，服务端与共享页都按这一份算颜色。
+     *
+     * @param current     当前状态
+     * @param pressure    当前压力
+     * @param remainSec   剩余秒，可空
+     * @param enteredAt   入场时间
+     * @param withdrawnAt 撤出时间
+     * @param thresholds  站级阈值，为空则按一期默认值
+     * @return 状态，不会为 null
+     */
+    AttackRiskStatusEnum resolveStatus(AttackStatusEnum current, BigDecimal pressure, Integer remainSec,
+                                       LocalDateTime enteredAt, LocalDateTime withdrawnAt,
+                                       com.ccds.attack.attack.model.ScbaThresholds thresholds);
 }

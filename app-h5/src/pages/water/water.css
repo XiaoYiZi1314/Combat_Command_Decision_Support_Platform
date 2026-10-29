@@ -278,6 +278,81 @@
   font-size: 13px;
 }
 
+.wf-files {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.wf-files-title {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.wf-files-label {
+  font-size: 12px;
+  color: var(--dim);
+}
+
+.wf-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 12px;
+}
+
+.wf-file a {
+  flex: 1;
+  min-width: 0;
+  color: var(--blue);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wf-file button {
+  border: 0;
+  background: transparent;
+  color: var(--red);
+}
+
+.wf-empty {
+  color: var(--dim);
+  font-size: 12px;
+}
+
+.wf-upload-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.wf-upload-row input {
+  flex: 1;
+  min-width: 0;
+  color: var(--dim);
+  font-size: 12px;
+}
+
+.wf-upload {
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.wf-help {
+  color: var(--dim);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
 .wf-save,
 .wf-cancel {
   padding: 10px;
@@ -508,4 +583,71 @@
   color: var(--dim);
   line-height: 1.6;
   margin-bottom: 10px;
+}
+
+/* ---- 水源：不好用原因行 / 待审批标记 / 编号 ---- */
+.wc-bad {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--amber);
+  background: var(--amber-bg);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  margin-top: 6px;
+}
+
+.wc-pending {
+  font-size: 11px;
+  color: var(--blue);
+  background: var(--blue-bg);
+  border-radius: 999px;
+  padding: 2px 8px;
+  margin-left: 6px;
+}
+
+.wc-no {
+  font-size: 11px;
+  color: var(--dim);
+  margin-top: 4px;
+}
+
+/* ---- 水源汇总表 ---- */
+.water-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  margin-bottom: 10px;
+  display: block;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.water-table th,
+.water-table td {
+  border: 1px solid var(--border);
+  padding: 4px 6px;
+  text-align: right;
+}
+
+.water-table th:first-child,
+.water-table td:first-child {
+  text-align: left;
+  position: sticky;
+  left: 0;
+  background: var(--card);
+}
+
+.water-table th {
+  color: var(--dim);
+  font-weight: 600;
+}
+
+/* ---- 水源出水视频 ---- */
+.wf-video {
+  margin-top: 8px;
+}
+
+.wf-video .wf-upload-row input {
+  flex: 1 1 90px;
+  min-width: 80px;
 }

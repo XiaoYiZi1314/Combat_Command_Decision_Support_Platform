@@ -1,7 +1,10 @@
 package com.ccds.infra.cloud.cos;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
@@ -15,6 +18,7 @@ import com.qcloud.cos.model.DeleteObjectsResult;
 import com.qcloud.cos.model.GetObjectRequest;
 import com.qcloud.cos.model.GeneratePresignedUrlRequest;
 import com.qcloud.cos.model.ObjectMetadata;
+import com.qcloud.cos.model.PutObjectRequest;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,6 +37,8 @@ public class COSServiceImpl implements COSService {
     private static final String MSG_NOT_READY = "COS客户端未初始化";
 
     private static final String MSG_DELETE_FAILED = "删除COS对象失败";
+
+    private static final String MSG_PUT_FAILED = "上传COS对象失败";
 
     private static final int MAX_READ_BYTES = 20 * 1024 * 1024;
 
@@ -58,11 +64,48 @@ public class COSServiceImpl implements COSService {
      */
     @Override
     public String generatePresignedDownloadUrl(String cosKey, int expireSec) {
+        return generatePresignedDownloadUrl(cosKey, null, expireSec);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String generatePresignedDownloadUrl(String cosKey, String downloadName, int expireSec) {
         requireReady();
         GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(
                 cosClientHolder.getBucket(), cosKey, HttpMethodName.GET);
         request.setExpiration(new Date(System.currentTimeMillis() + expireSec * 1000L));
+        String disposition = buildInlineDisposition(downloadName);
+        if (disposition != null) {
+            request.putCustomQueryParameter("response-content-disposition", disposition);
+        }
         return cosClientHolder.getClient().generatePresignedUrl(request).toString();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void putObject(String cosKey, String contentType, byte[] content) {
+        requireReady();
+        if (content == null) {
+            throw new IllegalArgumentException("content");
+        }
+        ObjectMetadata metadata = new ObjectMetadata();
+        if (contentType != null && !contentType.isBlank()) {
+            metadata.setContentType(contentType);
+        }
+        metadata.setContentLength(content.length);
+        ByteArrayInputStream input = new ByteArrayInputStream(content);
+        try {
+            PutObjectRequest request = new PutObjectRequest(
+                    cosClientHolder.getBucket(), cosKey, input, metadata);
+            cosClientHolder.getClient().putObject(request);
+        } catch (RuntimeException ex) {
+            log.error(MSG_PUT_FAILED, ex);
+            throw new IllegalStateException(MSG_PUT_FAILED, ex);
+        }
     }
 
     /**
@@ -168,6 +211,21 @@ public class COSServiceImpl implements COSService {
     private void requireReady() {
         if (!cosClientHolder.ready()) {
             throw new IllegalStateException(MSG_NOT_READY);
+        }
+    }
+
+    private String buildInlineDisposition(String downloadName) {
+        if (downloadName == null || downloadName.isBlank()) {
+            return null;
+        }
+        String trimmed = downloadName.trim();
+        try {
+            String encoded = URLEncoder.encode(trimmed, StandardCharsets.UTF_8)
+                    .replace("+", "%20");
+            return "inline; filename*=UTF-8''" + encoded;
+        } catch (RuntimeException ex) {
+            log.warn("构造下载文件名失败");
+            return null;
         }
     }
 }

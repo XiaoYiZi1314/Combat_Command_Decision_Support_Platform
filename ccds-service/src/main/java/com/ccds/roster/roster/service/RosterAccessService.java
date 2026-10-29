@@ -37,4 +37,20 @@ public interface RosterAccessService {
      * @return true 表示站级本站
      */
     boolean isWritable(AccountDO account, Long stationId);
+
+    /**
+     * 要求审批人：支队 / 开发者。大队不审批。
+     *
+     * @param account 账号
+     */
+    void requireReviewer(AccountDO account);
+
+    /**
+     * 是否可提交调动申请：站级本站或支队/开发者。
+     *
+     * @param account   账号
+     * @param stationId 站主键
+     * @return 可提交为 true
+     */
+    boolean canSubmitTransfer(AccountDO account, Long stationId);
 }

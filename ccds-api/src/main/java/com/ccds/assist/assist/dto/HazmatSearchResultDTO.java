@@ -33,4 +33,19 @@ public class HazmatSearchResultDTO {
      * 命中列表，不会为 null。
      */
     private List<HazmatSearchItemDTO> items;
+
+    /**
+     * 结果来源：registry 登记库 / local 本机备用库 / builtin 内置库 / none 无命中。
+     */
+    private String source;
+
+    /**
+     * 是否已降级（上游不可用，改用备用库）。
+     */
+    private Boolean degraded;
+
+    /**
+     * 降级说明，供界面直接展示。
+     */
+    private String degradedNote;
 }

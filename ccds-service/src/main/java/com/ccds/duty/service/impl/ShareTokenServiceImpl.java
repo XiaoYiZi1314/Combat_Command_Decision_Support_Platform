@@ -195,16 +195,35 @@ public class ShareTokenServiceImpl implements ShareTokenService {
                         .currentPressure(person.getCurrentPressure() != null
                                 ? person.getCurrentPressure().doubleValue() : null)
                         .remainSec(person.getRemainSec())
-                        .status(person.getStatus())
+                        // 3.3：下发风险态（安全/预警/危险），不是生命周期态，共享页才可能与站端同色
+                        .status(resolveRiskStatus(person))
                         .build())
                 .collect(Collectors.toList());
     }
 
     private String worstStatus(List<AttackPersonDO> groupPersons) {
         return groupPersons.stream()
-                .map(AttackPersonDO::getStatus)
+                .map(this::resolveRiskStatus)
                 .max(Comparator.comparing(this::statusPriority))
                 .orElse("in");
+    }
+
+    /**
+     * 取人员卡片的展示态：已撤出用 out，其余用风险态。
+     *
+     * @param person 卡片
+     * @return in / warn / danger / out / pending
+     */
+    private String resolveRiskStatus(AttackPersonDO person) {
+        String status = person.getStatus();
+        if ("out".equals(status) || "scanout".equals(status)) {
+            return "out";
+        }
+        if ("pending".equals(status)) {
+            return "pending";
+        }
+        String risk = person.getRuntimeStatus();
+        return risk == null || risk.isBlank() ? "in" : risk;
     }
 
     private int statusPriority(String status) {

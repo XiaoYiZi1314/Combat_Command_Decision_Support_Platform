@@ -169,14 +169,23 @@ export function snapshotStaleText(lastEventAt, nowMs) {
   return '';
 }
 
+/**
+ * 首页可见条件：出警模式且已有人入场（不含预录入）。
+ * 与后端 AttackViewTranslator.hasUnwithdrawn 同一表达式。
+ *
+ * @param {object} row 快照
+ * @returns {number} 计入人数，0 表示不该上首页
+ */
 export function snapshotActiveCount(row) {
   if (!row) {
     return 0;
   }
+  if (row.workMode && row.workMode !== 'dispatch') {
+    return 0;
+  }
   return Number(row.inCount || 0)
     + Number(row.warnCount || 0)
-    + Number(row.dangerCount || 0)
-    + Number(row.pendingCount || 0);
+    + Number(row.dangerCount || 0);
 }
 
 export function connectCommandSocket(handlers) {

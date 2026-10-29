@@ -8,24 +8,63 @@
         <result column="station_id" property="stationId"/>
         <result column="name" property="name"/>
         <result column="sort_no" property="sortNo"/>
+        <result column="slot_no" property="slotNo"/>
+        <result column="is_fixed" property="isFixed"/>
         <result column="gmt_create" property="gmtCreate"/>
         <result column="gmt_modified" property="gmtModified"/>
     </resultMap>
 
+    <sql id="GroupColumns">
+        id, station_id, name, sort_no, slot_no, is_fixed, gmt_create, gmt_modified
+    </sql>
+
     <select id="selectByStationId" resultMap="BattleGroupResultMap">
-        SELECT id, station_id, name, sort_no, gmt_create, gmt_modified
+        SELECT
+        <include refid="GroupColumns"/>
         FROM ccds_battle_group
         WHERE station_id = #{stationId}
         ORDER BY sort_no ASC, id ASC
     </select>
 
+    <select id="selectByStationAndName" resultMap="BattleGroupResultMap">
+        SELECT
+        <include refid="GroupColumns"/>
+        FROM ccds_battle_group
+        WHERE station_id = #{stationId}
+          AND name = #{name}
+        LIMIT 1
+    </select>
+
+    <select id="selectFixedByStationId" resultMap="BattleGroupResultMap">
+        SELECT
+        <include refid="GroupColumns"/>
+        FROM ccds_battle_group
+        WHERE station_id = #{stationId}
+          AND is_fixed = 1
+        ORDER BY slot_no ASC
+    </select>
+
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO ccds_battle_group (station_id, name, sort_no, gmt_create, gmt_modified)
-        VALUES (#{stationId}, #{name}, #{sortNo}, #{gmtCreate}, #{gmtModified})
+        INSERT INTO ccds_battle_group (station_id, name, sort_no, slot_no, is_fixed, gmt_create, gmt_modified)
+        VALUES (#{stationId}, #{name}, #{sortNo}, #{slotNo}, #{isFixed}, #{gmtCreate}, #{gmtModified})
     </insert>
+
+    <update id="updateSortNo">
+        UPDATE ccds_battle_group
+        SET sort_no = #{sortNo},
+            gmt_modified = #{gmtModified}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM ccds_battle_group
+        WHERE id = #{id}
+          AND is_fixed = 0
+    </delete>
 
     <delete id="deleteByStationId">
         DELETE FROM ccds_battle_group
         WHERE station_id = #{stationId}
+          AND is_fixed = 0
     </delete>
 </mapper>

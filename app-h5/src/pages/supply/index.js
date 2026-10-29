@@ -1,6 +1,7 @@
 import '../water/water.css';
 import { getMe, homeHashOf } from '../../stores/session.js';
 import { fetchNearbyWaters } from '../../api/water.js';
+import { fetchStationVehicles, fetchAllVehicles } from '../../api/vehicle.js';
 import { fetchSupplyAdvice } from '../../api/assist.js';
 import {
   EXPERIENCE_OPTIONS,
@@ -10,6 +11,51 @@ import {
   formatDistance,
   el
 } from '../water/shared.js';
+
+/**
+ * 取档案里的第一个有效流量：水泵流量 → 水炮流量 → 泡沫炮流量。
+ */
+function archiveFlow(vehicle) {
+  const candidates = [vehicle.pumpFlow, vehicle.waterCannonFlow, vehicle.foamCannonFlow];
+  for (let i = 0; i < candidates.length; i += 1) {
+    const value = Number(candidates[i]);
+    if (Number.isFinite(value) && value > 0) {
+      return value;
+    }
+  }
+  return null;
+}
+
+/**
+ * 载水量文本取首数字（档案里是「18吨」这类文本）。
+ */
+function firstNumber(text) {
+  const match = String(text || '').match(/\d+(\.\d+)?/);
+  return match ? Number(match[0]) : 0;
+}
+
+/**
+ * 单车流量：档案流量优先，三者都没有才按类型估算。
+ */
+function vehicleFlow(vehicle) {
+  const flow = archiveFlow(vehicle);
+  if (flow != null) {
+    return flow;
+  }
+  const name = `${vehicle.vehicleType || ''}${vehicle.type || ''}${vehicle.plate || ''}`;
+  return defaultVehicleFlow(name);
+}
+
+/**
+ * 默认参战车辆：载水量大于 0 或流量大于 0 的车，排除宣传车、通信车。
+ */
+function defaultSelected(vehicle) {
+  const text = `${vehicle.vehicleType || ''}${vehicle.type || ''}`;
+  if (/宣传|通信/.test(text)) {
+    return false;
+  }
+  return firstNumber(vehicle.waterCap) > 0 || archiveFlow(vehicle) != null || vehicleFlow(vehicle) > 0;
+}
 
 export function renderSupplyPage(root, params, hash) {
   root.innerHTML = '';
@@ -36,11 +82,14 @@ export function renderSupplyPage(root, params, hash) {
       }
       : null,
     nearby: [],
+    vehicles: [],
+    selected: new Set(),
     lastLocal: null
   };
 
   body.appendChild(el('div', 'supply-hint',
-    '一期无车辆档案：车辆供水能力按类型取保守默认泵量（举高/水罐/泡沫类 60 L/s，其他水类 40 L/s）。AI 研判失败仍保留本地计算结果。'));
+    '参战车辆从车辆档案勾选，单车流量优先取档案里的水泵流量，其次水炮、泡沫炮流量，都没有才按类型估算。'
+    + 'AI 研判失败仍保留本地计算结果。'));
 
   const form = el('div', 'water-form');
 
@@ -99,12 +148,10 @@ export function renderSupplyPage(root, params, hash) {
   form.appendChild(row('干线长度 m', hoseLenInput));
   form.appendChild(row('干线口径', hoseDiaSel));
 
-  // 参战车辆（自由输入车辆类型名，逐行一条，空行忽略）
-  const vehiclesInput = document.createElement('textarea');
-  vehiclesInput.rows = 3;
-  vehiclesInput.placeholder = '每行一辆，如：\n18吨水罐消防车\n抢险救援消防车';
-  form.appendChild(row('参战车辆类型（每行一辆）', vehiclesInput));
-
+  // 参战车辆：从车辆档案勾选
+  const vehicleBox = el('div', 'supply-vehicles');
+  vehicleBox.appendChild(el('div', 'wf-files-label', '参战车辆（从车辆档案勾选）'));
+  form.appendChild(vehicleBox);
   body.appendChild(form);
 
   const calcBtn = el('button', 'wf-save supply-calc-btn', '计算');
@@ -147,6 +194,55 @@ export function renderSupplyPage(root, params, hash) {
     return hit ? hit.intensity : 0.12;
   }
 
+  function renderVehicles() {
+    vehicleBox.innerHTML = '';
+    vehicleBox.appendChild(el('div', 'wf-files-label', '参战车辆（从车辆档案勾选）'));
+    if (!state.vehicles.length) {
+      vehicleBox.appendChild(el('div', 'wf-empty', '没有可参战的车辆档案（已排除报修车）'));
+      return;
+    }
+    state.vehicles.forEach((vehicle) => {
+      const line = el('label', 'supply-vehicle');
+      const check = document.createElement('input');
+      check.type = 'checkbox';
+      check.checked = state.selected.has(String(vehicle.id));
+      check.addEventListener('change', () => {
+        if (check.checked) {
+          state.selected.add(String(vehicle.id));
+        } else {
+          state.selected.delete(String(vehicle.id));
+        }
+      });
+      line.appendChild(check);
+      const flow = vehicleFlow(vehicle);
+      const archive = archiveFlow(vehicle);
+      const source = archive == null ? '类型估算' : '档案流量';
+      line.appendChild(el('span', '',
+        `${vehicle.plate || vehicle.vehicleType || '未命名车辆'} · ${flow.toFixed(0)} L/s（${source}）`
+        + (vehicle.stationName ? ` · ${vehicle.stationName}` : '')));
+      vehicleBox.appendChild(line);
+    });
+  }
+
+  async function loadVehicles() {
+    try {
+      const stationId = me.role === 'station' && me.stationId ? String(me.stationId) : '';
+      const rows = stationId ? await fetchStationVehicles(stationId) : await fetchAllVehicles();
+      // 报修车不参与供水计算
+      state.vehicles = (rows || []).filter((vehicle) => !/报修/.test(vehicle.status || ''));
+      state.selected = new Set();
+      state.vehicles.forEach((vehicle) => {
+        if (defaultSelected(vehicle)) {
+          state.selected.add(String(vehicle.id));
+        }
+      });
+      renderVehicles();
+    } catch (err) {
+      vehicleBox.innerHTML = '';
+      vehicleBox.appendChild(el('div', 'wf-empty', `车辆档案加载失败：${err.message || '网络异常'}`));
+    }
+  }
+
   function calc() {
     const area = Number(areaInput.value) || 0;
     if (area <= 0) {
@@ -159,19 +255,22 @@ export function renderSupplyPage(root, params, hash) {
     const hoseDia = Number(hoseDiaSel.value) || 80;
     const hoseFactor = HOSE_FACTOR[hoseDia] != null ? HOSE_FACTOR[hoseDia] : 0.008;
     const hoseLoss = hoseFactor * (Math.max(required, 1) / 10) ** 2 * (hoseLen / 100);
-    const vehicles = vehiclesInput.value.split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((name) => ({ name, flow: defaultVehicleFlow(name) }));
-    const vehicleFlow = vehicles.reduce((sum, v) => sum + v.flow, 0);
+    const vehicles = state.vehicles
+      .filter((vehicle) => state.selected.has(String(vehicle.id)))
+      .map((vehicle) => ({
+        name: vehicle.plate || vehicle.vehicleType || '未命名车辆',
+        flow: vehicleFlow(vehicle)
+      }));
+    const vehicleFlowSum = vehicles.reduce((sum, v) => sum + v.flow, 0);
+    // 附近水源只统计好用卡（后端 nearby 已按同一谓词过滤），流量优先用卡片管网流量
     const sourceFlow = state.nearby.reduce((sum, w) => sum + (w.estimateFlow || 0), 0);
-    const gap = Math.min(vehicleFlow, sourceFlow) - required;
+    const gap = Math.min(vehicleFlowSum, sourceFlow) - required;
     return {
       required,
       experience,
       hoseLoss,
       vehicles,
-      vehicleFlow,
+      vehicleFlow: vehicleFlowSum,
       sourceFlow,
       gap,
       state: gap >= 0 ? '供水能力基本满足' : '供水能力不足'
@@ -182,8 +281,8 @@ export function renderSupplyPage(root, params, hash) {
     result.innerHTML = '';
     const lines = [
       `所需供水流量：${r.required.toFixed(1)} L/s（面积 × 强度 × 经验系数${r.experience.toFixed(1)}）`,
-      `参战车辆：${r.vehicles.length} 辆，默认泵量合计 ${r.vehicleFlow.toFixed(0)} L/s`,
-      `火点附近水源：${state.nearby.length} 处，估算流量合计 ${r.sourceFlow.toFixed(0)} L/s`,
+      `参战车辆：${r.vehicles.length} 辆，流量合计 ${r.vehicleFlow.toFixed(0)} L/s`,
+      `火点附近水源：${state.nearby.length} 处，流量合计 ${r.sourceFlow.toFixed(0)} L/s`,
       `干线压力损失估算：${r.hoseLoss.toFixed(2)} MPa`,
       `结论：${r.state}（余量 ${r.gap.toFixed(1)} L/s）`,
       r.gap >= 0
@@ -272,4 +371,6 @@ export function renderSupplyPage(root, params, hash) {
       setMsg(`AI 不可用：${err.message || '网络异常'}，已保留本地计算结果`, true);
     }
   });
+
+  loadVehicles();
 }

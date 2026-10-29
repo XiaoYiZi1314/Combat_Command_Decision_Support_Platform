@@ -85,6 +85,7 @@ export function renderDutyPage(root) {
     selectedDate: dateKey(now),
     rows: new Map(),
     roster: { profiles: [], groups: [] },
+    dutyGroups: [],
     loadVersion: 0
   };
 
@@ -287,7 +288,103 @@ export function renderDutyPage(root) {
     officers.appendChild(deputyCard);
     detailContent.appendChild(officers);
 
-    appendGroups(detailContent, state.roster.groups || []);
+    // 4.4：只有今天与明天允许改这一天的编组；历史日期只看当天快照
+    const editable = isEditableDate(state.selectedDate);
+    if (editable) {
+      const editorBox = el('div', 'duty-groups duty-groups-editable');
+      editorBox.appendChild(el('h3', '', '当日战斗编组（可调整）'));
+      const groups = state.dutyGroups;
+      if (!groups.length) {
+        editorBox.appendChild(el('div', 'duty-empty', '暂无战斗编组'));
+      }
+      groups.forEach((group, groupIndex) => {
+        const groupRow = el('div', 'duty-group-edit');
+        groupRow.appendChild(el('b', '', group.name || '未命名编组'));
+        (group.members || []).slice().forEach((member, memberIndex) => {
+          const line = el('div', 'duty-group-member');
+          line.appendChild(el('span', '', member.name || '未命名'));
+          // 组内调人：移到别的组
+          const moveSel = document.createElement('select');
+          const stay = document.createElement('option');
+          stay.value = '';
+          stay.textContent = '留在本组';
+          moveSel.appendChild(stay);
+          groups.forEach((target, targetIndex) => {
+            if (targetIndex === groupIndex) {
+              return;
+            }
+            const opt = document.createElement('option');
+            opt.value = String(targetIndex);
+            opt.textContent = `移到 ${target.name || '未命名编组'}`;
+            moveSel.appendChild(opt);
+          });
+          moveSel.addEventListener('change', () => {
+            if (moveSel.value === '') {
+              return;
+            }
+            const targetIndex = Number(moveSel.value);
+            const moved = (groups[groupIndex].members || []).splice(memberIndex, 1)[0];
+            groups[targetIndex].members = groups[targetIndex].members || [];
+            groups[targetIndex].members.push(moved);
+            // 已改动数据，立即重绘并退出本轮遍历，避免边遍历边改数组
+            renderDetail();
+            return;
+          });
+          line.appendChild(moveSel);
+          const rm = el('button', 'duty-btn', '移出');
+          rm.type = 'button';
+          rm.addEventListener('click', () => {
+            (groups[groupIndex].members || []).splice(memberIndex, 1);
+            renderDetail();
+          });
+          line.appendChild(rm);
+          groupRow.appendChild(line);
+        });
+        // 从花名册加人
+        const addWrap = el('div', 'duty-group-add');
+        const addSel = document.createElement('select');
+        const usedIds = new Set((group.members || []).map((item) => String(item.profileId)));
+        (state.roster.profiles || []).forEach((profile) => {
+          if (usedIds.has(String(profile.id))) {
+            return;
+          }
+          const opt = document.createElement('option');
+          opt.value = String(profile.id);
+          opt.textContent = profile.name;
+          addSel.appendChild(opt);
+        });
+        const addBtn = el('button', 'duty-btn', '加入本组');
+        addBtn.type = 'button';
+        addBtn.addEventListener('click', () => {
+          if (!addSel.value) {
+            return;
+          }
+          const profile = (state.roster.profiles || [])
+            .find((item) => String(item.id) === addSel.value);
+          if (!profile) {
+            return;
+          }
+          groups[groupIndex].members = groups[groupIndex].members || [];
+          groups[groupIndex].members.push({
+            profileId: profile.id,
+            name: profile.name,
+            roleInGroup: '组员'
+          });
+          renderDetail();
+        });
+        addWrap.appendChild(addSel);
+        addWrap.appendChild(addBtn);
+        groupRow.appendChild(addWrap);
+        editorBox.appendChild(groupRow);
+      });
+      detailContent.appendChild(editorBox);
+    } else {
+      const snapshotGroups = row ? safeSnapshotGroups(row.groupSnapshotJson) : [];
+      appendGroups(detailContent, snapshotGroups);
+      detailContent.appendChild(el('div', 'duty-help',
+        '历史日期只显示当天快照，不能改编组成员。'));
+    }
+
     const noteField = el('div', 'duty-field');
     noteField.appendChild(el('label', '', '备注'));
     const note = document.createElement('input');
@@ -305,13 +402,20 @@ export function renderDutyPage(root) {
       save.disabled = true;
       setMessage('正在保存…');
       try {
-        const saved = await saveDutyDay(state.stationId, state.selectedDate, {
+        const payload = {
           dutyDate: state.selectedDate,
           mainOfficerId: mainSelect.value ? Number(mainSelect.value) : null,
           deputyOfficerId: deputySelect.value ? Number(deputySelect.value) : null,
-          note: note.value.trim(),
-          groupSnapshotJson: snapshotOf(state.roster.groups)
-        });
+          note: note.value.trim()
+        };
+        if (editable) {
+          // 只有今天与明天才写编组；历史日期由服务端强制保持原快照
+          payload.groupSnapshotJson = snapshotOf(state.dutyGroups);
+          payload.groupSnapshotMode = 'replace';
+        } else {
+          payload.groupSnapshotMode = 'preserve';
+        }
+        const saved = await saveDutyDay(state.stationId, state.selectedDate, payload);
         state.rows.set(state.selectedDate, saved);
         setMessage('值班表已保存并同步');
         renderCalendar();
@@ -354,11 +458,31 @@ export function renderDutyPage(root) {
     detailContent.appendChild(el('div', 'duty-date-title',
       `${selected.getMonth() + 1}月${selected.getDate()}日值班情况`));
     const row = state.rows.get(state.selectedDate) || null;
+    // 编辑源的编组快照：有当天快照用当天的，否则回退到当前花名册
+    state.dutyGroups = row && row.groupSnapshotJson
+      ? safeSnapshotGroups(row.groupSnapshotJson)
+      : (state.roster.groups || []).map((group) => ({
+        name: group.name,
+        members: (group.members || []).map((member) => ({
+          profileId: member.profileId,
+          name: member.name,
+          roleInGroup: member.roleInGroup || '组员'
+        }))
+      }));
     if (writable) {
       renderEditor(row);
     } else {
       renderReadonly(row);
     }
+  }
+
+  /**
+   * 4.4：只有今天与明天允许改这一天的编组与车辆。
+   */
+  function isEditableDate(key) {
+    const today = dateKey(new Date());
+    const tomorrow = dateKey(addDays(new Date(), 1));
+    return key === today || key === tomorrow;
   }
 
   async function loadMonth() {

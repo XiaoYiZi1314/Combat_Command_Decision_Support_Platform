@@ -14,12 +14,14 @@ import {
 const STATION_KEY = 'ccds_archive_station';
 
 const KIND_LABELS = {
-  drill: '演练',
+  // 3.1：历史筛选与主界面同一个词，不再另做「演练」类型；drill 作为旧端别名保留
+  drill: '训练',
+  training: '训练',
   dispatch: '出警'
 };
 
 function kindLabel(kind) {
-  return KIND_LABELS[kind] || kind || '演练';
+  return KIND_LABELS[kind] || kind || '训练';
 }
 
 export function renderAttackHistoryPage(root) {
@@ -51,11 +53,11 @@ export function renderAttackHistoryPage(root) {
     body.appendChild(stationSelect);
   }
 
-  /* 类型筛选 */
+  /* 类型筛选：全部 / 训练 / 出警，与主界面模式同一个词 */
   const filters = el('div', 'water-filters');
   const kindSel = el('select');
   kindSel.appendChild(el('option', '', '全部模式'));
-  kindSel.appendChild(el('option', '', '演练')).value = 'drill';
+  kindSel.appendChild(el('option', '', '训练')).value = 'training';
   kindSel.appendChild(el('option', '', '出警')).value = 'dispatch';
   kindSel.addEventListener('change', () => {
     state.kindFilter = kindSel.value;

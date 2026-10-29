@@ -16,6 +16,9 @@
         <result column="foam_cap" property="foamCap"/>
         <result column="powder_cap" property="powderCap"/>
         <result column="work_height" property="workHeight"/>
+        <result column="pump_flow" property="pumpFlow"/>
+        <result column="water_cannon_flow" property="waterCannonFlow"/>
+        <result column="foam_cannon_flow" property="foamCannonFlow"/>
         <result column="engine_no" property="engineNo"/>
         <result column="vin" property="vin"/>
         <result column="color" property="color"/>
@@ -28,16 +31,19 @@
 
     <sql id="BaseColumns">
         id, station_id, type, vehicle_type, plate, old_plate, status, model, maker,
-        water_cap, foam_cap, powder_cap, work_height, engine_no, vin, color,
+        water_cap, foam_cap, powder_cap, work_height, pump_flow, water_cannon_flow, foam_cannon_flow,
+        engine_no, vin, color,
         made_date, equip_date, notes, gmt_create, gmt_modified
     </sql>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO ccds_vehicle (station_id, type, vehicle_type, plate, old_plate, status,
                                    model, maker, water_cap, foam_cap, powder_cap, work_height,
+                                   pump_flow, water_cannon_flow, foam_cannon_flow,
                                    engine_no, vin, color, made_date, equip_date, notes)
         VALUES (#{stationId}, #{type}, #{vehicleType}, #{plate}, #{oldPlate}, #{status},
                 #{model}, #{maker}, #{waterCap}, #{foamCap}, #{powderCap}, #{workHeight},
+                #{pumpFlow}, #{waterCannonFlow}, #{foamCannonFlow},
                 #{engineNo}, #{vin}, #{color}, #{madeDate}, #{equipDate}, #{notes})
     </insert>
 
@@ -55,6 +61,9 @@
             foam_cap = #{foamCap},
             powder_cap = #{powderCap},
             work_height = #{workHeight},
+            pump_flow = #{pumpFlow},
+            water_cannon_flow = #{waterCannonFlow},
+            foam_cannon_flow = #{foamCannonFlow},
             engine_no = #{engineNo},
             vin = #{vin},
             color = #{color},

@@ -102,4 +102,42 @@ public enum WaterTypeEnum {
         }
         return fromCode(text);
     }
+
+    /**
+     * 类型归一（导入与 CRUD 共用的唯一口径）。
+     *
+     * <p>规则：类别文本含「水鹤」即水鹤；否则设置方式、名称、地址任一含「地下」即地下消火栓；
+     * 其余为地上消火栓。设置方式优先于类别文本，修正「类别=消火栓 + 设置方式=地下」被误判为地上的缺陷。</p>
+     *
+     * @param typeText  类别原文，可空
+     * @param setupText 设置方式原文，可空
+     * @param name      名称，可空
+     * @param address   地址，可空
+     * @return 类型枚举，无法判定时为 null
+     */
+    public static WaterTypeEnum resolve(String typeText, String setupText, String name, String address) {
+        String type = typeText == null ? "" : typeText.trim();
+        String setup = setupText == null ? "" : setupText.trim();
+        if (type.contains("水鹤")) {
+            return CRANE;
+        }
+        if (setup.contains("地下") || containsText(name, "地下") || containsText(address, "地下")) {
+            return UNDERGROUND;
+        }
+        WaterTypeEnum byLabel = fromLabel(type);
+        if (byLabel == CRANE) {
+            return GROUND;
+        }
+        if (byLabel != null) {
+            return byLabel;
+        }
+        if (type.isEmpty()) {
+            return null;
+        }
+        return GROUND;
+    }
+
+    private static boolean containsText(String text, String keyword) {
+        return text != null && text.contains(keyword);
+    }
 }

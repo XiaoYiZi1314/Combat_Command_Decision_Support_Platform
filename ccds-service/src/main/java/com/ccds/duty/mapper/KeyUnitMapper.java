@@ -59,6 +59,16 @@ public interface KeyUnitMapper {
     List<KeyUnitDO> selectByStationId(@Param("stationId") Long stationId);
 
     /**
+     * 本站按名称查在册重点单位。
+     *
+     * @param stationId 消防站ID
+     * @param name      单位名称
+     * @return 重点单位，不存在为 null
+     */
+    KeyUnitDO selectAliveByStationAndName(@Param("stationId") Long stationId,
+                                          @Param("name") String name);
+
+    /**
      * 根据类别与名称前缀组合筛选重点单位。
      *
      * @param stationId 消防站ID

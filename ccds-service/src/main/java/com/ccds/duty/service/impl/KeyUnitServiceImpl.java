@@ -57,9 +57,10 @@ public class KeyUnitServiceImpl implements KeyUnitService {
     public KeyUnitDTO getById(AuthPrincipal principal, Long stationId, Long id) {
         AccountDO account = dutyAccessService.requireAccount(principal);
         dutyAccessService.requireVisibleStation(account, stationId);
-        boolean writable = dutyAccessService.isWritable(account, stationId);
+        // 5.5：本站、所属大队、支队查看时给完整联系电话；写权限仍只站级本站
+        boolean exposePhone = dutyAccessService.canReadPlainPhone(account, stationId);
         KeyUnitDO keyUnit = requireInStation(stationId, id);
-        return convertToDTO(keyUnit, writable, true);
+        return convertToDTO(keyUnit, exposePhone, true);
     }
 
     /**
@@ -69,10 +70,10 @@ public class KeyUnitServiceImpl implements KeyUnitService {
     public List<KeyUnitDTO> list(AuthPrincipal principal, Long stationId, String category, String keyword) {
         AccountDO account = dutyAccessService.requireAccount(principal);
         dutyAccessService.requireVisibleStation(account, stationId);
-        boolean writable = dutyAccessService.isWritable(account, stationId);
+        boolean exposePhone = dutyAccessService.canReadPlainPhone(account, stationId);
         List<KeyUnitDO> keyUnits = loadList(stationId, category, keyword);
         return keyUnits.stream()
-                .map(item -> convertToDTO(item, writable, false))
+                .map(item -> convertToDTO(item, exposePhone, false))
                 .collect(Collectors.toList());
     }
 

@@ -1,5 +1,6 @@
 package com.ccds.vehicle.vehicle.service.impl;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -240,6 +241,8 @@ public class VehicleServiceImpl implements VehicleService {
                 : VehicleRuleConstant.REQUEST_REJECTED);
         request.setReviewedBy(account.getId());
         request.setReviewerName(account.getUsername());
+        // 审批时间必须落库：车辆审批与水源审批的"本月维修数"统计都依赖 reviewed_at
+        request.setReviewedAt(LocalDateTime.now());
         vehicleRequestMapper.updateById(request);
         log.info("车辆变更审批：requestId={}, approve={}", requestId, approve);
         return toRequestDTO(request, stationNameOf(stationId));
@@ -263,8 +266,12 @@ public class VehicleServiceImpl implements VehicleService {
         if (request == null || !stationId.equals(request.getStationId())) {
             return;
         }
+        // 审批表只允许撤回待审批申请：已通过的申请是落档凭据，禁止物理删除
+        if (!VehicleRuleConstant.REQUEST_PENDING.equals(request.getStatus())) {
+            throw new BizException(ErrorCodeConstant.VEHICLE_REQUEST_INVALID, MSG_REQUEST_PROCESSED);
+        }
         vehicleRequestMapper.deleteById(requestId);
-        log.info("车辆变更申请删除：requestId={}", requestId);
+        log.info("车辆变更申请撤回：requestId={}", requestId);
     }
 
     private void applyApprovedRequest(VehicleRequestDO request) {
@@ -374,6 +381,9 @@ public class VehicleServiceImpl implements VehicleService {
                 .foamCap(entity.getFoamCap())
                 .powderCap(entity.getPowderCap())
                 .workHeight(entity.getWorkHeight())
+                .pumpFlow(entity.getPumpFlow())
+                .waterCannonFlow(entity.getWaterCannonFlow())
+                .foamCannonFlow(entity.getFoamCannonFlow())
                 .engineNo(entity.getEngineNo())
                 .vin(entity.getVin())
                 .color(entity.getColor())
@@ -399,6 +409,9 @@ public class VehicleServiceImpl implements VehicleService {
                 .foamCap(dto.getFoamCap())
                 .powderCap(dto.getPowderCap())
                 .workHeight(dto.getWorkHeight())
+                .pumpFlow(dto.getPumpFlow())
+                .waterCannonFlow(dto.getWaterCannonFlow())
+                .foamCannonFlow(dto.getFoamCannonFlow())
                 .engineNo(dto.getEngineNo())
                 .vin(dto.getVin())
                 .color(dto.getColor())

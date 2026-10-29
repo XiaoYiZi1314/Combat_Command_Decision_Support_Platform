@@ -23,6 +23,11 @@ public class WaterImportResultVO {
     private Integer addedCount;
 
     /**
+     * 更新条数（按「辖区队站 + 地理位置」命中原卡）。
+     */
+    private Integer updatedCount;
+
+    /**
      * 跳过总数。
      */
     private Integer skippedCount;
@@ -46,4 +51,9 @@ public class WaterImportResultVO {
      * 跳过：重名。
      */
     private Integer skipDuplicateCount;
+
+    /**
+     * 跳过：该编号在已删除名单内，不恢复。
+     */
+    private Integer skipDeletedCount;
 }

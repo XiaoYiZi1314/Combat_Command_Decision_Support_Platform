@@ -1,6 +1,7 @@
 package com.ccds.duty.controller;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 
@@ -10,6 +11,10 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -44,6 +49,8 @@ import lombok.RequiredArgsConstructor;
 public class DutyDayController {
 
     private static final String MSG_DATE_INVALID = "日期格式须为 yyyy-MM-dd";
+
+    private static final DateTimeFormatter FILE_DATE = DateTimeFormatter.BASIC_ISO_DATE;
 
     private final DutyDayService dutyDayService;
 
@@ -110,6 +117,25 @@ public class DutyDayController {
                                     @PathVariable String date) {
         dutyDayService.delete(current(request), stationId, parseDate(date));
         return ApiResultVO.ok(null);
+    }
+
+    /**
+     * 支队一键导出各站最新战斗编组（只读）。
+     *
+     * @param request HTTP 请求
+     * @return xlsx
+     */
+    @GetMapping(ApiPathConstant.DUTY_BATTLE_GROUPS_EXPORT)
+    public ResponseEntity<byte[]> exportBattleGroups(HttpServletRequest request) {
+        String fileName = "战斗编组导出_" + LocalDate.now().format(FILE_DATE) + ".xlsx";
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename(fileName)
+                        .build()
+                        .toString())
+                .body(dutyDayService.exportBattleGroups(current(request)));
     }
 
     private LocalDate parseDate(String date) {

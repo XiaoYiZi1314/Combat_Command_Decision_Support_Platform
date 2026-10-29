@@ -879,3 +879,57 @@ html.harmony-compat textarea {
 :root {
   --nfc-bottom-space: 86px;
 }
+
+/* ---- 主屏 / 副屏切换（3.2） ---- */
+.main-pager-nav {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  padding: 6px 12px 2px;
+}
+
+.main-pager-nav button {
+  padding: 6px 18px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.main-pager-nav button.active {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+
+/* 窄屏隐藏切换，仍只显示人员卡片 */
+@media (max-width: 759px) {
+  .main-pager-nav {
+    display: none;
+  }
+}
+
+/* ---- 站级作业模式开关（2.2） ---- */
+.work-mode-bar {
+  display: flex;
+  gap: 8px;
+  padding: 6px 12px 0;
+}
+
+.work-mode-bar button {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.work-mode-bar button.active {
+  background: var(--red);
+  border-color: var(--red);
+  color: #fff;
+  font-weight: 600;
+}

@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ccds.water.water.mapper.WaterDeletedMapper">
+
+    <resultMap id="WaterDeletedResultMap" type="com.ccds.water.water.entity.WaterDeletedDO">
+        <id column="id" property="id"/>
+        <result column="station_id" property="stationId"/>
+        <result column="water_no" property="waterNo"/>
+        <result column="name" property="name"/>
+        <result column="type" property="type"/>
+        <result column="source" property="source"/>
+        <result column="released_at" property="releasedAt"/>
+        <result column="released_by" property="releasedBy"/>
+        <result column="created_by" property="createdBy"/>
+        <result column="gmt_create" property="gmtCreate"/>
+        <result column="gmt_modified" property="gmtModified"/>
+    </resultMap>
+
+    <sql id="WaterDeletedColumns">
+        id, station_id, water_no, name, type, source, released_at, released_by, created_by,
+        gmt_create, gmt_modified
+    </sql>
+
+    <insert id="insertOrRevive" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ccds_water_deleted (station_id, water_no, name, type, source, created_by)
+        VALUES (#{stationId}, #{waterNo}, #{name}, #{type}, #{source}, #{createdBy})
+        ON DUPLICATE KEY UPDATE
+            released_at = NULL,
+            released_by = NULL,
+            source = VALUES(source),
+            gmt_modified = CURRENT_TIMESTAMP
+    </insert>
+
+    <update id="release">
+        UPDATE ccds_water_deleted
+        SET released_at = CURRENT_TIMESTAMP,
+            released_by = #{releasedBy},
+            gmt_modified = CURRENT_TIMESTAMP
+        WHERE station_id = #{stationId}
+          AND water_no = #{waterNo}
+          AND released_at IS NULL
+    </update>
+
+    <select id="selectActiveNos" resultType="java.lang.String">
+        SELECT water_no FROM ccds_water_deleted
+        WHERE station_id = #{stationId}
+          AND released_at IS NULL
+    </select>
+
+    <select id="selectActiveByStationIds" resultMap="WaterDeletedResultMap">
+        SELECT
+        <include refid="WaterDeletedColumns"/>
+        FROM ccds_water_deleted
+        WHERE released_at IS NULL
+          AND station_id IN
+        <foreach collection="stationIds" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </select>
+
+    <select id="selectActiveAll" resultMap="WaterDeletedResultMap">
+        SELECT
+        <include refid="WaterDeletedColumns"/>
+        FROM ccds_water_deleted
+        WHERE released_at IS NULL
+    </select>
+
+    <select id="countActiveByNo" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM ccds_water_deleted
+        WHERE station_id = #{stationId}
+          AND water_no = #{waterNo}
+          AND released_at IS NULL
+    </select>
+
+    <select id="countByStation" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM ccds_water_deleted WHERE station_id = #{stationId}
+    </select>
+
+    <delete id="purgeLegacyBefore">
+        DELETE FROM ccds_water_deleted
+        WHERE source = 'legacy_import'
+          AND gmt_create &lt; #{before}
+    </delete>
+
+</mapper>

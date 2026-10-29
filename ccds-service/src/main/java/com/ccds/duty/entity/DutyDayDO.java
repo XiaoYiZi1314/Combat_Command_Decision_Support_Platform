@@ -56,6 +56,11 @@ public class DutyDayDO {
     private String groupSnapshotJson;
 
     /**
+     * 当日车辆快照JSON
+     */
+    private String vehicleSnapshotJson;
+
+    /**
      * 创建时间
      */
     private LocalDateTime gmtCreate;

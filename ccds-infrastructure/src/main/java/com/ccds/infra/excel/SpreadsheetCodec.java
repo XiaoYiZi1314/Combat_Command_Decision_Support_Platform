@@ -177,8 +177,128 @@ public class SpreadsheetCodec {
         }
     }
 
-    private SpreadsheetTable parseXlsx(byte[] bytes) {
-        Map<String, String> parts = new LinkedHashMap<String, String>();
+    /**
+     * 写出多工作表 xlsx。现有 {@link #writeXlsx(String, SpreadsheetTable)} 保持不变，本方法只做新增。
+     *
+     * @param sheets 工作表列表，每项为「表名 + 行数据」，不得为空
+     * @return xlsx 字节
+     */
+    public byte[] writeXlsxMultiSheet(List<NamedSheet> sheets) {
+        List<NamedSheet> safeSheets = new ArrayList<NamedSheet>();
+        if (sheets != null) {
+            for (NamedSheet sheet : sheets) {
+                if (sheet != null) {
+                    safeSheets.add(sheet);
+                }
+            }
+        }
+        if (safeSheets.isEmpty()) {
+            return writeXlsx("Sheet1", SpreadsheetTable.builder().rows(new ArrayList<List<String>>()).build());
+        }
+        List<String> shared = new ArrayList<String>();
+        Map<String, Integer> index = new LinkedHashMap<String, Integer>();
+        StringBuilder overrides = new StringBuilder();
+        StringBuilder rels = new StringBuilder();
+        StringBuilder workbookSheets = new StringBuilder();
+        Map<String, String> sheetFiles = new LinkedHashMap<String, String>();
+        for (int s = 0; s < safeSheets.size(); s++) {
+            int seq = s + 1;
+            String name = safeSheets.get(s).getName();
+            String safeName = name == null || name.isBlank() ? "Sheet" + seq : name;
+            sheetFiles.put("xl/worksheets/sheet" + seq + ".xml", buildSheetXml(safeSheets.get(s).getTable(), shared, index));
+            overrides.append("<Override PartName=\"/xl/worksheets/sheet").append(seq)
+                    .append(".xml\" ContentType=\"application/vnd.openxmlformats-officedocument")
+                    .append(".spreadsheetml.worksheet+xml\"/>");
+            rels.append("<Relationship Id=\"rId").append(seq)
+                    .append("\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006")
+                    .append("/relationships/worksheet\" Target=\"worksheets/sheet").append(seq)
+                    .append(".xml\"/>");
+            workbookSheets.append("<sheet name=\"").append(xmlEscape(safeName))
+                    .append("\" sheetId=\"").append(seq).append("\" r:id=\"rId").append(seq).append("\"/>");
+        }
+        String contentTypes = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                + "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">"
+                + "<Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>"
+                + "<Default Extension=\"xml\" ContentType=\"application/xml\"/>"
+                + "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument"
+                + ".spreadsheetml.sheet.main+xml\"/>"
+                + overrides
+                + "<Override PartName=\"/xl/sharedStrings.xml\" ContentType=\"application/vnd.openxmlformats-officedocument"
+                + ".spreadsheetml.sharedStrings+xml\"/>"
+                + "<Override PartName=\"/xl/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument"
+                + ".spreadsheetml.styles+xml\"/>"
+                + "</Types>";
+        String wbRels = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                + "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
+                + rels
+                + "<Relationship Id=\"rId" + (safeSheets.size() + 1)
+                + "\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+                + "/sharedStrings\" Target=\"sharedStrings.xml\"/>"
+                + "<Relationship Id=\"rId" + (safeSheets.size() + 2)
+                + "\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+                + "/styles\" Target=\"styles.xml\"/>"
+                + "</Relationships>";
+        String workbook = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                + "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" "
+                + "xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">"
+                + "<sheets>" + workbookSheets + "</sheets></workbook>";
+        StringBuilder sharedXml = new StringBuilder();
+        sharedXml.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+        sharedXml.append("<sst xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" count=\"")
+                .append(shared.size()).append("\" uniqueCount=\"").append(shared.size()).append("\">");
+        for (String item : shared) {
+            sharedXml.append("<si><t xml:space=\"preserve\">").append(xmlEscape(item)).append("</t></si>");
+        }
+        sharedXml.append("</sst>");
+        try (ByteArrayOutputStream out = new ByteArrayOutputStream();
+             ZipOutputStream zip = new ZipOutputStream(out)) {
+            put(zip, "[Content_Types].xml", contentTypes);
+            put(zip, "_rels/.rels", XLSX_ROOT_RELS);
+            put(zip, "xl/_rels/workbook.xml.rels", wbRels);
+            put(zip, "xl/workbook.xml", workbook);
+            put(zip, "xl/styles.xml", XLSX_STYLES);
+            put(zip, "xl/sharedStrings.xml", sharedXml.toString());
+            for (Map.Entry<String, String> entry : sheetFiles.entrySet()) {
+                put(zip, entry.getKey(), entry.getValue());
+            }
+            zip.finish();
+            return out.toByteArray();
+        } catch (IOException ex) {
+            throw new IllegalStateException("xlsx multi-sheet write failed", ex);
+        }
+    }
+
+    private String buildSheetXml(SpreadsheetTable table, List<String> shared, Map<String, Integer> index) {
+        List<List<String>> rows = table == null || table.getRows() == null
+                ? List.of()
+                : table.getRows();
+        StringBuilder sheet = new StringBuilder();
+        sheet.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+        sheet.append("<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">");
+        sheet.append("<sheetData>");
+        for (int r = 0; r < rows.size(); r++) {
+            List<String> row = rows.get(r);
+            sheet.append("<row r=\"").append(r + 1).append("\">");
+            if (row != null) {
+                for (int c = 0; c < row.size(); c++) {
+                    String value = row.get(c) == null ? "" : row.get(c);
+                    Integer si = index.get(value);
+                    if (si == null) {
+                        si = Integer.valueOf(shared.size());
+                        shared.add(value);
+                        index.put(value, si);
+                    }
+                    sheet.append("<c r=\"").append(columnName(c)).append(r + 1)
+                            .append("\" t=\"s\"><v>").append(si).append("</v></c>");
+                }
+            }
+            sheet.append("</row>");
+        }
+        sheet.append("</sheetData></worksheet>");
+        return sheet.toString();
+    }
+
+    private SpreadsheetTable parseXlsx(byte[] bytes) {        Map<String, String> parts = new LinkedHashMap<String, String>();
         try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(bytes))) {
             ZipEntry entry;
             while ((entry = zip.getNextEntry()) != null) {

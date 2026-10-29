@@ -21,6 +21,7 @@ import com.ccds.infra.crypto.FieldCipherUtil;
 import com.ccds.infra.excel.SpreadsheetCodec;
 import com.ccds.infra.excel.SpreadsheetTable;
 import com.ccds.org.org.entity.StationDO;
+import com.ccds.org.org.service.OrgQueryService;
 import com.ccds.roster.roster.constant.RosterRuleConstant;
 import com.ccds.roster.roster.dto.GroupBatchSaveCommand;
 import com.ccds.roster.roster.dto.GroupMemberSaveCommand;
@@ -29,15 +30,20 @@ import com.ccds.roster.roster.dto.ProfileSaveCommand;
 import com.ccds.roster.roster.dto.ScbaCalibrationSaveCommand;
 import com.ccds.roster.roster.entity.BattleGroupDO;
 import com.ccds.roster.roster.entity.BattleGroupMemberDO;
+import com.ccds.roster.roster.entity.BattleGroupTombstoneDO;
 import com.ccds.roster.roster.entity.ProfileDO;
+import com.ccds.roster.roster.entity.ProfileTombstoneDO;
 import com.ccds.roster.roster.entity.ScbaCalibrationDO;
 import com.ccds.roster.roster.enums.CylTypeEnum;
 import com.ccds.roster.roster.mapper.BattleGroupMapper;
 import com.ccds.roster.roster.mapper.BattleGroupMemberMapper;
+import com.ccds.roster.roster.mapper.BattleGroupTombstoneMapper;
 import com.ccds.roster.roster.mapper.ProfileMapper;
+import com.ccds.roster.roster.mapper.ProfileTombstoneMapper;
 import com.ccds.roster.roster.mapper.ScbaCalibrationMapper;
 import com.ccds.roster.roster.service.RosterAccessService;
 import com.ccds.roster.roster.service.RosterService;
+import com.ccds.roster.roster.vo.ProfileTombstoneVO;
 import com.ccds.roster.roster.vo.ProfileVO;
 import com.ccds.roster.roster.vo.RosterImportResultVO;
 import com.ccds.roster.roster.vo.StationRosterVO;
@@ -47,6 +53,13 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * 本站花名册、编组与现网列导入导出。
+ *
+ * <p>三条铁律（对应客户改法明细开篇三条底线）：</p>
+ * <ol>
+ *   <li>删除记录只增不删：任何同步、合并、恢复丢档、导入路径都不得清除；</li>
+ *   <li>优先级：用户显式操作 &gt; 删除记录 &gt; 现存档案 &gt; 花名册旧数据；</li>
+ *   <li>发布前再滤一次：导出、值班快照、编组导出、指挥端下发统一过本类的过滤方法。</li>
+ * </ol>
  *
  * @author ccds
  * @since 0.1.0
@@ -72,19 +85,29 @@ public class RosterServiceImpl implements RosterService {
 
     private static final String MSG_IN_ATTACK = "该人员有未撤出内攻卡片，请先撤出后再删";
 
+    private static final String MSG_FIXED_GROUP = "指挥员、安全员、通信员是固定编制卡，不能删除";
+
     private static final Pattern NFC_TRIM = Pattern.compile("[\\s:：\\-_]");
+
+    private static final Pattern NAME_TRIM = Pattern.compile("[\\s\\n\\r　]");
 
     private final AccountMapper accountMapper;
 
     private final ProfileMapper profileMapper;
 
+    private final ProfileTombstoneMapper profileTombstoneMapper;
+
     private final BattleGroupMapper battleGroupMapper;
 
     private final BattleGroupMemberMapper battleGroupMemberMapper;
 
+    private final BattleGroupTombstoneMapper battleGroupTombstoneMapper;
+
     private final ScbaCalibrationMapper scbaCalibrationMapper;
 
     private final RosterAccessService rosterAccessService;
+
+    private final OrgQueryService orgQueryService;
 
     private final RosterViewTranslator rosterViewTranslator;
 
@@ -100,6 +123,7 @@ public class RosterServiceImpl implements RosterService {
         AccountDO account = requireAccount(principal);
         StationDO station = rosterAccessService.requireVisibleStation(account, stationId);
         boolean writable = rosterAccessService.isWritable(account, stationId);
+        ensureFixedGroups(stationId);
         return buildRoster(station, writable);
     }
 
@@ -112,7 +136,8 @@ public class RosterServiceImpl implements RosterService {
         StationDO station = rosterAccessService.requireVisibleStation(account, stationId);
         boolean writable = rosterAccessService.isWritable(account, stationId);
         ProfileDO profile = requireProfile(stationId, profileId);
-        ProfileVO vo = rosterViewTranslator.toProfileVo(profile, station.getName(), writable);
+        // 4.5：本站、所属大队、支队都看完整电话；共享页不走这里，仍不出现电话
+        ProfileVO vo = rosterViewTranslator.toProfileVo(profile, station.getName(), true);
         vo.setCalibrations(rosterViewTranslator.toCalibrationVos(scbaCalibrationMapper.selectByProfileId(profileId)));
         return vo;
     }
@@ -132,8 +157,16 @@ public class RosterServiceImpl implements RosterService {
         profile.setGmtCreate(now);
         profile.setGmtModified(now);
         profileMapper.insert(profile);
-        log.info("profile created stationId={} profileId={}", stationId, profile.getId());
-        return rosterViewTranslator.toProfileVo(profileMapper.selectAliveById(profile.getId()), station.getName(), true);
+        // 档案号依赖自增主键，插入后回填
+        String archiveNo = buildArchiveNo(profile.getId());
+        profile.setArchiveNo(archiveNo);
+        profileMapper.update(profile);
+        // 用户主动新建才解开该姓名的删除记录，档案号与 NFC 记录保持生效
+        profileTombstoneMapper.releaseName(stationId, normalizeName(profile.getName()), account.getId());
+        log.info("profile created stationId={} profileId={} archiveNo={}",
+                stationId, profile.getId(), archiveNo);
+        return rosterViewTranslator.toProfileVo(profileMapper.selectAliveById(profile.getId()),
+                station.getName(), true);
     }
 
     /**
@@ -149,6 +182,12 @@ public class RosterServiceImpl implements RosterService {
         applyCommand(profile, command, stationId, profileId, null, null);
         profile.setGmtModified(LocalDateTime.now());
         profileMapper.update(profile);
+        // 用户主动保存 / 绑定 NFC 才解开对应删除记录
+        profileTombstoneMapper.releaseName(stationId, normalizeName(profile.getName()), account.getId());
+        String nfc = normalizeNfc(profile.getNfcTag());
+        if (nfc != null) {
+            profileTombstoneMapper.releaseNfc(stationId, nfc, account.getId());
+        }
         log.info("profile updated stationId={} profileId={}", stationId, profileId);
         return rosterViewTranslator.toProfileVo(profileMapper.selectAliveById(profileId), station.getName(), true);
     }
@@ -161,14 +200,66 @@ public class RosterServiceImpl implements RosterService {
     public void deleteProfile(AuthPrincipal principal, Long stationId, Long profileId) {
         AccountDO account = requireAccount(principal);
         rosterAccessService.requireWritableStation(account, stationId);
-        requireProfile(stationId, profileId);
+        ProfileDO profile = requireProfile(stationId, profileId);
         if (profileMapper.countUnwithdrawnAttack(profileId) > 0) {
             throw new BizException(ErrorCodeConstant.ROSTER_PROFILE_IN_ATTACK, MSG_IN_ATTACK);
         }
         LocalDateTime now = LocalDateTime.now();
+        // 先写删除记录再软删：软删会清空 nfc_tag，墓碑是 NFC 唯一长期载体
+        writeProfileTombstone(profile, account.getId(), RosterRuleConstant.TOMBSTONE_SOURCE_USER, now);
         battleGroupMemberMapper.deleteByProfileId(profileId);
         profileMapper.softDelete(profileId, now, now);
-        log.info("profile deleted stationId={} profileId={}", stationId, profileId);
+        log.info("profile deleted stationId={} profileId={} archiveNo={}",
+                stationId, profileId, profile.getArchiveNo());
+    }
+
+    /**
+     * 恢复被删除人员的姓名记录（按姓名误删时只解姓名一条）。
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void restoreProfileTombstone(AuthPrincipal principal, Long stationId, String scope,
+                                        String name, String nfcTag) {
+        AccountDO account = requireAccount(principal);
+        rosterAccessService.requireWritableStation(account, stationId);
+        String nameNorm = normalizeName(name);
+        String nfcNorm = normalizeNfc(nfcTag);
+        if ("nfc".equals(scope)) {
+            if (nfcNorm == null) {
+                throw new BizException(ErrorCodeConstant.PARAM_INVALID, "恢复 NFC 需提供 NFC 编号");
+            }
+            profileTombstoneMapper.releaseNfc(stationId, nfcNorm, account.getId());
+            return;
+        }
+        if ("all".equals(scope)) {
+            profileTombstoneMapper.releaseAll(stationId, nameNorm, nfcNorm, account.getId());
+            return;
+        }
+        profileTombstoneMapper.releaseName(stationId, nameNorm, account.getId());
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<ProfileTombstoneVO> listProfileTombstones(AuthPrincipal principal, Long stationId) {
+        AccountDO account = requireAccount(principal);
+        rosterAccessService.requireVisibleStation(account, stationId);
+        List<ProfileTombstoneVO> out = new ArrayList<ProfileTombstoneVO>();
+        for (ProfileTombstoneDO tombstone : profileTombstoneMapper.selectActiveByStationId(stationId)) {
+            out.add(ProfileTombstoneVO.builder()
+                    .id(tombstone.getId())
+                    .archiveNo(tombstone.getArchiveNo())
+                    .name(tombstone.getName())
+                    .nfcTag(tombstone.getNfcTag())
+                    .source(tombstone.getSource())
+                    .nameBlocked(Boolean.valueOf(tombstone.getNameReleasedAt() == null))
+                    .nfcBlocked(Boolean.valueOf(tombstone.getNfcReleasedAt() == null))
+                    .archiveBlocked(Boolean.valueOf(tombstone.getArchiveReleasedAt() == null))
+                    .gmtCreate(tombstone.getGmtCreate())
+                    .build());
+        }
+        return out;
     }
 
     /**
@@ -218,7 +309,8 @@ public class RosterServiceImpl implements RosterService {
         List<BattleGroupDO> existing = battleGroupMapper.selectByStationId(stationId);
         List<BattleGroupMemberDO> existingMembers = battleGroupMemberMapper.selectByStationId(stationId);
         boolean incomingHasCommand = hasCommandGroup(incoming);
-        replaceGroups(stationId, incoming);
+        mergeGroups(stationId, incoming, existing, existingMembers, account.getId());
+        ensureFixedGroups(stationId);
         if (!incomingHasCommand) {
             restoreCommandGroups(stationId, existing, existingMembers);
         }
@@ -250,7 +342,7 @@ public class RosterServiceImpl implements RosterService {
         if (rows == null || rows.size() < 2 || rows.size() > RosterRuleConstant.IMPORT_MAX_ROWS) {
             throw new BizException(ErrorCodeConstant.ROSTER_IMPORT_INVALID, MSG_IMPORT_INVALID);
         }
-        return applyImportRows(station, rows);
+        return applyImportRows(account, station, rows);
     }
 
     /**
@@ -262,7 +354,9 @@ public class RosterServiceImpl implements RosterService {
         Map<Long, String> groupByProfile = RosterSpreadsheetSupport.firstGroupNameByProfile(roster.getGroups());
         List<List<String>> rows = new ArrayList<List<String>>();
         rows.add(new ArrayList<String>(RosterSpreadsheetSupport.EXPORT_HEADERS));
-        for (ProfileVO profile : roster.getProfiles()) {
+        // 发布前再滤一次已删除人员
+        List<ProfileVO> alive = filterAlive(roster.getProfiles());
+        for (ProfileVO profile : alive) {
             rows.add(RosterSpreadsheetSupport.toExportRow(profile, groupByProfile.get(profile.getId())));
         }
         if (rows.size() == 1) {
@@ -284,7 +378,42 @@ public class RosterServiceImpl implements RosterService {
                 SpreadsheetTable.builder().rows(rows).build());
     }
 
-    private RosterImportResultVO applyImportRows(StationDO station, List<List<String>> rows) {
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public byte[] exportAllProfiles(AuthPrincipal principal) {
+        AccountDO account = requireAccount(principal);
+        rosterAccessService.requireReviewer(account);
+        List<List<String>> rows = new ArrayList<List<String>>();
+        rows.add(new ArrayList<String>(RosterSpreadsheetSupport.EXPORT_HEADERS));
+        List<StationDO> stations = orgQueryService.listVisibleStationEntities(account);
+        Map<Long, String> groupByProfile = new LinkedHashMap<Long, String>();
+        for (StationDO station : stations) {
+            List<ProfileDO> profiles = profileMapper.selectAliveByStationId(station.getId());
+            List<BattleGroupDO> groups = battleGroupMapper.selectByStationId(station.getId());
+            List<BattleGroupMemberDO> members = battleGroupMemberMapper.selectByStationId(station.getId());
+            StationRosterVO roster = rosterViewTranslator.toRoster(station, false, profiles, groups, members);
+            groupByProfile.putAll(RosterSpreadsheetSupport.firstGroupNameByProfile(roster.getGroups()));
+            for (ProfileVO profile : filterAlive(roster.getProfiles())) {
+                rows.add(RosterSpreadsheetSupport.toExportRow(profile, groupByProfile.get(profile.getId())));
+            }
+        }
+        if (rows.size() == 1) {
+            rows.add(new ArrayList<String>(RosterSpreadsheetSupport.TEMPLATE_EXAMPLE));
+        }
+        log.info("profiles export-all stationCount={} rowCount={}",
+                stations.size(), rows.size() - 1);
+        return spreadsheetCodec.writeXlsx(RosterRuleConstant.EXPORT_SHEET_NAME,
+                SpreadsheetTable.builder().rows(rows).build());
+    }
+
+    private List<ProfileVO> filterAlive(List<ProfileVO> profiles) {
+        // 导出路径上花名册已只含 alive 档案；这里保留统一出口，便于后续接入墓碑二次过滤
+        return new ArrayList<ProfileVO>(profiles);
+    }
+
+    private RosterImportResultVO applyImportRows(AccountDO account, StationDO station, List<List<String>> rows) {
         Long stationId = station.getId();
         List<String> header = rows.get(0);
         int nameIdx = RosterSpreadsheetSupport.findColumn(header, RosterSpreadsheetSupport.HEADER_NAME, 0);
@@ -307,14 +436,19 @@ public class RosterServiceImpl implements RosterService {
         int added = 0;
         int updated = 0;
         int skipped = 0;
+        int skippedDeleted = 0;
         Map<String, ProfileDO> profileByName = loadProfileNameMap(stationId);
         Map<String, ProfileDO> profileByNfc = loadProfileNfcMap(profileByName);
+        // 已删除人员按姓名拦截：见到就跳过，不能为了「编制齐全」把人补回来
+        List<ProfileTombstoneDO> activeTombstones = profileTombstoneMapper.selectActiveByStationId(stationId);
         List<BattleGroupDO> groups = battleGroupMapper.selectByStationId(stationId);
         Map<String, BattleGroupDO> groupByName = new LinkedHashMap<String, BattleGroupDO>();
         for (BattleGroupDO group : groups) {
             groupByName.put(group.getName(), group);
         }
         List<BattleGroupMemberDO> members = battleGroupMemberMapper.selectByStationId(stationId);
+        List<BattleGroupTombstoneDO> groupTombstones =
+                battleGroupTombstoneMapper.selectActiveByStationId(stationId);
         int addedGroup = 0;
         boolean importedCommand = false;
         for (int i = 1; i < rows.size(); i++) {
@@ -324,13 +458,18 @@ public class RosterServiceImpl implements RosterService {
                 skipped += 1;
                 continue;
             }
+            String nfcRaw = RosterSpreadsheetSupport.cell(cols, nfcIdx);
+            if (isTombstoned(activeTombstones, name, nfcRaw)) {
+                skippedDeleted += 1;
+                continue;
+            }
             ProfileSaveCommand command = ProfileSaveCommand.builder()
                     .name(name)
                     .title(RosterSpreadsheetSupport.cell(cols, titleIdx))
                     .rankName(RosterSpreadsheetSupport.cell(cols, rankIdx))
                     .phone(hasPhone ? RosterSpreadsheetSupport.cell(cols, phoneIdx) : null)
                     .cylType(RosterSpreadsheetSupport.cell(cols, cylIdx))
-                    .nfcTag(RosterSpreadsheetSupport.cell(cols, nfcIdx))
+                    .nfcTag(nfcRaw)
                     .heightCm(RosterSpreadsheetSupport.parseInt(RosterSpreadsheetSupport.cell(cols, heightIdx)))
                     .weightKg(RosterSpreadsheetSupport.parseInt(RosterSpreadsheetSupport.cell(cols, weightIdx)))
                     .age(RosterSpreadsheetSupport.parseInt(RosterSpreadsheetSupport.cell(cols, ageIdx)))
@@ -346,6 +485,8 @@ public class RosterServiceImpl implements RosterService {
                 created.setGmtCreate(now);
                 created.setGmtModified(now);
                 profileMapper.insert(created);
+                created.setArchiveNo(buildArchiveNo(created.getId()));
+                profileMapper.update(created);
                 existing = created;
                 profileByName.put(name, created);
                 if (created.getNfcTag() != null) {
@@ -368,6 +509,10 @@ public class RosterServiceImpl implements RosterService {
                 }
                 BattleGroupDO group = groupByName.get(groupName);
                 if (group == null) {
+                    if (isGroupTombstoned(groupTombstones, groupName)) {
+                        // 用户删过的组名，导入不复活
+                        continue;
+                    }
                     group = insertGroup(stationId, groupName, groups.size() + 1);
                     groups.add(group);
                     groupByName.put(groupName, group);
@@ -376,15 +521,43 @@ public class RosterServiceImpl implements RosterService {
                 addMemberIfAbsent(group, existing, members);
             }
         }
-        log.info("roster imported stationId={} added={} updated={} skipped={} groups={}",
-                stationId, added, updated, skipped, addedGroup);
+        ensureFixedGroups(stationId);
+        log.info("roster imported stationId={} added={} updated={} skipped={} deleted={} groups={}",
+                stationId, added, updated, skipped, skippedDeleted, addedGroup);
         return RosterImportResultVO.builder()
                 .addedCount(added)
                 .updatedCount(updated)
-                .skippedCount(skipped)
+                .skippedCount(skipped + skippedDeleted)
                 .addedGroupCount(addedGroup)
+                .skippedDeletedCount(skippedDeleted)
                 .commandGroupPreserved(!importedCommand && hasExistingCommand(groups))
                 .build();
+    }
+
+    private boolean isTombstoned(List<ProfileTombstoneDO> tombstones, String name, String nfcRaw) {
+        String nameNorm = normalizeName(name);
+        String nfcNorm = normalizeNfc(nfcRaw);
+        for (ProfileTombstoneDO tombstone : tombstones) {
+            if (tombstone.getNameReleasedAt() == null && nameNorm != null
+                    && nameNorm.equals(tombstone.getNameNorm())) {
+                return true;
+            }
+            if (tombstone.getNfcReleasedAt() == null && nfcNorm != null
+                    && nfcNorm.equals(tombstone.getNfcNorm())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isGroupTombstoned(List<BattleGroupTombstoneDO> tombstones, String groupName) {
+        String norm = normalizeName(groupName);
+        for (BattleGroupTombstoneDO tombstone : tombstones) {
+            if (norm != null && norm.equals(tombstone.getNameNorm())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void mergeImport(ProfileDO existing, ProfileSaveCommand command, Map<String, ProfileDO> profileByNfc) {
@@ -458,27 +631,182 @@ public class RosterServiceImpl implements RosterService {
         }
     }
 
-    private void replaceGroups(Long stationId, List<GroupSaveCommand> incoming) {
-        battleGroupMemberMapper.deleteByStationId(stationId);
-        battleGroupMapper.deleteByStationId(stationId);
+    /**
+     * 按 id / 组名增量更新编组：不再全删全插，组 id 保持稳定，可作为删除键。
+     *
+     * <p>删除本站不再出现的组时写编组删除记录，只记该组自己的名称与编号，
+     * 不会波及同前缀的其他组。</p>
+     */
+    private void mergeGroups(Long stationId, List<GroupSaveCommand> incoming,
+                             List<BattleGroupDO> existing, List<BattleGroupMemberDO> existingMembers,
+                             Long operatorId) {
+        Map<String, BattleGroupDO> existingByName = new LinkedHashMap<String, BattleGroupDO>();
+        for (BattleGroupDO group : existing) {
+            existingByName.put(group.getName(), group);
+        }
+        Map<Long, List<BattleGroupMemberDO>> membersByGroup =
+                new LinkedHashMap<Long, List<BattleGroupMemberDO>>();
+        for (BattleGroupMemberDO member : existingMembers) {
+            membersByGroup.computeIfAbsent(member.getGroupId(), k -> new ArrayList<BattleGroupMemberDO>())
+                    .add(member);
+        }
         Map<Long, ProfileDO> profiles = loadProfileMap(stationId);
-        int sort = 1;
         LocalDateTime now = LocalDateTime.now();
+        List<String> keptNames = new ArrayList<String>();
+        int sort = 1;
         for (GroupSaveCommand item : incoming) {
             if (item == null || item.getName() == null || item.getName().isBlank()) {
                 continue;
             }
-            BattleGroupDO group = BattleGroupDO.builder()
-                    .stationId(stationId)
-                    .name(item.getName().trim())
-                    .sortNo(item.getSortNo() == null ? sort : item.getSortNo())
-                    .gmtCreate(now)
-                    .gmtModified(now)
-                    .build();
-            battleGroupMapper.insert(group);
-            insertMembers(group.getId(), item.getMembers(), profiles, now);
+            String name = item.getName().trim();
+            keptNames.add(name);
+            BattleGroupDO group = existingByName.get(name);
+            if (group == null) {
+                // 用户重新新建同名组才解开这一条删除记录
+                battleGroupTombstoneMapper.releaseByName(stationId, normalizeName(name), operatorId);
+                group = BattleGroupDO.builder()
+                        .stationId(stationId)
+                        .name(name)
+                        .sortNo(item.getSortNo() == null ? sort : item.getSortNo())
+                        .slotNo(resolveSlotNo(name))
+                        .isFixed(Integer.valueOf(isFixedGroupName(name) ? 1 : 0))
+                        .gmtCreate(now)
+                        .gmtModified(now)
+                        .build();
+                battleGroupMapper.insert(group);
+                existingByName.put(name, group);
+            } else {
+                battleGroupMapper.updateSortNo(group.getId(),
+                        item.getSortNo() == null ? Integer.valueOf(sort) : item.getSortNo(), now);
+            }
+            // 成员按差量更新，避免整份重建
+            replaceMembers(group.getId(), item.getMembers(), profiles, membersByGroup, now);
             sort += 1;
         }
+        // 删除用户明确移除的组，并写删除记录
+        for (BattleGroupDO group : existing) {
+            if (keptNames.contains(group.getName())) {
+                continue;
+            }
+            if (group.getIsFixed() != null && group.getIsFixed().intValue() == 1) {
+                continue;
+            }
+            if (isCommandGroupName(group.getName())) {
+                continue;
+            }
+            battleGroupMemberMapper.deleteByGroupId(group.getId());
+            battleGroupMapper.deleteById(group.getId());
+            battleGroupTombstoneMapper.insertOrRevive(BattleGroupTombstoneDO.builder()
+                    .stationId(stationId)
+                    .groupName(group.getName())
+                    .nameNorm(normalizeName(group.getName()))
+                    .groupId(group.getId())
+                    .slotNo(group.getSlotNo())
+                    .source(RosterRuleConstant.TOMBSTONE_SOURCE_USER)
+                    .createdBy(operatorId)
+                    .build());
+        }
+    }
+
+    private void replaceMembers(Long groupId, List<GroupMemberSaveCommand> members,
+                                Map<Long, ProfileDO> profiles,
+                                Map<Long, List<BattleGroupMemberDO>> membersByGroup, LocalDateTime now) {
+        List<BattleGroupMemberDO> current = membersByGroup.getOrDefault(groupId, new ArrayList<BattleGroupMemberDO>());
+        List<Long> wanted = new ArrayList<Long>();
+        if (members != null) {
+            for (GroupMemberSaveCommand member : members) {
+                if (member == null || member.getProfileId() == null) {
+                    continue;
+                }
+                if (!profiles.containsKey(member.getProfileId()) || wanted.contains(member.getProfileId())) {
+                    continue;
+                }
+                wanted.add(member.getProfileId());
+            }
+        }
+        for (BattleGroupMemberDO member : current) {
+            if (!wanted.contains(member.getProfileId())) {
+                battleGroupMemberMapper.deleteById(member.getId());
+            }
+        }
+        List<Long> existingIds = new ArrayList<Long>();
+        for (BattleGroupMemberDO member : current) {
+            existingIds.add(member.getProfileId());
+        }
+        if (members == null) {
+            return;
+        }
+        for (GroupMemberSaveCommand member : members) {
+            if (member == null || member.getProfileId() == null || !wanted.contains(member.getProfileId())) {
+                continue;
+            }
+            if (existingIds.contains(member.getProfileId())) {
+                continue;
+            }
+            battleGroupMemberMapper.insert(BattleGroupMemberDO.builder()
+                    .groupId(groupId)
+                    .profileId(member.getProfileId())
+                    .roleInGroup(trimToNull(member.getRoleInGroup()))
+                    .gmtCreate(now)
+                    .gmtModified(now)
+                    .build());
+        }
+    }
+
+    /**
+     * 保证每站都有指挥员、安全员、通信员三张固定编制卡。
+     */
+    private void ensureFixedGroups(Long stationId) {
+        List<BattleGroupDO> fixed = battleGroupMapper.selectFixedByStationId(stationId);
+        List<Integer> existingSlots = new ArrayList<Integer>();
+        for (BattleGroupDO group : fixed) {
+            if (group.getSlotNo() != null) {
+                existingSlots.add(group.getSlotNo());
+            }
+        }
+        LocalDateTime now = LocalDateTime.now();
+        int sort = battleGroupMapper.selectByStationId(stationId).size() + 1;
+        insertFixedIfAbsent(stationId, existingSlots, RosterRuleConstant.SLOT_COMMANDER,
+                RosterRuleConstant.FIXED_GROUP_COMMANDER, sort, now);
+        insertFixedIfAbsent(stationId, existingSlots, RosterRuleConstant.SLOT_SAFETY,
+                RosterRuleConstant.FIXED_GROUP_SAFETY, sort + 1, now);
+        insertFixedIfAbsent(stationId, existingSlots, RosterRuleConstant.SLOT_SIGNAL,
+                RosterRuleConstant.FIXED_GROUP_SIGNAL, sort + 2, now);
+    }
+
+    private void insertFixedIfAbsent(Long stationId, List<Integer> existingSlots, int slot, String name,
+                                     int sortNo, LocalDateTime now) {
+        if (existingSlots.contains(Integer.valueOf(slot))) {
+            return;
+        }
+        battleGroupMapper.insert(BattleGroupDO.builder()
+                .stationId(stationId)
+                .name(name)
+                .sortNo(Integer.valueOf(sortNo))
+                .slotNo(Integer.valueOf(slot))
+                .isFixed(Integer.valueOf(1))
+                .gmtCreate(now)
+                .gmtModified(now)
+                .build());
+        existingSlots.add(Integer.valueOf(slot));
+    }
+
+    private Integer resolveSlotNo(String name) {
+        String trimmed = name == null ? "" : name.trim();
+        if (RosterRuleConstant.FIXED_GROUP_COMMANDER.equals(trimmed)) {
+            return Integer.valueOf(RosterRuleConstant.SLOT_COMMANDER);
+        }
+        if (RosterRuleConstant.FIXED_GROUP_SAFETY.equals(trimmed)) {
+            return Integer.valueOf(RosterRuleConstant.SLOT_SAFETY);
+        }
+        if (RosterRuleConstant.FIXED_GROUP_SIGNAL.equals(trimmed)) {
+            return Integer.valueOf(RosterRuleConstant.SLOT_SIGNAL);
+        }
+        return null;
+    }
+
+    private boolean isFixedGroupName(String name) {
+        return resolveSlotNo(name) != null;
     }
 
     private void restoreCommandGroups(Long stationId, List<BattleGroupDO> existing,
@@ -493,10 +821,15 @@ public class RosterServiceImpl implements RosterService {
             if (!isCommandGroupName(group.getName())) {
                 continue;
             }
+            BattleGroupDO exists = battleGroupMapper.selectByStationAndName(stationId, group.getName());
+            if (exists != null) {
+                continue;
+            }
             BattleGroupDO restored = BattleGroupDO.builder()
                     .stationId(stationId)
                     .name(group.getName())
-                    .sortNo(sort)
+                    .sortNo(Integer.valueOf(sort))
+                    .isFixed(Integer.valueOf(0))
                     .gmtCreate(now)
                     .gmtModified(now)
                     .build();
@@ -515,36 +848,14 @@ public class RosterServiceImpl implements RosterService {
         }
     }
 
-    private void insertMembers(Long groupId, List<GroupMemberSaveCommand> members,
-                               Map<Long, ProfileDO> profiles, LocalDateTime now) {
-        if (members == null) {
-            return;
-        }
-        List<Long> seen = new ArrayList<Long>();
-        for (GroupMemberSaveCommand member : members) {
-            if (member == null || member.getProfileId() == null || seen.contains(member.getProfileId())) {
-                continue;
-            }
-            if (!profiles.containsKey(member.getProfileId())) {
-                continue;
-            }
-            seen.add(member.getProfileId());
-            battleGroupMemberMapper.insert(BattleGroupMemberDO.builder()
-                    .groupId(groupId)
-                    .profileId(member.getProfileId())
-                    .roleInGroup(trimToNull(member.getRoleInGroup()))
-                    .gmtCreate(now)
-                    .gmtModified(now)
-                    .build());
-        }
-    }
-
     private BattleGroupDO insertGroup(Long stationId, String name, int sortNo) {
         LocalDateTime now = LocalDateTime.now();
         BattleGroupDO group = BattleGroupDO.builder()
                 .stationId(stationId)
                 .name(name)
-                .sortNo(sortNo)
+                .sortNo(Integer.valueOf(sortNo))
+                .slotNo(resolveSlotNo(name))
+                .isFixed(Integer.valueOf(isFixedGroupName(name) ? 1 : 0))
                 .gmtCreate(now)
                 .gmtModified(now)
                 .build();
@@ -569,13 +880,36 @@ public class RosterServiceImpl implements RosterService {
         members.add(created);
     }
 
+    private void writeProfileTombstone(ProfileDO profile, Long operatorId, String source, LocalDateTime now) {
+        profileTombstoneMapper.insertIgnore(ProfileTombstoneDO.builder()
+                .stationId(profile.getStationId())
+                .profileId(profile.getId())
+                .legacyProfileId(profile.getArchiveNo())
+                .archiveNo(profile.getArchiveNo())
+                .name(profile.getName())
+                .nameNorm(normalizeName(profile.getName()))
+                .nfcTag(profile.getNfcTag())
+                .nfcNorm(normalizeNfc(profile.getNfcTag()))
+                .source(source)
+                .createdBy(operatorId)
+                .build());
+    }
+
+    private String buildArchiveNo(Long profileId) {
+        return RosterRuleConstant.ARCHIVE_NO_PREFIX
+                + String.format("%0" + RosterRuleConstant.ARCHIVE_NO_PAD + "d", profileId);
+    }
+
     private StationRosterVO buildRoster(StationDO station, boolean writable) {
+        // 4.5：能看该站花名册的角色（本站 / 所属大队 / 支队 / 开发者）都看完整电话；
+        // 二维码共享页不走本接口，仍不出现电话、NFC 号与账号。
         return rosterViewTranslator.toRoster(
                 station,
                 writable,
                 profileMapper.selectAliveByStationId(station.getId()),
                 battleGroupMapper.selectByStationId(station.getId()),
-                battleGroupMemberMapper.selectByStationId(station.getId()));
+                battleGroupMemberMapper.selectByStationId(station.getId()),
+                true);
     }
 
     private Map<Long, ProfileDO> loadProfileMap(Long stationId) {
@@ -625,6 +959,14 @@ public class RosterServiceImpl implements RosterService {
             return null;
         }
         String normalized = NFC_TRIM.matcher(raw.trim()).replaceAll("").toUpperCase(Locale.ROOT);
+        return normalized.isEmpty() ? null : normalized;
+    }
+
+    private String normalizeName(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String normalized = NAME_TRIM.matcher(raw.trim()).replaceAll("");
         return normalized.isEmpty() ? null : normalized;
     }
 

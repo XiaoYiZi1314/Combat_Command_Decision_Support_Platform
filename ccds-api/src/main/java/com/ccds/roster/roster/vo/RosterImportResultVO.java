@@ -41,4 +41,9 @@ public class RosterImportResultVO {
      * 是否保留了原指挥组。
      */
     private Boolean commandGroupPreserved;
+
+    /**
+     * 跳过：该人员在删除名单内，不恢复。
+     */
+    private Integer skippedDeletedCount;
 }

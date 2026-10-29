@@ -54,4 +54,12 @@ public interface DutyDayService {
      * @param dutyDate  值班日期
      */
     void delete(AuthPrincipal principal, Long stationId, LocalDate dutyDate);
+
+    /**
+     * 支队一键导出各站最新战斗编组（只读，不改各站数据）。
+     *
+     * @param principal 当前身份
+     * @return xlsx 字节
+     */
+    byte[] exportBattleGroups(AuthPrincipal principal);
 }

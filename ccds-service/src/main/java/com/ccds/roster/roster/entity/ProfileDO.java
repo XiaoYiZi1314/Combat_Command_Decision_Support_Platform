@@ -33,6 +33,11 @@ public class ProfileDO {
     private Long stationId;
 
     /**
+     * 档案号，站内唯一。跨站调动一律重新分配，不复用调出站编号。
+     */
+    private String archiveNo;
+
+    /**
      * 姓名。
      */
     private String name;

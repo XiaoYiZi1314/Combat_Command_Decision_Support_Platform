@@ -154,6 +154,21 @@ public final class ErrorCodeConstant {
     public static final String WATER_COORD_INVALID = "WATER_COORD_INVALID";
 
     /**
+     * 水源变更申请内容不合法或已处理。
+     */
+    public static final String WATER_REQUEST_INVALID = "WATER_REQUEST_INVALID";
+
+    /**
+     * 站级不得直接改水源，须提交审批申请。
+     */
+    public static final String WATER_REQUEST_REQUIRED = "WATER_REQUEST_REQUIRED";
+
+    /**
+     * 水源视频不合法（超过 10 秒、格式不支持等）。
+     */
+    public static final String WATER_VIDEO_INVALID = "WATER_VIDEO_INVALID";
+
+    /**
      * 百度地图 AK 未配置。
      */
     public static final String MAP_AK_MISSING = "MAP_AK_MISSING";

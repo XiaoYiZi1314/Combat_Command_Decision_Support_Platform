@@ -35,9 +35,19 @@ public class AttackArchiveVO {
     private String stationName;
 
     /**
-     * 类型：drill演练 / dispatch出警。
+     * 类型：training训练 / dispatch出警。
      */
     private String eventKind;
+
+    /**
+     * 归档时的作业模式：test / training / dispatch。
+     */
+    private String mode;
+
+    /**
+     * 作业模式展示名。
+     */
+    private String modeLabel;
 
     /**
      * 事件名称。
